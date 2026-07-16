@@ -1,0 +1,4 @@
+// SPDX-License-Identifier: MPL-2.0
+
+ROAMMAND_APPLE_TEAM_ID = A1B2C3D4E5
+ROAMMAND_APPLE_BUNDLE_ID = com.example.roammand

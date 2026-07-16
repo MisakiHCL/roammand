@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package roammand.v1;
+
+import "roammand/v1/error.proto";
+import "roammand/v1/pairing.proto";
+import "roammand/v1/session.proto";
+import "roammand/v1/status.proto";
+import "roammand/v1/version.proto";
+import "roammand/v1/webrtc.proto";
+
+option go_package = "github.com/MisakiHCL/roammand/gen/go/roammand/v1;roammandv1";
+
+message SignalingEnvelope {
+  ProtocolVersion protocol_version = 1;
+  bytes sender_device_id = 2;
+  bytes recipient_device_id = 3;
+  string request_id = 4;
+  uint64 sent_at_unix_ms = 5;
+  oneof payload {
+    CapabilityNegotiation capability_negotiation = 10;
+    PairingMessage pairing = 11;
+    SessionAuthentication session_authentication = 12;
+    WebRtcNegotiation webrtc_negotiation = 13;
+    SessionStatus session_status = 14;
+    UnifiedError error = 15;
+  }
+}

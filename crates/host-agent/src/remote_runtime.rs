@@ -1,0 +1,765 @@
+// SPDX-License-Identifier: MPL-2.0
+
+use std::{env, fmt, path::PathBuf, sync::Arc, time::Duration};
+
+use roammand_host_webrtc::IceTransportPolicy;
+use roammand_ipc::IpcToken;
+use roammand_privileged_bridge::client::{
+    AuthenticatedBridgeConnector, BridgeIceServer, BridgePeerOptions, RpcProxyPartsFactory,
+};
+use roammand_privileged_bridge::installed::{InstalledBridgeConfig, installed_file_sha256};
+use tokio::{
+    sync::watch,
+    time::{MissedTickBehavior, interval, sleep, timeout},
+};
+use url::Url;
+
+#[cfg(feature = "native-webrtc")]
+use crate::NativeRemoteSessionFactory;
+use crate::{
+    AgentRuntimeConfig, BridgeRemoteSessionFactory, HostService, PairingOutbound,
+    RemoteSessionCoordinator, RemoteSessionError, RemoteSessionOutbound, RuntimeError,
+    SignalingEvent, SignalingProtocol, WebSocketSignalingTransport, runtime::now_unix_ms,
+};
+
+#[cfg(unix)]
+use roammand_privileged_bridge::unix_runtime::UnixBridgeTransportConnector;
+#[cfg(windows)]
+use roammand_privileged_bridge::windows_runtime::WindowsBridgeTransportConnector;
+
+const SIGNALING_ENDPOINT_ENV: &str = "ROAMMAND_SIGNALING_ENDPOINT";
+const ICE_TRANSPORT_POLICY_ENV: &str = "ROAMMAND_ICE_TRANSPORT_POLICY";
+const TURN_URLS_ENV: &str = "ROAMMAND_TURN_URLS";
+const TURN_USERNAME_ENV: &str = "ROAMMAND_TURN_USERNAME";
+const TURN_PASSWORD_ENV: &str = "ROAMMAND_TURN_PASSWORD";
+const MAX_ICE_SERVERS: usize = 8;
+const MAX_ICE_URLS_PER_SERVER: usize = 16;
+const MAX_ICE_URL_UTF8_BYTES: usize = 2_048;
+const MAX_ICE_CREDENTIAL_UTF8_BYTES: usize = 256;
+const SIGNALING_RECONNECT_DELAY: Duration = Duration::from_secs(2);
+const SIGNALING_HEARTBEAT_INTERVAL: Duration = Duration::from_secs(15);
+const PEER_EVENT_POLL_INTERVAL: Duration = Duration::from_millis(10);
+const REMOTE_OPERATION_TIMEOUT: Duration = Duration::from_secs(5);
+const BRIDGE_IO_TIMEOUT: Duration = Duration::from_secs(5);
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct PrivilegedBridgeRuntimeConfig {
+    endpoint: PathBuf,
+    token: [u8; 32],
+    executable_sha256: [u8; 32],
+    os_session_id: u64,
+}
+
+impl PrivilegedBridgeRuntimeConfig {
+    /// Creates one required installed-bridge client configuration.
+    ///
+    /// # Errors
+    ///
+    /// Rejects relative endpoints and missing installed identity values.
+    pub fn new(
+        endpoint: PathBuf,
+        token: [u8; 32],
+        executable_sha256: [u8; 32],
+        os_session_id: u64,
+    ) -> Result<Self, RuntimeError> {
+        if !endpoint.is_absolute()
+            || token == [0; 32]
+            || executable_sha256 == [0; 32]
+            || os_session_id == 0
+        {
+            return Err(RuntimeError::RemoteConfiguration);
+        }
+        Ok(Self {
+            endpoint,
+            token,
+            executable_sha256,
+            os_session_id,
+        })
+    }
+
+    /// Loads and validates installed client identity material without exposing
+    /// it through diagnostics.
+    ///
+    /// # Errors
+    ///
+    /// Rejects malformed installed data, endpoint, or executable evidence.
+    pub fn load_installed(
+        endpoint: PathBuf,
+        secret_path: &std::path::Path,
+        owner_path: &std::path::Path,
+        executable_path: &std::path::Path,
+    ) -> Result<Self, RuntimeError> {
+        let installed = InstalledBridgeConfig::load(secret_path, owner_path)
+            .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+        let executable_sha256 = installed_file_sha256(executable_path)
+            .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+        Self::new(
+            endpoint,
+            installed.token(),
+            executable_sha256,
+            installed.owner_os_session_id(),
+        )
+    }
+}
+
+impl fmt::Debug for PrivilegedBridgeRuntimeConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("PrivilegedBridgeRuntimeConfig([REDACTED])")
+    }
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct RemoteIceServerConfig {
+    urls: Vec<String>,
+    username: String,
+    password: String,
+}
+
+impl RemoteIceServerConfig {
+    /// Creates one bounded TURN server configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns a configuration error for missing, malformed, over-limit, or
+    /// credential-bearing TURN URLs and invalid credentials.
+    pub fn new(
+        urls: Vec<String>,
+        username: String,
+        password: String,
+    ) -> Result<Self, RuntimeError> {
+        if urls.is_empty()
+            || urls.len() > MAX_ICE_URLS_PER_SERVER
+            || username.is_empty()
+            || password.is_empty()
+            || username.len() > MAX_ICE_CREDENTIAL_UTF8_BYTES
+            || password.len() > MAX_ICE_CREDENTIAL_UTF8_BYTES
+            || urls.iter().any(|value| !valid_turn_url(value))
+        {
+            return Err(RuntimeError::RemoteConfiguration);
+        }
+        Ok(Self {
+            urls,
+            username,
+            password,
+        })
+    }
+}
+
+impl fmt::Debug for RemoteIceServerConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RemoteIceServerConfig")
+            .field("url_count", &self.urls.len())
+            .field("has_username", &!self.username.is_empty())
+            .field("has_password", &!self.password.is_empty())
+            .finish()
+    }
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct RemoteRuntimeConfig {
+    endpoint: String,
+    ice_transport_policy: IceTransportPolicy,
+    ice_servers: Vec<RemoteIceServerConfig>,
+}
+
+impl RemoteRuntimeConfig {
+    /// Creates an explicit, bounded signaling and ICE runtime configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns a configuration error for endpoint policy violations, too many
+    /// ICE servers, or relay-only mode without TURN.
+    pub fn new(
+        endpoint: String,
+        ice_transport_policy: IceTransportPolicy,
+        ice_servers: Vec<RemoteIceServerConfig>,
+    ) -> Result<Self, RuntimeError> {
+        crate::validate_signaling_endpoint(&endpoint)
+            .map_err(|_| RuntimeError::RemoteConfiguration)?;
+        if ice_servers.len() > MAX_ICE_SERVERS
+            || (ice_transport_policy == IceTransportPolicy::Relay && ice_servers.is_empty())
+        {
+            return Err(RuntimeError::RemoteConfiguration);
+        }
+        Ok(Self {
+            endpoint,
+            ice_transport_policy,
+            ice_servers,
+        })
+    }
+}
+
+impl fmt::Debug for RemoteRuntimeConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RemoteRuntimeConfig")
+            .field("ice_transport_policy", &self.ice_transport_policy)
+            .field("ice_server_count", &self.ice_servers.len())
+            .finish_non_exhaustive()
+    }
+}
+
+pub(crate) struct PreparedRemote {
+    config: RemoteRuntimeConfig,
+    coordinator: RemoteSessionCoordinator,
+    service: Arc<HostService>,
+}
+
+pub(crate) fn prepare_remote(
+    config: Option<&RemoteRuntimeConfig>,
+    privileged_bridge: Option<&PrivilegedBridgeRuntimeConfig>,
+    service: Arc<HostService>,
+) -> Result<Option<PreparedRemote>, RuntimeError> {
+    if let Some(privileged_bridge) = privileged_bridge {
+        return prepare_bridge_remote(config, privileged_bridge, service);
+    }
+    let Some(config) = config else {
+        return Ok(None);
+    };
+    prepare_native_remote(config, service)
+}
+
+#[cfg(feature = "native-webrtc")]
+fn prepare_native_remote(
+    config: &RemoteRuntimeConfig,
+    service: Arc<HostService>,
+) -> Result<Option<PreparedRemote>, RuntimeError> {
+    let options = roammand_host_webrtc::native::NativePeerOptions {
+        ice_servers: config
+            .ice_servers
+            .iter()
+            .map(|server| roammand_host_webrtc::native::NativeIceServer {
+                urls: server.urls.clone(),
+                username: server.username.clone(),
+                password: server.password.clone(),
+            })
+            .collect(),
+    };
+    let factory = NativeRemoteSessionFactory::new(options, true);
+    let coordinator = RemoteSessionCoordinator::with_config(
+        Arc::clone(&service),
+        Box::new(factory),
+        roammand_host_webrtc::SessionConfig::new(config.ice_transport_policy),
+    )
+    .map_err(|_| RuntimeError::RemoteSession)?;
+    Ok(Some(PreparedRemote {
+        config: config.clone(),
+        coordinator,
+        service,
+    }))
+}
+
+#[cfg(not(feature = "native-webrtc"))]
+fn prepare_native_remote(
+    _config: &RemoteRuntimeConfig,
+    _service: Arc<HostService>,
+) -> Result<Option<PreparedRemote>, RuntimeError> {
+    Err(RuntimeError::NativeWebRtcUnavailable)
+}
+
+#[cfg(unix)]
+fn prepare_bridge_remote(
+    config: Option<&RemoteRuntimeConfig>,
+    privileged_bridge: &PrivilegedBridgeRuntimeConfig,
+    service: Arc<HostService>,
+) -> Result<Option<PreparedRemote>, RuntimeError> {
+    let transport =
+        UnixBridgeTransportConnector::new(privileged_bridge.endpoint.clone(), BRIDGE_IO_TIMEOUT)
+            .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+    let mut connector = AuthenticatedBridgeConnector::new(
+        Box::new(transport),
+        IpcToken::new(privileged_bridge.token),
+        privileged_bridge.executable_sha256,
+        privileged_bridge.os_session_id,
+    )
+    .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+    let status = connector
+        .probe_status()
+        .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+    service
+        .update_privileged_bridge_status(status, None)
+        .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+    let Some(config) = config else {
+        return Ok(None);
+    };
+    let ice_servers = config
+        .ice_servers
+        .iter()
+        .map(|server| {
+            BridgeIceServer::new(
+                server.urls.clone(),
+                server.username.clone(),
+                server.password.clone(),
+            )
+            .map_err(|_| RuntimeError::RemoteConfiguration)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let options =
+        BridgePeerOptions::new(ice_servers).map_err(|_| RuntimeError::RemoteConfiguration)?;
+    let factory = BridgeRemoteSessionFactory::new(Box::new(RpcProxyPartsFactory::new(
+        Box::new(connector),
+        options,
+    )));
+    let coordinator = RemoteSessionCoordinator::with_config(
+        Arc::clone(&service),
+        Box::new(factory),
+        roammand_host_webrtc::SessionConfig::new(config.ice_transport_policy),
+    )
+    .map_err(|_| RuntimeError::RemoteSession)?;
+    Ok(Some(PreparedRemote {
+        config: config.clone(),
+        coordinator,
+        service,
+    }))
+}
+
+#[cfg(not(unix))]
+fn prepare_bridge_remote(
+    config: Option<&RemoteRuntimeConfig>,
+    privileged_bridge: &PrivilegedBridgeRuntimeConfig,
+    service: Arc<HostService>,
+) -> Result<Option<PreparedRemote>, RuntimeError> {
+    let transport = WindowsBridgeTransportConnector::new(BRIDGE_IO_TIMEOUT)
+        .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+    let mut connector = AuthenticatedBridgeConnector::new(
+        Box::new(transport),
+        IpcToken::new(privileged_bridge.token),
+        privileged_bridge.executable_sha256,
+        privileged_bridge.os_session_id,
+    )
+    .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+    let status = connector
+        .probe_status()
+        .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+    service
+        .update_privileged_bridge_status(status, None)
+        .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+    let Some(config) = config else {
+        return Ok(None);
+    };
+    let ice_servers = config
+        .ice_servers
+        .iter()
+        .map(|server| {
+            BridgeIceServer::new(
+                server.urls.clone(),
+                server.username.clone(),
+                server.password.clone(),
+            )
+            .map_err(|_| RuntimeError::RemoteConfiguration)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let options =
+        BridgePeerOptions::new(ice_servers).map_err(|_| RuntimeError::RemoteConfiguration)?;
+    let factory = BridgeRemoteSessionFactory::new(Box::new(RpcProxyPartsFactory::new(
+        Box::new(connector),
+        options,
+    )));
+    let coordinator = RemoteSessionCoordinator::with_config(
+        Arc::clone(&service),
+        Box::new(factory),
+        roammand_host_webrtc::SessionConfig::new(config.ice_transport_policy),
+    )
+    .map_err(|_| RuntimeError::RemoteSession)?;
+    Ok(Some(PreparedRemote {
+        config: config.clone(),
+        coordinator,
+        service,
+    }))
+}
+
+pub(crate) async fn run_remote_sessions(
+    mut remote: PreparedRemote,
+    mut shutdown: watch::Receiver<bool>,
+) -> Result<(), RuntimeError> {
+    let mut generation = 0_u64;
+    while !*shutdown.borrow() {
+        generation = generation.saturating_add(1);
+        let connection_result = run_remote_connection(
+            &remote.config,
+            &mut remote.coordinator,
+            &remote.service,
+            generation,
+            &mut shutdown,
+        )
+        .await;
+        if *shutdown.borrow() {
+            break;
+        }
+        remote
+            .coordinator
+            .signaling_lost(now_unix_ms()?)
+            .map_err(|_| RuntimeError::RemoteSession)?;
+        remote
+            .service
+            .pairing_signaling_lost()
+            .map_err(|_| RuntimeError::RemoteSession)?;
+        let _ = connection_result;
+        tokio::select! {
+            changed = shutdown.changed() => {
+                if changed.is_err() || *shutdown.borrow() {
+                    break;
+                }
+            }
+            () = sleep(SIGNALING_RECONNECT_DELAY) => {}
+        }
+    }
+    remote
+        .coordinator
+        .shutdown()
+        .map_err(|_| RuntimeError::RemoteSession)?;
+    remote
+        .service
+        .pairing_shutdown()
+        .map_err(|_| RuntimeError::RemoteSession)
+}
+
+async fn run_remote_connection(
+    config: &RemoteRuntimeConfig,
+    coordinator: &mut RemoteSessionCoordinator,
+    service: &Arc<HostService>,
+    generation: u64,
+    shutdown: &mut watch::Receiver<bool>,
+) -> Result<(), RuntimeError> {
+    let connect = timeout(
+        REMOTE_OPERATION_TIMEOUT,
+        WebSocketSignalingTransport::connect(&config.endpoint),
+    );
+    let mut transport = tokio::select! {
+        changed = shutdown.changed() => {
+            if changed.is_err() || *shutdown.borrow() {
+                return Ok(());
+            }
+            return Err(RuntimeError::RemoteSession);
+        }
+        result = connect => result
+            .map_err(|_| RuntimeError::RemoteSession)?
+            .map_err(|_| RuntimeError::RemoteSession)?,
+    };
+    let mut protocol = SignalingProtocol::new(coordinator.host_device_id().to_vec())
+        .map_err(|_| RuntimeError::RemoteSession)?;
+    let mut request_counter = 0_u64;
+    let registration_id = next_remote_request_id(generation, &mut request_counter);
+    let registration = protocol
+        .registration(&registration_id)
+        .map_err(|_| RuntimeError::RemoteSession)?;
+    transport
+        .send(&registration)
+        .await
+        .map_err(|_| RuntimeError::RemoteSession)?;
+    let receive_registration = timeout(REMOTE_OPERATION_TIMEOUT, transport.receive_binary());
+    let registered = tokio::select! {
+        changed = shutdown.changed() => {
+            if changed.is_err() || *shutdown.borrow() {
+                let _ = transport.close().await;
+                return Ok(());
+            }
+            return Err(RuntimeError::RemoteSession);
+        }
+        result = receive_registration => result
+            .map_err(|_| RuntimeError::RemoteSession)?
+            .map_err(|_| RuntimeError::RemoteSession)?,
+    };
+    if !matches!(
+        protocol.handle_binary(&registered),
+        Ok(SignalingEvent::Registered { .. })
+    ) {
+        return Err(RuntimeError::RemoteSession);
+    }
+    service
+        .pairing_signaling_connected()
+        .map_err(|_| RuntimeError::RemoteSession)?;
+    run_registered_connection(
+        &mut transport,
+        &mut protocol,
+        coordinator,
+        service,
+        generation,
+        &mut request_counter,
+        shutdown,
+    )
+    .await
+}
+
+async fn run_registered_connection(
+    transport: &mut WebSocketSignalingTransport,
+    protocol: &mut SignalingProtocol,
+    coordinator: &mut RemoteSessionCoordinator,
+    service: &Arc<HostService>,
+    generation: u64,
+    request_counter: &mut u64,
+    shutdown: &mut watch::Receiver<bool>,
+) -> Result<(), RuntimeError> {
+    let mut heartbeat = interval(SIGNALING_HEARTBEAT_INTERVAL);
+    heartbeat.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    let mut peer_poll = interval(PEER_EVENT_POLL_INTERVAL);
+    peer_poll.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    let mut terminations = coordinator.subscribe_session_terminations();
+    loop {
+        tokio::select! {
+            changed = shutdown.changed() => {
+                if changed.is_err() || *shutdown.borrow() {
+                    let _ = transport.close().await;
+                    return Ok(());
+                }
+            }
+            received = transport.receive_binary() => {
+                let encoded = received.map_err(|_| RuntimeError::RemoteSession)?;
+                let outbound = handle_remote_server_frame(protocol, coordinator, service, &encoded)?;
+                send_pairing_outbound(
+                    protocol,
+                    transport,
+                    service.poll_pairing_outbound(now_unix_ms()?)
+                        .map_err(|_| RuntimeError::RemoteSession)?,
+                    generation,
+                    request_counter,
+                ).await?;
+                send_remote_outbound(
+                    protocol,
+                    transport,
+                    outbound,
+                    generation,
+                    request_counter,
+                ).await?;
+            }
+            _ = heartbeat.tick() => {
+                let request_id = next_remote_request_id(generation, request_counter);
+                let frame = protocol
+                    .heartbeat(&request_id)
+                    .map_err(|_| RuntimeError::RemoteSession)?;
+                transport.send(&frame).await.map_err(|_| RuntimeError::RemoteSession)?;
+            }
+            _ = peer_poll.tick() => {
+                send_pairing_outbound(
+                    protocol,
+                    transport,
+                    service.poll_pairing_outbound(now_unix_ms()?)
+                        .map_err(|_| RuntimeError::RemoteSession)?,
+                    generation,
+                    request_counter,
+                ).await?;
+                let outbound = coordinator
+                    .poll_peer_event(now_unix_ms()?)
+                    .map_err(|error| {
+                        debug_remote_failure("pollPeerEvent", error);
+                        RuntimeError::RemoteSession
+                    })?;
+                send_remote_outbound(
+                    protocol,
+                    transport,
+                    outbound,
+                    generation,
+                    request_counter,
+                ).await?;
+            }
+            termination = terminations.recv() => {
+                match termination {
+                    Ok(event) => coordinator
+                        .handle_termination(&event, now_unix_ms()?)
+                        .map_err(|_| RuntimeError::RemoteSession)?,
+                    Err(
+                        tokio::sync::broadcast::error::RecvError::Lagged(_)
+                        | tokio::sync::broadcast::error::RecvError::Closed,
+                    ) => return Err(RuntimeError::RemoteSession),
+                }
+            }
+        }
+    }
+}
+
+fn handle_remote_server_frame(
+    protocol: &mut SignalingProtocol,
+    coordinator: &mut RemoteSessionCoordinator,
+    service: &Arc<HostService>,
+    encoded: &[u8],
+) -> Result<Vec<RemoteSessionOutbound>, RuntimeError> {
+    let event = protocol
+        .handle_binary(encoded)
+        .map_err(|_| RuntimeError::RemoteSession)?;
+    match event {
+        SignalingEvent::RoutedSession {
+            sender_device_id,
+            opaque_envelope,
+        } => match coordinator.handle_routed(&sender_device_id, &opaque_envelope, now_unix_ms()?) {
+            Ok(outbound) => Ok(outbound),
+            Err(
+                error @ (RemoteSessionError::InvalidEnvelope
+                | RemoteSessionError::Authentication
+                | RemoteSessionError::Authorization
+                | RemoteSessionError::Replay
+                | RemoteSessionError::PendingIceLimit
+                | RemoteSessionError::DeviceBusy),
+            ) => {
+                debug_remote_failure("handleRouted", error);
+                Ok(Vec::new())
+            }
+            Err(error) => {
+                debug_remote_failure("handleRouted", error);
+                Err(RuntimeError::RemoteSession)
+            }
+        },
+        SignalingEvent::HeartbeatAcknowledged { .. } => Ok(Vec::new()),
+        event @ (SignalingEvent::PairingCreated { .. }
+        | SignalingEvent::PairingJoined { .. }
+        | SignalingEvent::RoutedPairing { .. }
+        | SignalingEvent::PairingClosed { .. }
+        | SignalingEvent::RemoteError { .. }) => {
+            Ok(handle_pairing_server_event(service, event, now_unix_ms()?))
+        }
+        SignalingEvent::Registered { .. } => Err(RuntimeError::RemoteSession),
+    }
+}
+
+fn handle_pairing_server_event(
+    service: &Arc<HostService>,
+    event: SignalingEvent,
+    now_unix_ms: u64,
+) -> Vec<RemoteSessionOutbound> {
+    let _ = service.handle_pairing_signaling_event(event, now_unix_ms);
+    // A malformed or stale pairing event must fail only that rendezvous. The
+    // coordinator queues a rejection where appropriate; keeping this transport
+    // alive lets it send that result and preserves unrelated remote sessions.
+    Vec::new()
+}
+
+fn debug_remote_failure(operation: &str, error: RemoteSessionError) {
+    #[cfg(debug_assertions)]
+    eprintln!("[remote] host_operation={operation} cause={error:?}");
+    #[cfg(not(debug_assertions))]
+    let _ = (operation, error);
+}
+
+async fn send_pairing_outbound(
+    protocol: &mut SignalingProtocol,
+    transport: &mut WebSocketSignalingTransport,
+    outbound: Vec<PairingOutbound>,
+    generation: u64,
+    request_counter: &mut u64,
+) -> Result<(), RuntimeError> {
+    for outbound in outbound {
+        let request_id = next_remote_request_id(generation, request_counter);
+        let frame = match outbound {
+            PairingOutbound::Create {
+                rendezvous_id,
+                kind,
+                pairing_code,
+            } => protocol.create_pairing(rendezvous_id, kind, pairing_code, &request_id),
+            PairingOutbound::Relay {
+                rendezvous_id,
+                opaque_envelope,
+            } => protocol.relay_pairing(rendezvous_id, opaque_envelope, &request_id),
+            PairingOutbound::Complete {
+                rendezvous_id,
+                completion,
+            } => protocol.complete_pairing(rendezvous_id, completion, &request_id),
+        }
+        .map_err(|_| RuntimeError::RemoteSession)?;
+        transport
+            .send(&frame)
+            .await
+            .map_err(|_| RuntimeError::RemoteSession)?;
+    }
+    Ok(())
+}
+
+async fn send_remote_outbound(
+    protocol: &SignalingProtocol,
+    transport: &mut WebSocketSignalingTransport,
+    outbound: Vec<RemoteSessionOutbound>,
+    generation: u64,
+    request_counter: &mut u64,
+) -> Result<(), RuntimeError> {
+    for outbound in outbound {
+        let request_id = next_remote_request_id(generation, request_counter);
+        let frame = protocol
+            .relay_session(
+                outbound.recipient_device_id,
+                outbound.opaque_envelope,
+                &request_id,
+            )
+            .map_err(|_| RuntimeError::RemoteSession)?;
+        transport
+            .send(&frame)
+            .await
+            .map_err(|_| RuntimeError::RemoteSession)?;
+    }
+    Ok(())
+}
+
+fn next_remote_request_id(generation: u64, counter: &mut u64) -> String {
+    *counter = counter.saturating_add(1);
+    format!("host-{generation}-{counter}")
+}
+
+pub(crate) fn with_remote_config_from_env(
+    config: AgentRuntimeConfig,
+) -> Result<AgentRuntimeConfig, RuntimeError> {
+    let endpoint = optional_unicode_env(SIGNALING_ENDPOINT_ENV)?;
+    let policy = optional_unicode_env(ICE_TRANSPORT_POLICY_ENV)?;
+    let turn_urls = optional_unicode_env(TURN_URLS_ENV)?;
+    let turn_username = optional_unicode_env(TURN_USERNAME_ENV)?;
+    let turn_password = optional_unicode_env(TURN_PASSWORD_ENV)?;
+    let Some(endpoint) = endpoint else {
+        if policy.is_some()
+            || turn_urls.is_some()
+            || turn_username.is_some()
+            || turn_password.is_some()
+        {
+            return Err(RuntimeError::RemoteConfiguration);
+        }
+        return Ok(config);
+    };
+    if endpoint.is_empty() {
+        return Err(RuntimeError::RemoteConfiguration);
+    }
+    let ice_transport_policy = match policy.as_deref().unwrap_or("all") {
+        "all" => IceTransportPolicy::All,
+        "relay" => IceTransportPolicy::Relay,
+        _ => return Err(RuntimeError::RemoteConfiguration),
+    };
+    let ice_servers = if let Some(value) = turn_urls {
+        let urls = value
+            .split(',')
+            .map(str::trim)
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>();
+        let username = turn_username.ok_or(RuntimeError::RemoteConfiguration)?;
+        let password = turn_password.ok_or(RuntimeError::RemoteConfiguration)?;
+        vec![RemoteIceServerConfig::new(urls, username, password)?]
+    } else {
+        if turn_username.is_some() || turn_password.is_some() {
+            return Err(RuntimeError::RemoteConfiguration);
+        }
+        Vec::new()
+    };
+    Ok(config.with_remote(RemoteRuntimeConfig::new(
+        endpoint,
+        ice_transport_policy,
+        ice_servers,
+    )?))
+}
+
+fn optional_unicode_env(name: &str) -> Result<Option<String>, RuntimeError> {
+    match env::var(name) {
+        Ok(value) => Ok(Some(value)),
+        Err(env::VarError::NotPresent) => Ok(None),
+        Err(env::VarError::NotUnicode(_)) => Err(RuntimeError::Environment),
+    }
+}
+
+fn valid_turn_url(value: &str) -> bool {
+    if value.is_empty()
+        || value.len() > MAX_ICE_URL_UTF8_BYTES
+        || value.contains('@')
+        || value.chars().any(char::is_whitespace)
+    {
+        return false;
+    }
+    let Ok(parsed) = Url::parse(value) else {
+        return false;
+    };
+    matches!(parsed.scheme(), "turn" | "turns")
+        && !parsed.path().is_empty()
+        && parsed.fragment().is_none()
+}

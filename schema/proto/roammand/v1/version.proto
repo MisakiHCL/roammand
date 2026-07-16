@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package roammand.v1;
+
+option go_package = "github.com/MisakiHCL/roammand/gen/go/roammand/v1;roammandv1";
+
+message ProtocolVersion {
+  uint32 major = 1;
+  uint32 minor = 2;
+}
+
+enum Capability {
+  CAPABILITY_UNSPECIFIED = 0;
+  CAPABILITY_QR_PAIRING = 1;
+  CAPABILITY_DESKTOP_CODE_PAIRING = 2;
+  CAPABILITY_PAIRING_SAS = 3;
+  CAPABILITY_SESSION_AUTH_ED25519 = 4;
+  CAPABILITY_WEBRTC_H264 = 5;
+  CAPABILITY_WEBRTC_VP8 = 6;
+  CAPABILITY_ICE_RESTART = 7;
+  CAPABILITY_INPUT_RELIABLE = 8;
+  CAPABILITY_POINTER_FAST = 9;
+}
+
+message CapabilityNegotiation {
+  ProtocolVersion protocol_version = 1;
+  repeated Capability required_capabilities = 2;
+  repeated Capability optional_capabilities = 3;
+}

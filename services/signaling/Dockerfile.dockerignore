@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+
+**/.git
+.git
+**/.dart_tool
+**/build
+**/coverage
+**/target
+**/*.log
+**/*.pem
+**/*.key
+apps
+conformance
+docs
+infra
+licenses
+schema

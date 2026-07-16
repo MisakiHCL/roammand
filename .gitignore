@@ -1,0 +1,38 @@
+# Dart and Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+/dist/
+
+# Rust
+target/
+
+# Go
+services/signaling/bin/
+services/signaling/coverage.out
+
+# IDE and operating system
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p8
+*.p12
+*.mobileprovision
+
+# Logs and diagnostics
+*.log
+diagnostics/
+!apps/client_flutter/lib/diagnostics/
+!apps/client_flutter/lib/diagnostics/**
+infra/compose/secrets/

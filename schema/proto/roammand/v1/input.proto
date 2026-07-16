@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package roammand.v1;
+
+import "roammand/v1/version.proto";
+
+option go_package = "github.com/MisakiHCL/roammand/gen/go/roammand/v1;roammandv1";
+
+enum PointerButton {
+  POINTER_BUTTON_UNSPECIFIED = 0;
+  POINTER_BUTTON_LEFT = 1;
+  POINTER_BUTTON_RIGHT = 2;
+  POINTER_BUTTON_MIDDLE = 3;
+}
+
+enum ButtonAction {
+  BUTTON_ACTION_UNSPECIFIED = 0;
+  BUTTON_ACTION_DOWN = 1;
+  BUTTON_ACTION_UP = 2;
+  BUTTON_ACTION_CLICK = 3;
+  BUTTON_ACTION_DOUBLE_CLICK = 4;
+}
+
+enum KeyboardAction {
+  KEYBOARD_ACTION_UNSPECIFIED = 0;
+  KEYBOARD_ACTION_DOWN = 1;
+  KEYBOARD_ACTION_UP = 2;
+}
+
+enum SessionControlAction {
+  SESSION_CONTROL_ACTION_UNSPECIFIED = 0;
+  SESSION_CONTROL_ACTION_CLOSE = 1;
+  SESSION_CONTROL_ACTION_EMERGENCY_STOP = 2;
+}
+
+message PointerButtonEvent {
+  PointerButton button = 1;
+  ButtonAction action = 2;
+  sint32 x = 3;
+  sint32 y = 4;
+}
+
+message KeyboardEvent {
+  KeyboardAction action = 1;
+  uint32 usb_hid_usage = 2;
+  uint32 modifier_bits = 3;
+}
+
+message TextInputEvent {
+  string text = 1;
+}
+
+message SessionControlEvent {
+  SessionControlAction action = 1;
+}
+
+message ReleaseAllInput {}
+
+message PointerMoveEvent {
+  sint32 x = 1;
+  sint32 y = 2;
+  uint32 pressed_button_bits = 3;
+}
+
+message PointerScrollEvent {
+  sint32 delta_x = 1;
+  sint32 delta_y = 2;
+}
+
+message ReliableInputEnvelope {
+  ProtocolVersion protocol_version = 1;
+  bytes session_id = 2;
+  uint64 sequence = 3;
+  oneof event {
+    PointerButtonEvent pointer_button = 10;
+    KeyboardEvent keyboard = 11;
+    TextInputEvent text = 12;
+    SessionControlEvent session_control = 13;
+    ReleaseAllInput release_all_input = 14;
+  }
+}
+
+message PointerFastEnvelope {
+  ProtocolVersion protocol_version = 1;
+  bytes session_id = 2;
+  uint64 sequence = 3;
+  oneof event {
+    PointerMoveEvent move = 10;
+    PointerScrollEvent scroll = 11;
+  }
+}

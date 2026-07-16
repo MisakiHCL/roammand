@@ -1,0 +1,185 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package roammand.v1;
+
+import "roammand/v1/authorization.proto";
+import "roammand/v1/error.proto";
+import "roammand/v1/identity.proto";
+import "roammand/v1/version.proto";
+
+option go_package = "github.com/MisakiHCL/roammand/gen/go/roammand/v1;roammandv1";
+
+enum PairingDecisionStatus {
+  PAIRING_DECISION_STATUS_UNSPECIFIED = 0;
+  PAIRING_DECISION_STATUS_PENDING = 1;
+  PAIRING_DECISION_STATUS_ACCEPTED = 2;
+  PAIRING_DECISION_STATUS_REJECTED = 3;
+  PAIRING_DECISION_STATUS_EXPIRED = 4;
+}
+
+enum PairingDirection {
+  PAIRING_DIRECTION_UNSPECIFIED = 0;
+  PAIRING_DIRECTION_CONTROLLER_TO_HOST = 1;
+  PAIRING_DIRECTION_HOST_TO_CONTROLLER = 2;
+}
+
+enum PairingIdentityRole {
+  PAIRING_IDENTITY_ROLE_UNSPECIFIED = 0;
+  PAIRING_IDENTITY_ROLE_CONTROLLER = 1;
+  PAIRING_IDENTITY_ROLE_HOST = 2;
+}
+
+enum PairingInvitationKind {
+  PAIRING_INVITATION_KIND_UNSPECIFIED = 0;
+  PAIRING_INVITATION_KIND_QR = 1;
+  PAIRING_INVITATION_KIND_DESKTOP_CODE = 2;
+}
+
+enum HostPairingState {
+  HOST_PAIRING_STATE_UNSPECIFIED = 0;
+  HOST_PAIRING_STATE_IDLE = 1;
+  HOST_PAIRING_STATE_CREATING = 2;
+  HOST_PAIRING_STATE_INVITING = 3;
+  HOST_PAIRING_STATE_VERIFYING_CONTROLLER = 4;
+  HOST_PAIRING_STATE_WAITING_LOCAL_DECISION = 5;
+  HOST_PAIRING_STATE_ACCEPTED = 6;
+  HOST_PAIRING_STATE_REJECTED = 7;
+  HOST_PAIRING_STATE_EXPIRED = 8;
+  HOST_PAIRING_STATE_CANCELLED = 9;
+  HOST_PAIRING_STATE_FAILED = 10;
+}
+
+message QrPairingRendezvous {
+  bytes rendezvous_id = 1;
+  DeviceIdentity host_identity = 2;
+  bytes host_public_key_fingerprint_sha256 = 3;
+  bytes host_ephemeral_public_key = 4;
+  string signaling_endpoint = 5;
+  uint64 issued_at_unix_ms = 6;
+  uint64 expires_at_unix_ms = 7;
+}
+
+message DesktopPairingRendezvous {
+  bytes rendezvous_id = 1;
+  string pairing_code = 2;
+  DeviceIdentity host_identity = 3;
+  bytes host_ephemeral_public_key = 4;
+  uint64 issued_at_unix_ms = 5;
+  uint64 expires_at_unix_ms = 6;
+}
+
+message PairingHello {
+  bytes rendezvous_id = 1;
+  DeviceIdentity identity = 2;
+  bytes ephemeral_public_key = 3;
+}
+
+message PairingConfirmationData {
+  bytes controller_device_id = 1;
+  bytes host_device_id = 2;
+  bytes rendezvous_id = 3;
+  bytes controller_identity_public_key = 4;
+  bytes host_identity_public_key = 5;
+  bytes controller_ephemeral_public_key = 6;
+  bytes host_ephemeral_public_key = 7;
+  bytes transcript_sha256 = 8;
+}
+
+message PairingDecision {
+  PairingDecisionStatus status = 1;
+  DeviceIdentity controller = 2;
+  PairingConfirmationData confirmation = 3;
+  ControllerGrant grant = 4;
+}
+
+message HostPairingInvitation {
+  ProtocolVersion protocol_version = 1;
+  PairingInvitationKind kind = 2;
+  bytes rendezvous_id = 3;
+  DeviceIdentity host_identity = 4;
+  bytes host_public_key_fingerprint_sha256 = 5;
+  bytes host_ephemeral_public_key = 6;
+  string signaling_endpoint = 7;
+  string pairing_code = 8;
+  uint64 issued_at_unix_ms = 9;
+  uint64 expires_at_unix_ms = 10;
+}
+
+message ControllerPairingHello {
+  bytes rendezvous_id = 1;
+  DeviceIdentity identity = 2;
+  bytes ephemeral_public_key = 3;
+  bytes transcript_sha256 = 4;
+  bytes signature = 5;
+}
+
+message HostPairingProof {
+  PairingConfirmationData confirmation = 1;
+  bytes host_signature = 2;
+  uint64 expires_at_unix_ms = 3;
+}
+
+message ControllerPairingReady {
+  bytes transcript_sha256 = 1;
+}
+
+message PairingFinalDecision {
+  PairingDecisionStatus status = 1;
+  bytes transcript_sha256 = 2;
+  ControllerGrant grant = 3;
+}
+
+message PairingPlaintext {
+  oneof payload {
+    HostPairingProof host_proof = 1;
+    ControllerPairingReady controller_ready = 2;
+    PairingFinalDecision final_decision = 3;
+  }
+}
+
+message EncryptedPairingEnvelope {
+  ProtocolVersion protocol_version = 1;
+  bytes rendezvous_id = 2;
+  PairingDirection direction = 3;
+  uint64 sequence = 4;
+  bytes ciphertext = 5;
+}
+
+message TrustedHostBinding {
+  DeviceIdentity host_identity = 1;
+  string signaling_endpoint = 2;
+  uint64 paired_at_unix_ms = 3;
+  uint64 last_successful_connection_at_unix_ms = 4;
+  uint32 display_order = 5;
+}
+
+message TrustedHostSnapshot {
+  ProtocolVersion protocol_version = 1;
+  repeated TrustedHostBinding bindings = 2;
+}
+
+message HostPairingStatusSnapshot {
+  HostPairingState state = 1;
+  uint64 revision = 2;
+  HostPairingInvitation invitation = 3;
+  DeviceIdentity pending_controller = 4;
+  bytes pending_controller_fingerprint_sha256 = 5;
+  repeated string sas_words = 6;
+  uint64 expires_at_unix_ms = 7;
+  UnifiedError error = 8;
+}
+
+message PairingMessage {
+  oneof payload {
+    QrPairingRendezvous qr_rendezvous = 1;
+    DesktopPairingRendezvous desktop_rendezvous = 2;
+    PairingHello hello = 3;
+    PairingConfirmationData confirmation = 4;
+    PairingDecision decision = 5;
+    HostPairingInvitation host_invitation = 6;
+    ControllerPairingHello controller_hello = 7;
+    EncryptedPairingEnvelope encrypted_envelope = 8;
+  }
+}

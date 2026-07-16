@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MPL-2.0
+
+use roammand_privileged_bridge::{
+    indicator::IndicatorStatusKey, native_indicator::native_indicator_channel,
+};
+
+#[test]
+fn local_stop_is_one_shot_and_tears_down_the_shared_surface() {
+    let (client, runtime) = native_indicator_channel();
+    client
+        .show_controlled("Controller phone")
+        .expect("show indicator");
+    let visible = runtime.snapshot();
+    let presentation = visible.presentation.expect("presentation");
+    assert_eq!(
+        presentation.controller_display_name(),
+        Some("Controller phone")
+    );
+    assert_eq!(presentation.status_key(), IndicatorStatusKey::Controlled);
+
+    assert!(runtime.local_stop());
+    assert!(!runtime.local_stop());
+    assert!(client.take_local_stop());
+    assert!(!client.take_local_stop());
+    assert_eq!(
+        runtime
+            .snapshot()
+            .presentation
+            .expect("stopping presentation")
+            .status_key(),
+        IndicatorStatusKey::Stopping
+    );
+
+    client.hide();
+    assert!(runtime.snapshot().presentation.is_none());
+    runtime.finish();
+    assert!(runtime.snapshot().finished);
+}

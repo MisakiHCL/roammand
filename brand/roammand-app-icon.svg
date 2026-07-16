@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Roammand app icon</title>
+  <desc id="desc">An interlocking computer workspace and mobile controller connected by a single command path.</desc>
+  <defs>
+    <linearGradient id="background" x1="128" y1="96" x2="896" y2="928" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#191E41"/>
+      <stop offset="0.52" stop-color="#090B1F"/>
+      <stop offset="1" stop-color="#11142D"/>
+    </linearGradient>
+    <radialGradient id="aurora" cx="0" cy="0" r="1" gradientTransform="translate(820 150) rotate(132) scale(620)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7E7BFF" stop-opacity="0.32"/>
+      <stop offset="0.5" stop-color="#32C9F3" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#090B1F" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="signal" x1="180" y1="250" x2="840" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#32C9F3"/>
+      <stop offset="0.55" stop-color="#7E7BFF"/>
+      <stop offset="1" stop-color="#A9A7FF"/>
+    </linearGradient>
+    <linearGradient id="connector" x1="390" y1="514" x2="574" y2="452" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#32C9F3"/>
+      <stop offset="0.55" stop-color="#5AA9F7"/>
+      <stop offset="1" stop-color="#7E7BFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#background)"/>
+  <rect width="1024" height="1024" fill="url(#aurora)"/>
+  <path d="M550 716H286c-76 0-126-50-126-126V366c0-76 50-126 126-126h322c76 0 126 50 126 106" fill="none" stroke="url(#signal)" stroke-width="68" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M390 514c92 0 126-62 184-62" fill="none" stroke="url(#connector)" stroke-width="32" stroke-linecap="round"/>
+  <rect x="574" y="370" width="278" height="430" rx="94" fill="none" stroke="#F3F2FF" stroke-width="48"/>
+  <circle cx="713" cy="588" r="42" fill="none" stroke="url(#signal)" stroke-width="24"/>
+  <circle cx="713" cy="588" r="10" fill="#F3F2FF"/>
+</svg>

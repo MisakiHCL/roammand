@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package config
+
+import (
+	"fmt"
+	"net"
+	"strconv"
+	"strings"
+	"time"
+)
+
+const (
+	DefaultListenAddress = "127.0.0.1:8080"
+
+	RegistrationTimeout = 5 * time.Second
+	HeartbeatInterval   = 15 * time.Second
+	PresenceTimeout     = 45 * time.Second
+	RendezvousTTL       = 2 * time.Minute
+	SweepInterval       = time.Second
+	RateLimitWindow     = time.Minute
+	ShutdownTimeout     = 10 * time.Second
+	MaxShutdownTimeout  = time.Minute
+
+	OutboundQueueCapacity       = 64
+	PairingAttemptsPerIP        = 30
+	PairingAttemptsPerLookupKey = 5
+)
+
+type Config struct {
+	ListenAddress      string
+	TLSCertificateFile string
+	TLSPrivateKeyFile  string
+	ShutdownTimeout    time.Duration
+}
+
+func Load(getenv func(string) string) (Config, error) {
+	config := Config{
+		ListenAddress:      strings.TrimSpace(getenv("SIGNALING_LISTEN_ADDR")),
+		TLSCertificateFile: strings.TrimSpace(getenv("SIGNALING_TLS_CERT_FILE")),
+		TLSPrivateKeyFile:  strings.TrimSpace(getenv("SIGNALING_TLS_KEY_FILE")),
+		ShutdownTimeout:    ShutdownTimeout,
+	}
+	if config.ListenAddress == "" {
+		config.ListenAddress = DefaultListenAddress
+	}
+	if err := validateListenAddress(config.ListenAddress); err != nil {
+		return Config{}, err
+	}
+	if (config.TLSCertificateFile == "") != (config.TLSPrivateKeyFile == "") {
+		return Config{}, fmt.Errorf(
+			"SIGNALING_TLS_CERT_FILE and SIGNALING_TLS_KEY_FILE must be configured together",
+		)
+	}
+
+	if encoded := strings.TrimSpace(getenv("SIGNALING_SHUTDOWN_TIMEOUT")); encoded != "" {
+		parsed, err := time.ParseDuration(encoded)
+		if err != nil {
+			return Config{}, fmt.Errorf("parse SIGNALING_SHUTDOWN_TIMEOUT: %w", err)
+		}
+		if parsed <= 0 || parsed > MaxShutdownTimeout {
+			return Config{}, fmt.Errorf(
+				"SIGNALING_SHUTDOWN_TIMEOUT must be greater than zero and at most %s",
+				MaxShutdownTimeout,
+			)
+		}
+		config.ShutdownTimeout = parsed
+	}
+	return config, nil
+}
+
+func (config Config) TLSConfigured() bool {
+	return config.TLSCertificateFile != ""
+}
+
+func validateListenAddress(address string) error {
+	_, portText, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("parse SIGNALING_LISTEN_ADDR: %w", err)
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil || port < 0 || port > 65535 {
+		return fmt.Errorf("SIGNALING_LISTEN_ADDR has invalid port")
+	}
+	return nil
+}

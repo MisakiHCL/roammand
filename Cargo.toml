@@ -1,0 +1,22 @@
+[workspace]
+members = [
+  "crates/host-agent",
+  "crates/host-platform",
+  "crates/host-webrtc",
+  "crates/ipc",
+  "crates/privileged-bridge",
+  "gen/rust",
+]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.97"
+license = "MPL-2.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "deny"
+pedantic = "deny"

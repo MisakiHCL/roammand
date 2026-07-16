@@ -1,0 +1,259 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  boundary-and-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          version: 1.69.0
+      - name: Check public boundary
+        run: ./scripts/check_public_boundary.sh
+      - name: Check README contract
+        run: ./scripts/check_readme_contract.sh
+      - name: Check schema formatting
+        run: buf format --diff --exit-code
+      - name: Lint schema
+        run: buf lint
+      - name: Build schema
+        run: buf build
+      - name: Check schema contract
+        run: ./scripts/check_schema_contract.sh
+      - name: Check breaking changes
+        if: github.event_name == 'pull_request'
+        run: buf breaking --against ".git#commit=${{ github.event.pull_request.base.sha }}"
+      - name: Check generated protocol code
+        run: make generate-check
+      - name: Confirm generated tree is clean
+        run: git diff --exit-code -- gen
+
+  dart:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.0
+          channel: stable
+          cache: true
+      - name: Resolve protocol packages
+        working-directory: gen/dart
+        run: dart pub get
+      - name: Resolve client packages
+        working-directory: apps/client_flutter
+        run: flutter pub get
+      - name: Check formatting
+        run: |
+          dart format --output=none --set-exit-if-changed scripts/validate_m4_smoke_config.dart
+          cd gen/dart && dart format --output=none --set-exit-if-changed lib test
+          cd ../../apps/client_flutter && dart format --output=none --set-exit-if-changed lib test tool
+      - name: Check M4 smoke configuration contract
+        shell: bash
+        run: make test-m4-config
+      - name: Check M5 smoke contract
+        shell: bash
+        run: make test-m5-config
+      - name: Check M6 smoke contract
+        shell: bash
+        run: make test-m6-config
+      - name: Analyze and test protocol
+        working-directory: gen/dart
+        run: dart analyze && dart test
+      - name: Analyze and test client
+        working-directory: apps/client_flutter
+        run: flutter analyze && flutter test
+      - name: Build macOS Controller
+        if: runner.os == 'macOS'
+        working-directory: apps/client_flutter
+        run: flutter build macos --debug
+      - name: Build Windows Controller
+        if: runner.os == 'Windows'
+        working-directory: apps/client_flutter
+        run: flutter build windows --debug
+
+  mobile-builds:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            command: flutter build ios --simulator --debug
+          - os: ubuntu-latest
+            command: flutter build apk --debug
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.0
+          channel: stable
+          cache: true
+      - name: Resolve protocol packages
+        working-directory: gen/dart
+        run: dart pub get
+      - name: Resolve client packages
+        working-directory: apps/client_flutter
+        run: flutter pub get
+      - name: Check M6 mobile lifecycle
+        shell: bash
+        run: make test-m6-lifecycle
+      - name: Build mobile client
+        working-directory: apps/client_flutter
+        run: ${{ matrix.command }}
+
+  desktop-host:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.0
+          components: rustfmt,clippy
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/roammand/libwebrtc
+          key: libwebrtc-${{ runner.os }}-${{ hashFiles('scripts/libwebrtc-assets.sha256') }}
+      - name: Verify native WebRTC asset lock
+        shell: bash
+        run: make check-libwebrtc
+      - name: Lint desktop Host crates
+        run: cargo clippy -p roammand-host-platform -p roammand-ipc -p roammand-host-agent --all-targets -- -D warnings
+      - name: Test desktop Host crates
+        run: cargo test -p roammand-host-platform -p roammand-ipc -p roammand-host-agent
+      - name: Test native desktop WebRTC
+        shell: bash
+        run: make test-native-webrtc
+
+  m8-privileged-bridge:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.0
+          components: rustfmt,clippy
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.0
+          channel: stable
+          cache: true
+      - name: Resolve Flutter dependencies
+        working-directory: apps/client_flutter
+        run: flutter pub get
+      - name: Test bridge core and platform contracts
+        run: cargo test -p roammand-privileged-bridge
+      - name: Lint bridge platform code
+        run: cargo clippy -p roammand-privileged-bridge --all-targets -- -D warnings
+      - name: Test status, tray, and emergency stop
+        working-directory: apps/client_flutter
+        run: flutter test test/privileged_bridge_presenter_test.dart test/host_status_page_test.dart test/host_tray_controller_test.dart test/desktop_app_root_test.dart
+      - name: Check M8 privacy boundary
+        shell: bash
+        run: ./scripts/check_m8_privacy.sh
+      - name: Check macOS package dry-run
+        if: runner.os == 'macOS'
+        shell: bash
+        run: ./scripts/test_m8_macos_package.sh
+      - name: Check Windows package and WhatIf
+        if: runner.os == 'Windows'
+        shell: bash
+        run: ./scripts/test_m8_windows_package.sh
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.0
+          components: rustfmt,clippy
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.5
+      - name: Check formatting
+        run: |
+          cd gen/go && test -z "$(gofmt -l $(rg --files -g '*.go'))"
+          cd ../../services/signaling && test -z "$(gofmt -l $(rg --files -g '*.go'))"
+      - name: Vet and test protocol
+        working-directory: gen/go
+        run: go vet ./... && go test ./...
+      - name: Vet and test signaling
+        working-directory: services/signaling
+        run: go vet ./... && go test ./...
+      - name: Race-test signaling
+        working-directory: services/signaling
+        run: go test -race ./...
+
+  m7-recovery-privacy-fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.0
+          channel: stable
+          cache: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.0
+      - name: Check authenticated reconnect
+        run: make test-m7-reconnect
+      - name: Check privacy-safe diagnostics and logging
+        run: make test-m7-privacy
+      - name: Fuzz and property-test untrusted inputs
+        run: make test-m7-fuzz
+
+  self-hosting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare ephemeral Compose fixture secrets
+        run: |
+          mkdir -p infra/compose/secrets
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj "/CN=localhost" \
+            -keyout infra/compose/secrets/tls-key.pem \
+            -out infra/compose/secrets/tls-cert.pem
+          openssl rand -hex 12 > infra/compose/secrets/turn-username
+          openssl rand -hex 32 > infra/compose/secrets/turn-password
+          sudo chown "$(id -un)":65532 infra/compose/secrets/*
+          chmod 640 infra/compose/secrets/*
+      - name: Validate self-hosted Compose
+        run: make test-m7-config

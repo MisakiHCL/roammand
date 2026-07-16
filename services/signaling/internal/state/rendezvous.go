@@ -1,0 +1,250 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package state
+
+import (
+	"crypto/sha256"
+	"errors"
+	"strings"
+	"sync"
+	"time"
+)
+
+var (
+	ErrRendezvousExists    = errors.New("rendezvous already exists")
+	ErrPairingCodeExists   = errors.New("pairing code already exists")
+	ErrRendezvousNotFound  = errors.New("rendezvous not found")
+	ErrRendezvousFull      = errors.New("rendezvous already has a controller")
+	ErrRendezvousSelfJoin  = errors.New("host cannot join its own rendezvous")
+	ErrRendezvousNotMember = errors.New("device is not a rendezvous member")
+	ErrRendezvousNotHost   = errors.New("device is not the rendezvous host")
+	ErrRendezvousNotJoined = errors.New("rendezvous has no controller")
+	ErrRendezvousInvalid   = errors.New("invalid rendezvous")
+)
+
+type PairingKind uint8
+
+const (
+	PairingKindQR PairingKind = iota + 1
+	PairingKindDesktopCode
+)
+
+type Rendezvous struct {
+	ID         RendezvousID
+	Kind       PairingKind
+	Host       DeviceID
+	Controller *DeviceID
+	CodeHash   [sha256.Size]byte
+	ExpiresAt  time.Time
+}
+
+type RendezvousStore struct {
+	mu        sync.RWMutex
+	byID      map[RendezvousID]Rendezvous
+	codeIndex map[[sha256.Size]byte]RendezvousID
+}
+
+func NewRendezvousStore() *RendezvousStore {
+	return &RendezvousStore{
+		byID:      make(map[RendezvousID]Rendezvous),
+		codeIndex: make(map[[sha256.Size]byte]RendezvousID),
+	}
+}
+
+func (store *RendezvousStore) Create(rendezvous Rendezvous, pairingCode string) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	if _, exists := store.byID[rendezvous.ID]; exists {
+		return ErrRendezvousExists
+	}
+
+	switch rendezvous.Kind {
+	case PairingKindQR:
+		if pairingCode != "" {
+			return ErrRendezvousInvalid
+		}
+	case PairingKindDesktopCode:
+		if pairingCode == "" {
+			return ErrRendezvousInvalid
+		}
+		rendezvous.CodeHash = pairingCodeHash(pairingCode)
+		if _, exists := store.codeIndex[rendezvous.CodeHash]; exists {
+			return ErrPairingCodeExists
+		}
+	default:
+		return ErrRendezvousInvalid
+	}
+
+	stored := cloneRendezvous(rendezvous)
+	store.byID[stored.ID] = stored
+	if stored.Kind == PairingKindDesktopCode {
+		store.codeIndex[stored.CodeHash] = stored.ID
+	}
+	return nil
+}
+
+func (store *RendezvousStore) JoinByID(
+	id RendezvousID,
+	controller DeviceID,
+	now time.Time,
+) (Rendezvous, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	return store.joinLocked(id, controller, now)
+}
+
+func (store *RendezvousStore) JoinByCode(
+	pairingCode string,
+	controller DeviceID,
+	now time.Time,
+) (Rendezvous, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	id, exists := store.codeIndex[pairingCodeHash(pairingCode)]
+	if !exists {
+		return Rendezvous{}, ErrRendezvousNotFound
+	}
+	return store.joinLocked(id, controller, now)
+}
+
+func (store *RendezvousStore) Peer(
+	id RendezvousID,
+	sender DeviceID,
+	now time.Time,
+) (DeviceID, Rendezvous, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	rendezvous, err := store.activeLocked(id, now)
+	if err != nil {
+		return DeviceID{}, Rendezvous{}, err
+	}
+	if rendezvous.Controller == nil {
+		return DeviceID{}, Rendezvous{}, ErrRendezvousNotJoined
+	}
+	if sender == rendezvous.Host {
+		return *rendezvous.Controller, cloneRendezvous(rendezvous), nil
+	}
+	if sender == *rendezvous.Controller {
+		return rendezvous.Host, cloneRendezvous(rendezvous), nil
+	}
+	return DeviceID{}, Rendezvous{}, ErrRendezvousNotMember
+}
+
+func (store *RendezvousStore) Complete(
+	id RendezvousID,
+	host DeviceID,
+	now time.Time,
+) (Rendezvous, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	rendezvous, err := store.activeLocked(id, now)
+	if err != nil {
+		return Rendezvous{}, err
+	}
+	if rendezvous.Host != host {
+		return Rendezvous{}, ErrRendezvousNotHost
+	}
+	store.deleteLocked(rendezvous)
+	return cloneRendezvous(rendezvous), nil
+}
+
+func (store *RendezvousStore) RemoveForDevice(deviceID DeviceID) []Rendezvous {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	removed := make([]Rendezvous, 0)
+	for _, rendezvous := range store.byID {
+		if rendezvous.Host != deviceID &&
+			(rendezvous.Controller == nil || *rendezvous.Controller != deviceID) {
+			continue
+		}
+		removed = append(removed, cloneRendezvous(rendezvous))
+		store.deleteLocked(rendezvous)
+	}
+	return removed
+}
+
+func (store *RendezvousStore) Sweep(now time.Time) []Rendezvous {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	removed := make([]Rendezvous, 0)
+	for _, rendezvous := range store.byID {
+		if rendezvous.ExpiresAt.After(now) {
+			continue
+		}
+		removed = append(removed, cloneRendezvous(rendezvous))
+		store.deleteLocked(rendezvous)
+	}
+	return removed
+}
+
+func (store *RendezvousStore) Len() int {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	return len(store.byID)
+}
+
+func (store *RendezvousStore) joinLocked(
+	id RendezvousID,
+	controller DeviceID,
+	now time.Time,
+) (Rendezvous, error) {
+	rendezvous, err := store.activeLocked(id, now)
+	if err != nil {
+		return Rendezvous{}, err
+	}
+	if rendezvous.Host == controller {
+		return Rendezvous{}, ErrRendezvousSelfJoin
+	}
+	if rendezvous.Controller != nil {
+		if *rendezvous.Controller == controller {
+			return cloneRendezvous(rendezvous), nil
+		}
+		return Rendezvous{}, ErrRendezvousFull
+	}
+	controllerCopy := controller
+	rendezvous.Controller = &controllerCopy
+	store.byID[id] = cloneRendezvous(rendezvous)
+	return cloneRendezvous(rendezvous), nil
+}
+
+func (store *RendezvousStore) activeLocked(
+	id RendezvousID,
+	now time.Time,
+) (Rendezvous, error) {
+	rendezvous, exists := store.byID[id]
+	if !exists {
+		return Rendezvous{}, ErrRendezvousNotFound
+	}
+	if !rendezvous.ExpiresAt.After(now) {
+		store.deleteLocked(rendezvous)
+		return Rendezvous{}, ErrRendezvousNotFound
+	}
+	return rendezvous, nil
+}
+
+func (store *RendezvousStore) deleteLocked(rendezvous Rendezvous) {
+	delete(store.byID, rendezvous.ID)
+	if rendezvous.Kind == PairingKindDesktopCode {
+		delete(store.codeIndex, rendezvous.CodeHash)
+	}
+}
+
+func pairingCodeHash(pairingCode string) [sha256.Size]byte {
+	normalized := strings.ToUpper(strings.TrimSpace(pairingCode))
+	return sha256.Sum256([]byte("roammand-pairing-code:" + normalized))
+}
+
+func cloneRendezvous(rendezvous Rendezvous) Rendezvous {
+	if rendezvous.Controller == nil {
+		return rendezvous
+	}
+	controller := *rendezvous.Controller
+	rendezvous.Controller = &controller
+	return rendezvous
+}

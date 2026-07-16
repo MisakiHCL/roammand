@@ -1,0 +1,12 @@
+{
+  "spdx_license_identifier": "Apache-2.0",
+  "derivation_version": 1,
+  "public_key_algorithm": 1,
+  "cases": [
+    {
+      "name": "ed25519_incrementing_public_key",
+      "public_key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "expected_device_id_hex": "8afc53df6738546167f281ff51276fbd554a9a78ad6a2e2386c994514d07436e"
+    }
+  ]
+}

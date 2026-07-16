@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package roammand.v1;
+
+import "roammand/v1/error.proto";
+
+option go_package = "github.com/MisakiHCL/roammand/gen/go/roammand/v1;roammandv1";
+
+enum SessionState {
+  SESSION_STATE_UNSPECIFIED = 0;
+  SESSION_STATE_IDLE = 1;
+  SESSION_STATE_SIGNALING = 2;
+  SESSION_STATE_AUTHENTICATING = 3;
+  SESSION_STATE_CONNECTING = 4;
+  SESSION_STATE_CONNECTED = 5;
+  SESSION_STATE_RECONNECTING = 6;
+  SESSION_STATE_FAILED = 7;
+  SESSION_STATE_CLOSING = 8;
+}
+
+message SessionStatus {
+  bytes session_id = 1;
+  SessionState state = 2;
+  UnifiedError error = 3;
+}

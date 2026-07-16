@@ -1,0 +1,45 @@
+[package]
+name = "roammand-host-platform"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
+
+[dependencies]
+hex = "0.4.3"
+roammand-host-webrtc = { path = "../host-webrtc" }
+roammand-protocol = { path = "../../gen/rust" }
+sha2 = "0.11.0"
+thiserror = "2.0.18"
+tokio = { version = "1.52.3", features = ["io-util", "macros", "net", "rt", "sync", "time"] }
+zeroize = "1.9.0"
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.31.3", features = ["user"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+enigo = { version = "0.6.1", default-features = false }
+security-framework = "3.7.0"
+security-framework-sys = "2.17.0"
+
+[target.'cfg(windows)'.dependencies]
+enigo = { version = "0.6.1", default-features = false }
+windows-sys = { version = "0.61.2", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_Security_Cryptography",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Pipes",
+  "Win32_System_Threading",
+] }
+
+[dev-dependencies]
+tempfile = "3.27.0"

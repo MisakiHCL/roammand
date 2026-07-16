@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package roammand.v1;
+
+import "roammand/v1/identity.proto";
+import "roammand/v1/session.proto";
+
+option go_package = "github.com/MisakiHCL/roammand/gen/go/roammand/v1;roammandv1";
+
+enum GrantRevocationReason {
+  GRANT_REVOCATION_REASON_UNSPECIFIED = 0;
+  GRANT_REVOCATION_REASON_USER_REQUESTED = 1;
+  GRANT_REVOCATION_REASON_IDENTITY_RESET = 2;
+  GRANT_REVOCATION_REASON_SECURITY_RESPONSE = 3;
+}
+
+message ControllerGrant {
+  bytes grant_id = 1;
+  bytes host_device_id = 2;
+  DeviceIdentity controller = 3;
+  uint64 created_at_unix_ms = 4;
+  repeated SessionPermission permissions = 5;
+}
+
+message GrantRevocation {
+  bytes grant_id = 1;
+  uint64 revoked_at_unix_ms = 2;
+  GrantRevocationReason reason = 3;
+}

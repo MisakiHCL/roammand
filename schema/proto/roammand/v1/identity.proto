@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package roammand.v1;
+
+option go_package = "github.com/MisakiHCL/roammand/gen/go/roammand/v1;roammandv1";
+
+enum DevicePlatform {
+  DEVICE_PLATFORM_UNSPECIFIED = 0;
+  DEVICE_PLATFORM_IOS = 1;
+  DEVICE_PLATFORM_ANDROID = 2;
+  DEVICE_PLATFORM_WINDOWS = 3;
+  DEVICE_PLATFORM_MACOS = 4;
+}
+
+enum PublicKeyAlgorithm {
+  PUBLIC_KEY_ALGORITHM_UNSPECIFIED = 0;
+  PUBLIC_KEY_ALGORITHM_ED25519 = 1;
+}
+
+message DeviceIdentity {
+  bytes device_id = 1;
+  PublicKeyAlgorithm public_key_algorithm = 2;
+  bytes public_key = 3;
+  string display_name = 4;
+  DevicePlatform platform = 5;
+}

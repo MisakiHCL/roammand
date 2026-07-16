@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "Roammand";
+"NSCameraUsageDescription" = "Scan a code shown on your own computer to pair it securely.";
+"NSLocalNetworkUsageDescription" = "Connect to and control computers on your local network.";

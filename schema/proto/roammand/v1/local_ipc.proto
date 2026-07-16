@@ -1,0 +1,201 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package roammand.v1;
+
+import "roammand/v1/authorization.proto";
+import "roammand/v1/error.proto";
+import "roammand/v1/identity.proto";
+import "roammand/v1/pairing.proto";
+import "roammand/v1/privileged_bridge.proto";
+import "roammand/v1/session.proto";
+import "roammand/v1/status.proto";
+import "roammand/v1/version.proto";
+
+option go_package = "github.com/MisakiHCL/roammand/gen/go/roammand/v1;roammandv1";
+
+message LocalIpcChallenge {
+  bytes agent_instance_id = 1;
+  bytes server_nonce = 2;
+}
+
+message LocalIpcAuthenticate {
+  bytes client_nonce = 1;
+  bytes client_proof = 2;
+}
+
+message LocalIpcAuthenticated {
+  bytes server_proof = 1;
+}
+
+message GetHostStatusRequest {}
+
+message HostStatus {
+  DeviceIdentity identity = 1;
+  bytes agent_instance_id = 2;
+  uint64 agent_started_at_unix_ms = 3;
+  uint32 controller_grant_count = 4;
+  PrivilegedBridgeStatusSnapshot privileged_bridge = 5;
+}
+
+message ControllerGrantView {
+  ControllerGrant grant = 1;
+  uint64 last_successful_connection_at_unix_ms = 2;
+}
+
+message ListControllerGrantsRequest {}
+
+message ControllerGrantList {
+  repeated ControllerGrantView grants = 1;
+}
+
+message CreateControllerGrantRequest {
+  DeviceIdentity controller = 1;
+  repeated SessionPermission permissions = 2;
+}
+
+message ControllerGrantCreated {
+  ControllerGrantView grant = 1;
+}
+
+message SignCanonicalTranscriptRequest {
+  bytes canonical_transcript = 1;
+}
+
+message CanonicalTranscriptSignature {
+  bytes host_device_id = 1;
+  bytes host_public_key = 2;
+  bytes signature = 3;
+  bytes transcript_sha256 = 4;
+}
+
+message SignSessionOfferRequest {
+  bytes canonical_transcript = 1;
+}
+
+message SessionOfferSignature {
+  bytes controller_device_id = 1;
+  bytes controller_public_key = 2;
+  bytes signature = 3;
+  bytes transcript_sha256 = 4;
+}
+
+message GetRemoteSessionStatusRequest {}
+
+message RemoteSessionStatusSnapshot {
+  SessionStatus session_status = 1;
+  bytes controller_device_id = 2;
+}
+
+message StartHostQrPairingRequest {
+  string signaling_endpoint = 1;
+}
+
+message StartHostDesktopCodePairingRequest {
+  string signaling_endpoint = 1;
+}
+
+message CancelHostPairingRequest {
+  bytes rendezvous_id = 1;
+}
+
+message GetHostPairingStatusRequest {}
+
+message AcceptHostPairingRequest {
+  bytes rendezvous_id = 1;
+  bytes controller_device_id = 2;
+}
+
+message RejectHostPairingRequest {
+  bytes rendezvous_id = 1;
+  bytes controller_device_id = 2;
+}
+
+message SignPairingTranscriptRequest {
+  bytes canonical_transcript = 1;
+  PairingIdentityRole role = 2;
+}
+
+message PairingTranscriptSignature {
+  PairingIdentityRole role = 1;
+  bytes signer_device_id = 2;
+  bytes signer_public_key = 3;
+  bytes signature = 4;
+  bytes transcript_sha256 = 5;
+}
+
+message HostPairingStateChangedEvent {
+  HostPairingStatusSnapshot status = 1;
+}
+
+message RevokeControllerGrantRequest {
+  bytes grant_id = 1;
+}
+
+message ControllerGrantRevoked {
+  bytes grant_id = 1;
+  uint32 terminated_session_count = 2;
+}
+
+message SessionTerminatedEvent {
+  bytes session_id = 1;
+  bytes controller_device_id = 2;
+  ErrorCode reason = 3;
+}
+
+message HostAuthorizationSnapshot {
+  bytes host_device_id = 1;
+  repeated ControllerGrantView grants = 2;
+}
+
+message EmergencyStopRemoteSessionRequest {}
+
+message EmergencyStopRemoteSessionResult {
+  uint32 terminated_session_count = 1;
+}
+
+message LocalIpcClientFrame {
+  ProtocolVersion protocol_version = 1;
+  string request_id = 2;
+  oneof payload {
+    LocalIpcAuthenticate authenticate = 10;
+    GetHostStatusRequest get_host_status = 11;
+    ListControllerGrantsRequest list_controller_grants = 12;
+    CreateControllerGrantRequest create_controller_grant = 13;
+    SignCanonicalTranscriptRequest sign_canonical_transcript = 14;
+    RevokeControllerGrantRequest revoke_controller_grant = 15;
+    SignSessionOfferRequest sign_session_offer = 16;
+    GetRemoteSessionStatusRequest get_remote_session_status = 17;
+    StartHostQrPairingRequest start_host_qr_pairing = 18;
+    StartHostDesktopCodePairingRequest start_host_desktop_code_pairing = 19;
+    CancelHostPairingRequest cancel_host_pairing = 20;
+    GetHostPairingStatusRequest get_host_pairing_status = 21;
+    AcceptHostPairingRequest accept_host_pairing = 22;
+    RejectHostPairingRequest reject_host_pairing = 23;
+    SignPairingTranscriptRequest sign_pairing_transcript = 24;
+    EmergencyStopRemoteSessionRequest emergency_stop_remote_session = 25;
+  }
+}
+
+message LocalIpcServerFrame {
+  ProtocolVersion protocol_version = 1;
+  string request_id = 2;
+  oneof payload {
+    LocalIpcChallenge challenge = 10;
+    LocalIpcAuthenticated authenticated = 11;
+    HostStatus host_status = 20;
+    ControllerGrantList controller_grant_list = 21;
+    ControllerGrantCreated controller_grant_created = 22;
+    CanonicalTranscriptSignature canonical_transcript_signature = 23;
+    ControllerGrantRevoked controller_grant_revoked = 24;
+    SessionOfferSignature session_offer_signature = 25;
+    RemoteSessionStatusSnapshot remote_session_status = 26;
+    SessionTerminatedEvent session_terminated = 28;
+    UnifiedError error = 29;
+    HostPairingStatusSnapshot host_pairing_status = 30;
+    PairingTranscriptSignature pairing_transcript_signature = 31;
+    HostPairingStateChangedEvent host_pairing_state_changed = 32;
+    EmergencyStopRemoteSessionResult emergency_stop_remote_session_result = 33;
+  }
+}

@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: MPL-2.0
+
+[package]
+name = "roammand-privileged-bridge"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
+
+[features]
+default = []
+native-webrtc = [
+  "roammand-host-webrtc/native-webrtc",
+  "dep:objc2",
+  "dep:objc2-app-kit",
+  "dep:objc2-foundation",
+]
+
+[dependencies]
+getrandom = "0.4.3"
+roammand-ipc = { path = "../ipc" }
+roammand-host-platform = { path = "../host-platform" }
+roammand-host-webrtc = { path = "../host-webrtc" }
+roammand-protocol = { path = "../../gen/rust" }
+prost = "0.13.5"
+sha2 = "0.11.0"
+thiserror = "2.0.18"
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.8.1"
+windows-sys = { version = "0.61.2", features = [
+  "Win32_Foundation",
+  "Win32_Globalization",
+  "Win32_Graphics_Gdi",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_Storage_FileSystem",
+  "Win32_System_IO",
+  "Win32_System_JobObjects",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Pipes",
+  "Win32_System_RemoteDesktop",
+  "Win32_System_StationsAndDesktops",
+  "Win32_System_Threading",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(unix)'.dependencies]
+signal-hook = "0.3.18"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2.186"
+nix = { version = "0.31.3", features = ["fs", "socket", "user"] }
+objc2 = { version = "0.6.4", optional = true }
+objc2-app-kit = { version = "0.3.2", optional = true }
+objc2-foundation = { version = "0.3.2", optional = true }
+
+[[bin]]
+name = "roammand-privileged-bridge"
+path = "src/bin/roammand-privileged-bridge.rs"
+
+[dev-dependencies]
+proptest = "1.10.0"
+tempfile = "3.27.0"

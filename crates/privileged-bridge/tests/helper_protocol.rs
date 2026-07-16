@@ -1,0 +1,198 @@
+// SPDX-License-Identifier: MPL-2.0
+
+use std::sync::{Arc, Mutex};
+
+use roammand_host_webrtc::{PeerAnswer, PeerIceCandidate};
+use roammand_privileged_bridge::{
+    helper::{HelperBackend, HelperProtocol, HelperProtocolError},
+    proxy::{ProxyEvent, ProxyRoute},
+};
+use roammand_protocol::roammand::v1::{
+    ClosePrivilegedPeerRequest, IceCandidate, PrivilegedBridgeClientFrame, PrivilegedInputCommand,
+    PrivilegedPeerConfiguration, ProtocolVersion, ReleaseAllInput, ReleasePrivilegedLeaseRequest,
+    SessionDescriptionType, StartPrivilegedPeerRequest, WebRtcSessionDescription,
+    privileged_bridge_client_frame, privileged_bridge_server_frame, privileged_input_command,
+};
+
+#[derive(Default)]
+struct FakeBackend {
+    operations: Arc<Mutex<Vec<&'static str>>>,
+}
+
+impl HelperBackend for FakeBackend {
+    fn start(
+        &mut self,
+        _configuration: &PrivilegedPeerConfiguration,
+        _offer: &WebRtcSessionDescription,
+        _controller_display_name: &str,
+    ) -> Result<PeerAnswer, HelperProtocolError> {
+        self.operations.lock().expect("operations").push("start");
+        Ok(PeerAnswer {
+            sdp: "answer".to_owned(),
+            dtls_fingerprint_sha256: vec![0x31; 32],
+        })
+    }
+
+    fn restart(
+        &mut self,
+        _configuration: &PrivilegedPeerConfiguration,
+        _offer: &WebRtcSessionDescription,
+        _controller_display_name: &str,
+    ) -> Result<PeerAnswer, HelperProtocolError> {
+        Err(HelperProtocolError::Backend)
+    }
+
+    fn add_candidate(&mut self, _candidate: &IceCandidate) -> Result<(), HelperProtocolError> {
+        self.operations
+            .lock()
+            .expect("operations")
+            .push("candidate");
+        Ok(())
+    }
+
+    fn input(&mut self, _input: &PrivilegedInputCommand) -> Result<(), HelperProtocolError> {
+        self.operations.lock().expect("operations").push("input");
+        Ok(())
+    }
+
+    fn secure_attention(&mut self) -> Result<(), HelperProtocolError> {
+        Err(HelperProtocolError::Backend)
+    }
+
+    fn close(&mut self) -> Result<(), HelperProtocolError> {
+        self.operations.lock().expect("operations").push("close");
+        Ok(())
+    }
+
+    fn try_event(&mut self) -> Result<Option<ProxyEvent>, HelperProtocolError> {
+        Ok(Some(ProxyEvent::LocalIceCandidate(PeerIceCandidate {
+            candidate: "candidate:local".to_owned(),
+            sdp_mid: "0".to_owned(),
+            sdp_m_line_index: 0,
+        })))
+    }
+
+    fn fail_closed(&mut self) {}
+}
+
+#[test]
+fn attaches_one_route_and_executes_only_typed_peer_commands() {
+    let operations = Arc::new(Mutex::new(Vec::new()));
+    let backend = FakeBackend {
+        operations: Arc::clone(&operations),
+    };
+    let mut helper = HelperProtocol::new(Box::new(backend));
+    let route = ProxyRoute::new(
+        roammand_privileged_bridge::lease::LeaseId::new([0x11; 16]),
+        7,
+    );
+
+    let answer = helper
+        .handle(&start_request(route, 1))
+        .expect("start response");
+    assert!(matches!(
+        answer.payload,
+        Some(privileged_bridge_server_frame::Payload::PeerAnswer(_))
+    ));
+    let input = client_frame(
+        2,
+        privileged_bridge_client_frame::Payload::InputCommand(PrivilegedInputCommand {
+            lease_id: route.lease_id.into_bytes().to_vec(),
+            generation: route.generation,
+            input: Some(privileged_input_command::Input::ReleaseAll(
+                ReleaseAllInput {},
+            )),
+        }),
+    );
+    assert!(matches!(
+        helper.handle(&input).expect("input").payload,
+        Some(privileged_bridge_server_frame::Payload::CommandAccepted(_))
+    ));
+
+    let event = helper.try_event().expect("event").expect("some event");
+    assert!(matches!(
+        event.payload,
+        Some(privileged_bridge_server_frame::Payload::LocalIceCandidate(
+            _
+        ))
+    ));
+    assert_eq!(event.sequence, 1);
+
+    let release = client_frame(
+        3,
+        privileged_bridge_client_frame::Payload::ReleaseLease(ReleasePrivilegedLeaseRequest {
+            lease_id: route.lease_id.into_bytes().to_vec(),
+            generation: route.generation,
+        }),
+    );
+    helper.handle(&release).expect("release");
+    assert_eq!(
+        *operations.lock().expect("operations"),
+        ["start", "input", "close"]
+    );
+}
+
+#[test]
+fn rejects_stale_commands_after_release_without_touching_the_backend() {
+    let operations = Arc::new(Mutex::new(Vec::new()));
+    let backend = FakeBackend {
+        operations: Arc::clone(&operations),
+    };
+    let mut helper = HelperProtocol::new(Box::new(backend));
+    let route = ProxyRoute::new(
+        roammand_privileged_bridge::lease::LeaseId::new([0x21; 16]),
+        8,
+    );
+    helper.handle(&start_request(route, 1)).expect("start");
+    helper
+        .handle(&client_frame(
+            2,
+            privileged_bridge_client_frame::Payload::ReleaseLease(ReleasePrivilegedLeaseRequest {
+                lease_id: route.lease_id.into_bytes().to_vec(),
+                generation: route.generation,
+            }),
+        ))
+        .expect("release");
+    let stale = client_frame(
+        3,
+        privileged_bridge_client_frame::Payload::ClosePeer(ClosePrivilegedPeerRequest {
+            lease_id: route.lease_id.into_bytes().to_vec(),
+            generation: route.generation,
+        }),
+    );
+
+    assert_eq!(helper.handle(&stale), Err(HelperProtocolError::StaleRoute));
+    assert_eq!(*operations.lock().expect("operations"), ["start", "close"]);
+}
+
+fn start_request(route: ProxyRoute, sequence: u64) -> PrivilegedBridgeClientFrame {
+    client_frame(
+        sequence,
+        privileged_bridge_client_frame::Payload::StartPeer(StartPrivilegedPeerRequest {
+            lease_id: route.lease_id.into_bytes().to_vec(),
+            generation: route.generation,
+            configuration: Some(PrivilegedPeerConfiguration {
+                ice_transport_policy: 1,
+                ice_servers: Vec::new(),
+            }),
+            offer: Some(WebRtcSessionDescription {
+                r#type: SessionDescriptionType::Offer as i32,
+                sdp: "offer".to_owned(),
+                dtls_fingerprint_sha256: vec![0x41; 32],
+            }),
+            controller_display_name: "Controller".to_owned(),
+        }),
+    )
+}
+
+fn client_frame(
+    sequence: u64,
+    payload: privileged_bridge_client_frame::Payload,
+) -> PrivilegedBridgeClientFrame {
+    PrivilegedBridgeClientFrame {
+        protocol_version: Some(ProtocolVersion { major: 1, minor: 0 }),
+        request_id: format!("request-{sequence}"),
+        sequence,
+        payload: Some(payload),
+    }
+}

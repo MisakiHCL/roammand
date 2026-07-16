@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 640" role="img" aria-labelledby="title desc">
+  <title id="title">Roammand monochrome logo mark</title>
+  <desc id="desc">Monochrome interlocking computer workspace and mobile controller.</desc>
+  <path d="M428 548H148c-70 0-116-46-116-116V208c0-70 46-116 116-116h316c70 0 116 46 116 96" fill="none" stroke="#F3F2FF" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M238 342c84 0 116-56 210-56" fill="none" stroke="#F3F2FF" stroke-width="28" stroke-linecap="round"/>
+  <rect x="448" y="208" width="250" height="380" rx="82" fill="none" stroke="#F3F2FF" stroke-width="40"/>
+  <circle cx="573" cy="400" r="38" fill="none" stroke="#F3F2FF" stroke-width="22"/>
+  <circle cx="573" cy="400" r="9" fill="#F3F2FF"/>
+</svg>

@@ -1,0 +1,253 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package roammand.v1;
+
+import "roammand/v1/error.proto";
+import "roammand/v1/identity.proto";
+import "roammand/v1/input.proto";
+import "roammand/v1/session.proto";
+import "roammand/v1/version.proto";
+import "roammand/v1/webrtc.proto";
+
+option go_package = "github.com/MisakiHCL/roammand/gen/go/roammand/v1;roammandv1";
+
+enum PrivilegedBridgeState {
+  PRIVILEGED_BRIDGE_STATE_UNSPECIFIED = 0;
+  PRIVILEGED_BRIDGE_STATE_NOT_INSTALLED = 1;
+  PRIVILEGED_BRIDGE_STATE_APPROVAL_REQUIRED = 2;
+  PRIVILEGED_BRIDGE_STATE_PERMISSION_REQUIRED = 3;
+  PRIVILEGED_BRIDGE_STATE_USER_SESSION_ONLY = 4;
+  PRIVILEGED_BRIDGE_STATE_READY = 5;
+  PRIVILEGED_BRIDGE_STATE_TRANSITIONING = 6;
+  PRIVILEGED_BRIDGE_STATE_CONTROLLED = 7;
+  PRIVILEGED_BRIDGE_STATE_FAILED = 8;
+}
+
+enum InteractiveDesktopKind {
+  INTERACTIVE_DESKTOP_KIND_UNSPECIFIED = 0;
+  INTERACTIVE_DESKTOP_KIND_NORMAL = 1;
+  INTERACTIVE_DESKTOP_KIND_LOCKED_LOGIN = 2;
+  INTERACTIVE_DESKTOP_KIND_SECURE = 3;
+  INTERACTIVE_DESKTOP_KIND_UNAVAILABLE = 4;
+}
+
+enum PrivilegedBridgeRole {
+  PRIVILEGED_BRIDGE_ROLE_UNSPECIFIED = 0;
+  PRIVILEGED_BRIDGE_ROLE_HOST_AGENT = 1;
+  PRIVILEGED_BRIDGE_ROLE_SESSION_HELPER = 2;
+}
+
+enum PrivilegedIceTransportPolicy {
+  PRIVILEGED_ICE_TRANSPORT_POLICY_UNSPECIFIED = 0;
+  PRIVILEGED_ICE_TRANSPORT_POLICY_ALL = 1;
+  PRIVILEGED_ICE_TRANSPORT_POLICY_RELAY = 2;
+}
+
+enum PrivilegedPeerState {
+  PRIVILEGED_PEER_STATE_UNSPECIFIED = 0;
+  PRIVILEGED_PEER_STATE_NEW = 1;
+  PRIVILEGED_PEER_STATE_NEGOTIATING = 2;
+  PRIVILEGED_PEER_STATE_CONNECTED = 3;
+  PRIVILEGED_PEER_STATE_DISCONNECTED = 4;
+  PRIVILEGED_PEER_STATE_FAILED = 5;
+  PRIVILEGED_PEER_STATE_CLOSED = 6;
+}
+
+message PrivilegedSessionDescriptor {
+  DevicePlatform platform = 1;
+  uint64 os_session_id = 2;
+  InteractiveDesktopKind desktop_kind = 3;
+  uint64 generation = 4;
+}
+
+message PrivilegedBridgeStatusSnapshot {
+  PrivilegedBridgeState state = 1;
+  PrivilegedSessionDescriptor interactive_session = 2;
+  bool helper_connected = 3;
+  string active_controller_display_name = 4;
+  UnifiedError error = 5;
+}
+
+message PrivilegedBridgeChallenge {
+  bytes broker_instance_id = 1;
+  bytes server_nonce = 2;
+}
+
+message PrivilegedBridgeAuthenticate {
+  PrivilegedBridgeRole role = 1;
+  bytes client_nonce = 2;
+  bytes client_proof = 3;
+  bytes executable_sha256 = 4;
+  uint64 os_session_id = 5;
+}
+
+message PrivilegedBridgeAuthenticated {
+  bytes server_proof = 1;
+}
+
+message PrivilegedLease {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+  uint64 issued_at_unix_ms = 3;
+  uint64 expires_at_unix_ms = 4;
+  bytes session_id = 5;
+  repeated SessionPermission permissions = 6;
+  string controller_display_name = 7;
+}
+
+message AcquirePrivilegedLeaseRequest {
+  bytes session_id = 1;
+  uint64 generation = 2;
+  repeated SessionPermission permissions = 3;
+  string controller_display_name = 4;
+}
+
+message RenewPrivilegedLeaseRequest {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+}
+
+message ReleasePrivilegedLeaseRequest {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+}
+
+message PrivilegedIceServer {
+  repeated string urls = 1;
+  string username = 2;
+  string credential = 3;
+}
+
+message PrivilegedPeerConfiguration {
+  PrivilegedIceTransportPolicy ice_transport_policy = 1;
+  repeated PrivilegedIceServer ice_servers = 2;
+}
+
+message StartPrivilegedPeerRequest {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+  PrivilegedPeerConfiguration configuration = 3;
+  WebRtcSessionDescription offer = 4;
+  string controller_display_name = 5;
+}
+
+message RestartPrivilegedPeerRequest {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+  PrivilegedPeerConfiguration configuration = 3;
+  WebRtcSessionDescription offer = 4;
+  string controller_display_name = 5;
+}
+
+message AddPrivilegedIceCandidateRequest {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+  IceCandidate candidate = 3;
+}
+
+message ClosePrivilegedPeerRequest {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+}
+
+message PrivilegedReliableInputEvent {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+  bytes encoded_envelope = 3;
+}
+
+message PrivilegedFastPointerEvent {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+  bytes encoded_envelope = 3;
+}
+
+message PrivilegedInputCommand {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+  oneof input {
+    PointerButtonEvent pointer_button = 10;
+    KeyboardEvent keyboard = 11;
+    TextInputEvent text = 12;
+    PointerMoveEvent pointer_move = 13;
+    PointerScrollEvent pointer_scroll = 14;
+    ReleaseAllInput release_all = 15;
+  }
+}
+
+message SendSecureAttentionRequest {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+}
+
+message RegisterPrivilegedHelperRequest {
+  PrivilegedSessionDescriptor session = 1;
+}
+
+message PrivilegedHelperRegistered {
+  PrivilegedSessionDescriptor session = 1;
+}
+
+message PrivilegedPeerStateChanged {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+  PrivilegedPeerState state = 3;
+}
+
+message PrivilegedPeerAnswer {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+  WebRtcSessionDescription answer = 3;
+}
+
+message PrivilegedLocalIceCandidate {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+  IceCandidate candidate = 3;
+}
+
+message PrivilegedCommandAccepted {
+  bytes lease_id = 1;
+  uint64 generation = 2;
+}
+
+message PrivilegedBridgeClientFrame {
+  ProtocolVersion protocol_version = 1;
+  string request_id = 2;
+  uint64 sequence = 3;
+  oneof payload {
+    PrivilegedBridgeAuthenticate authenticate = 10;
+    RegisterPrivilegedHelperRequest register_helper = 11;
+    AcquirePrivilegedLeaseRequest acquire_lease = 20;
+    RenewPrivilegedLeaseRequest renew_lease = 21;
+    ReleasePrivilegedLeaseRequest release_lease = 22;
+    StartPrivilegedPeerRequest start_peer = 23;
+    RestartPrivilegedPeerRequest restart_peer = 24;
+    AddPrivilegedIceCandidateRequest add_ice_candidate = 25;
+    SendSecureAttentionRequest send_secure_attention = 26;
+    PrivilegedInputCommand input_command = 27;
+    ClosePrivilegedPeerRequest close_peer = 28;
+  }
+}
+
+message PrivilegedBridgeServerFrame {
+  ProtocolVersion protocol_version = 1;
+  string request_id = 2;
+  uint64 sequence = 3;
+  oneof payload {
+    PrivilegedBridgeChallenge challenge = 10;
+    PrivilegedBridgeAuthenticated authenticated = 11;
+    PrivilegedHelperRegistered helper_registered = 12;
+    PrivilegedBridgeStatusSnapshot status = 20;
+    PrivilegedLease lease = 21;
+    PrivilegedPeerAnswer peer_answer = 22;
+    PrivilegedLocalIceCandidate local_ice_candidate = 23;
+    PrivilegedPeerStateChanged peer_state_changed = 24;
+    PrivilegedReliableInputEvent reliable_input = 25;
+    PrivilegedFastPointerEvent fast_pointer = 26;
+    PrivilegedCommandAccepted command_accepted = 27;
+    UnifiedError error = 29;
+  }
+}

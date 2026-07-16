@@ -1,0 +1,44 @@
+name: roammand
+description: Account-free remote control for your own computers.
+publish_to: none
+version: 0.0.1+1
+
+environment:
+  sdk: '>=3.12.0 <4.0.0'
+
+dependencies:
+  crypto: 3.0.6
+  cryptography: 2.9.0
+  dart_ipc: 2.0.0
+  device_info_plus: 13.2.0
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_secure_storage: 10.3.1
+  flutter_webrtc: 1.5.2
+  fixnum: 1.1.1
+  intl: ^0.20.2
+  mobile_scanner: 7.2.0
+  path: 1.9.1
+  path_provider: 2.1.6
+  roammand_protocol:
+    path: ../../gen/dart
+  qr_flutter: 4.1.0
+  tray_manager: 0.5.3
+  web_socket_channel: 3.0.3
+  window_manager: 0.5.2
+  shared_preferences: ^2.5.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  generate: true
+  uses-material-design: true
+  assets:
+    - assets/bip39-english.txt
+    - assets/brand/
+    - windows/runner/resources/app_icon.ico

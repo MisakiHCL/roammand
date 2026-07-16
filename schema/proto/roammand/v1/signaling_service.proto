@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package roammand.v1;
+
+import "roammand/v1/error.proto";
+import "roammand/v1/version.proto";
+
+option go_package = "github.com/MisakiHCL/roammand/gen/go/roammand/v1;roammandv1";
+
+enum PairingRendezvousKind {
+  PAIRING_RENDEZVOUS_KIND_UNSPECIFIED = 0;
+  PAIRING_RENDEZVOUS_KIND_QR = 1;
+  PAIRING_RENDEZVOUS_KIND_DESKTOP_CODE = 2;
+}
+
+enum PairingRendezvousCompletion {
+  PAIRING_RENDEZVOUS_COMPLETION_UNSPECIFIED = 0;
+  PAIRING_RENDEZVOUS_COMPLETION_SUCCEEDED = 1;
+  PAIRING_RENDEZVOUS_COMPLETION_REJECTED = 2;
+  PAIRING_RENDEZVOUS_COMPLETION_EXPIRED = 3;
+  PAIRING_RENDEZVOUS_COMPLETION_DISCONNECTED = 4;
+}
+
+message RegisterDevice {
+  bytes device_id = 1;
+}
+
+message RegistrationAccepted {
+  bytes device_id = 1;
+  uint64 presence_expires_at_unix_ms = 2;
+}
+
+message Heartbeat {}
+
+message HeartbeatAcknowledged {
+  uint64 server_time_unix_ms = 1;
+  uint64 presence_expires_at_unix_ms = 2;
+}
+
+message PresenceQuery {
+  bytes device_id = 1;
+}
+
+message PresenceResult {
+  bytes device_id = 1;
+  bool online = 2;
+}
+
+message CreatePairingRendezvous {
+  bytes rendezvous_id = 1;
+  PairingRendezvousKind kind = 2;
+  string pairing_code = 3;
+}
+
+message PairingRendezvousCreated {
+  bytes rendezvous_id = 1;
+  PairingRendezvousKind kind = 2;
+  uint64 expires_at_unix_ms = 3;
+}
+
+message JoinPairingRendezvous {
+  oneof lookup {
+    bytes rendezvous_id = 1;
+    string pairing_code = 2;
+  }
+}
+
+message PairingRendezvousJoined {
+  bytes rendezvous_id = 1;
+  bytes peer_device_id = 2;
+  uint64 expires_at_unix_ms = 3;
+}
+
+message RelayPairingEnvelope {
+  bytes rendezvous_id = 1;
+  bytes opaque_envelope = 2;
+}
+
+message RoutedPairingEnvelope {
+  bytes rendezvous_id = 1;
+  bytes sender_device_id = 2;
+  bytes opaque_envelope = 3;
+}
+
+message CompletePairingRendezvous {
+  bytes rendezvous_id = 1;
+  PairingRendezvousCompletion completion = 2;
+}
+
+message PairingRendezvousClosed {
+  bytes rendezvous_id = 1;
+  PairingRendezvousCompletion completion = 2;
+}
+
+message RelaySessionEnvelope {
+  bytes recipient_device_id = 1;
+  bytes opaque_envelope = 2;
+}
+
+message RoutedSessionEnvelope {
+  bytes sender_device_id = 1;
+  bytes opaque_envelope = 2;
+}
+
+message SignalingClientFrame {
+  ProtocolVersion protocol_version = 1;
+  string request_id = 2;
+  oneof payload {
+    RegisterDevice register = 10;
+    Heartbeat heartbeat = 11;
+    PresenceQuery presence_query = 12;
+    CreatePairingRendezvous create_rendezvous = 13;
+    JoinPairingRendezvous join_rendezvous = 14;
+    RelayPairingEnvelope relay_pairing = 15;
+    CompletePairingRendezvous complete_rendezvous = 16;
+    RelaySessionEnvelope relay_session = 17;
+  }
+}
+
+message SignalingServerFrame {
+  ProtocolVersion protocol_version = 1;
+  string request_id = 2;
+  oneof payload {
+    RegistrationAccepted registered = 10;
+    HeartbeatAcknowledged heartbeat_acknowledged = 11;
+    PresenceResult presence_result = 12;
+    PairingRendezvousCreated rendezvous_created = 13;
+    PairingRendezvousJoined rendezvous_joined = 14;
+    RoutedPairingEnvelope routed_pairing = 15;
+    PairingRendezvousClosed rendezvous_closed = 16;
+    RoutedSessionEnvelope routed_session = 17;
+    UnifiedError error = 18;
+  }
+}

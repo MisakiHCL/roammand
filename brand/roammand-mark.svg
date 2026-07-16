@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 640" role="img" aria-labelledby="title desc">
+  <title id="title">Roammand logo mark</title>
+  <desc id="desc">An interlocking computer workspace and mobile controller connected by a single command path.</desc>
+  <defs>
+    <linearGradient id="signal" x1="24" y1="64" x2="720" y2="584" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#32C9F3"/>
+      <stop offset="0.55" stop-color="#7E7BFF"/>
+      <stop offset="1" stop-color="#A9A7FF"/>
+    </linearGradient>
+    <linearGradient id="connector" x1="238" y1="342" x2="448" y2="286" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#32C9F3"/>
+      <stop offset="0.55" stop-color="#5AA9F7"/>
+      <stop offset="1" stop-color="#7E7BFF"/>
+    </linearGradient>
+  </defs>
+  <path d="M428 548H148c-70 0-116-46-116-116V208c0-70 46-116 116-116h316c70 0 116 46 116 96" fill="none" stroke="url(#signal)" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M238 342c84 0 116-56 210-56" fill="none" stroke="url(#connector)" stroke-width="28" stroke-linecap="round"/>
+  <rect x="448" y="208" width="250" height="380" rx="82" fill="none" stroke="#F3F2FF" stroke-width="40"/>
+  <circle cx="573" cy="400" r="38" fill="none" stroke="url(#signal)" stroke-width="22"/>
+  <circle cx="573" cy="400" r="9" fill="#F3F2FF"/>
+</svg>

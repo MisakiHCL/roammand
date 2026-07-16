@@ -1,0 +1,19 @@
+[package]
+name = "roammand-ipc"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+hmac = { version = "0.13.0", features = ["zeroize"] }
+roammand-protocol = { path = "../../gen/rust" }
+sha2 = "0.11.0"
+thiserror = "2.0.18"
+zeroize = "1.9.0"
+
+[dev-dependencies]
+hex = "0.4.3"

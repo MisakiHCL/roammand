@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: MPL-2.0
+
+// Public defaults keep source and simulator builds independent of a developer
+// account. A local ignored file may override both values for signed archives.
+ROAMMAND_APPLE_BUNDLE_ID = dev.roammand.app
+ROAMMAND_APPLE_TEAM_ID =
+
+#include? "Signing.local.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = $(ROAMMAND_APPLE_BUNDLE_ID)
+DEVELOPMENT_TEAM = $(ROAMMAND_APPLE_TEAM_ID)

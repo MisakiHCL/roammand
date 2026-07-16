@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package roammand.v1;
+
+option go_package = "github.com/MisakiHCL/roammand/gen/go/roammand/v1;roammandv1";
+
+enum SessionPermission {
+  SESSION_PERMISSION_UNSPECIFIED = 0;
+  SESSION_PERMISSION_VIEW_SCREEN = 1;
+  SESSION_PERMISSION_CONTROL_INPUT = 2;
+}
+
+message SessionOfferAuthentication {
+  bytes controller_device_id = 1;
+  bytes host_device_id = 2;
+  bytes session_id = 3;
+  bytes nonce = 4;
+  uint64 issued_at_unix_ms = 5;
+  uint64 expires_at_unix_ms = 6;
+  repeated SessionPermission requested_permissions = 7;
+  bytes offer_sha256 = 8;
+  bytes controller_dtls_fingerprint_sha256 = 9;
+  bytes signature = 10;
+}
+
+message SessionAnswerAuthentication {
+  bytes controller_device_id = 1;
+  bytes host_device_id = 2;
+  bytes session_id = 3;
+  bytes nonce = 4;
+  uint64 issued_at_unix_ms = 5;
+  uint64 expires_at_unix_ms = 6;
+  repeated SessionPermission requested_permissions = 7;
+  bytes offer_sha256 = 8;
+  bytes controller_dtls_fingerprint_sha256 = 9;
+  bytes answer_sha256 = 10;
+  bytes host_dtls_fingerprint_sha256 = 11;
+  bytes signature = 12;
+}
+
+message SessionReconnectAuthentication {
+  bytes controller_device_id = 1;
+  bytes host_device_id = 2;
+  bytes session_id = 3;
+  bytes nonce = 4;
+  uint64 issued_at_unix_ms = 5;
+  uint64 expires_at_unix_ms = 6;
+  repeated SessionPermission requested_permissions = 7;
+  bytes offer_sha256 = 8;
+  bytes controller_dtls_fingerprint_sha256 = 9;
+  bytes answer_sha256 = 10;
+  bytes host_dtls_fingerprint_sha256 = 11;
+  uint32 reconnect_generation = 12;
+  bytes signature = 13;
+}
+
+message SessionAuthentication {
+  oneof payload {
+    SessionOfferAuthentication offer = 1;
+    SessionAnswerAuthentication answer = 2;
+    SessionReconnectAuthentication reconnect = 3;
+  }
+}

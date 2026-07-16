@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+
+# Upstream tag, release asset, SHA-256
+webrtc-24f6822-2 webrtc-mac-arm64-release.zip 79be5cc15e6e0633c4380e33e172d7ebf1a6dce83e9e099761d6103f0d7eb6c1
+webrtc-24f6822-2 webrtc-mac-x64-release.zip 08e421ed66b428498cd6a51330c95d98fed69dc44a3c1349ed16a2468c14c95f
+webrtc-24f6822-2 webrtc-win-x64-release.zip b3c08afcbf3bbb206c40761522cc65c7f6dc18fd3aaa8bdc5af26a28c24c5c8a

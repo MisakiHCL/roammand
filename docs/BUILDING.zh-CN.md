@@ -1,0 +1,284 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# 从源码构建 Roammand
+
+[English](BUILDING.md) · **简体中文**
+
+本指南介绍运行、验证、构建和打包 Roammand 的受支持流程。
+
+## 产品工作流
+
+在仓库根目录运行 `make help` 可以查看常用命令。
+
+| 目标 | 命令 |
+| --- | --- |
+| 检查工具并解析依赖 | `make bootstrap` |
+| 分析和测试 Flutter App | `make app-check` |
+| 运行 macOS App | `make app-run-macos` |
+| 运行可用的 iOS 目标 | `make app-run-ios` |
+| 构建 macOS Release App | `make app-build-macos` |
+| 构建 iOS 模拟器 App | `make app-build-ios-simulator` |
+| 构建 Android Debug APK | `make app-build-android` |
+| 构建并验证 macOS Host 安装包 | `make package-macos` |
+| 运行完整产品门禁 | `make test-product` |
+
+`make bootstrap`、`make app-check` 和 `make test-product` 会隐藏成功时的工具日志，最后只打印一行 `[PASS]` 结论。失败时会显示末尾 40 行日志、保留完整日志的路径，并给出查看完整输出的命令。需要实时查看每条命令时可添加 `VERBOSE=1`，例如 `make test-product VERBOSE=1`。
+
+通过 `FLUTTER_ARGS` 传入支持的 Flutter 参数：
+
+```bash
+make app-run-macos \
+  FLUTTER_ARGS='--dart-define=ROAMMAND_SIGNALING_ENDPOINT=wss://signal.example.com:8443/v1/connect'
+```
+
+## 必需工具
+
+仓库固定了生成文件和自动化检查所使用的工具版本。
+
+| 工具 | 版本 |
+| --- | --- |
+| Flutter | 3.44.0 |
+| Go | 1.26.5 |
+| Rust | 1.97.0 |
+| Buf | 1.69.0 |
+
+还需要安装 Git、Make、Protocol Buffers 和 ripgrep。桌面原生 WebRTC 需要 `curl`、`unzip` 以及对应平台的 C/C++ 工具链。
+
+在 macOS 上安装 Xcode Command Line Tools 和 CocoaPods。在 Windows 上安装 Visual Studio 2022，并选择 **Desktop development with C++**，同时安装受支持的 Windows SDK、CMake、Ninja 和 Git for Windows。运行以下命令确认目标平台环境：
+
+```bash
+flutter doctor -v
+make doctor
+```
+
+## 解析工作区依赖
+
+在仓库根目录运行：
+
+```bash
+make bootstrap
+```
+
+该命令会检查固定版本的工具链，并解析 Flutter、Dart、Rust 和 Go 依赖；不会安装系统软件包或开发者凭据。
+
+## 在本地运行 Roammand
+
+### 1. 启动 signaling
+
+仅在同一台电脑上进行回环测试：
+
+```bash
+cd services/signaling
+go run ./cmd/signaling
+```
+
+默认会话地址为 `ws://127.0.0.1:8080/v1/connect`。
+
+仅在源码 Debug 构建中，同一可信局域网内的实体 Controller 可以使用明文 WebSocket，无需安装开发证书。先让 signaling 监听所有网卡：
+
+```bash
+cd services/signaling
+SIGNALING_LISTEN_ADDR=0.0.0.0:8080 go run ./cmd/signaling
+```
+
+使用 Host 电脑的私有地址，例如 `ws://192.168.3.168:8080/v1/connect`。该开关只接受 RFC 1918 IPv4 或 IPv6 ULA 字面量；域名和公网地址仍会被拒绝。所有参与的 Debug 组件都必须显式开启：
+
+```bash
+ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true \
+ROAMMAND_SIGNALING_ENDPOINT='ws://192.168.3.168:8080/v1/connect' \
+cargo run -p roammand-host-agent --features native-webrtc -- serve
+```
+
+```bash
+make app-run-macos \
+  FLUTTER_ARGS='--dart-define=ROAMMAND_SIGNALING_ENDPOINT=ws://192.168.3.168:8080/v1/connect --dart-define=ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true'
+```
+
+```bash
+make app-run-ios \
+  FLUTTER_ARGS='--dart-define=ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true'
+```
+
+Android 使用等价的 `flutter run -d android` 命令并传入相同 Dart definition。iOS 首次连接时需要允许“本地网络”权限。Rust 环境开关只在启用 debug assertions 的构建中生效，Flutter 开关只在 `kDebugMode` 为 true 时生效；Profile、Release 和已打包 Host 会忽略开关，并继续拒绝非回环 `ws://`。使用明文私有局域网端点创建的 Host 绑定只用于开发；测试 Profile 或 Release App 前必须通过 WSS 重新配对。
+
+常规跨设备使用和所有 Release 验收必须使用 WSS，并使用所有设备都信任的证书：
+
+```bash
+cd services/signaling
+SIGNALING_LISTEN_ADDR=0.0.0.0:8443 \
+SIGNALING_TLS_CERT_FILE='certs/fullchain.pem' \
+SIGNALING_TLS_KEY_FILE='certs/private-key.pem' \
+go run ./cmd/signaling
+```
+
+将 `wss://<server-name>:8443/v1/connect` 作为连接地址。反向代理必须保留二进制 WebSocket 帧和 `roammand-signaling.v1.protobuf` 子协议。
+
+### 2. 启动 Host Agent
+
+在被控制的电脑上运行：
+
+```bash
+ROAMMAND_SIGNALING_ENDPOINT='wss://signal.example.com:8443/v1/connect' \
+cargo run -p roammand-host-agent --features native-webrtc -- serve
+```
+
+Windows PowerShell：
+
+```powershell
+$env:ROAMMAND_SIGNALING_ENDPOINT = 'wss://signal.example.com:8443/v1/connect'
+cargo run -p roammand-host-agent --features native-webrtc -- serve
+```
+
+Host Agent 管理桌面设备身份、授权记录、WebRTC peer、画面采集和输入链路。在 macOS 上，请在系统提示时授予屏幕录制和辅助功能权限。
+
+### 3. 启动 App
+
+macOS：
+
+```bash
+make app-run-macos \
+  FLUTTER_ARGS='--dart-define=ROAMMAND_SIGNALING_ENDPOINT=wss://signal.example.com:8443/v1/connect'
+```
+
+Windows：
+
+```powershell
+cd apps\client_flutter
+flutter run -d windows --dart-define=ROAMMAND_SIGNALING_ENDPOINT=wss://signal.example.com:8443/v1/connect
+```
+
+Flutter App 和 Host Agent 必须由同一操作系统用户运行。App 通过仅限当前用户且经过认证的 IPC 连接 Agent，不负责启动或管理 Agent 进程。
+
+### 4. 配对 Controller
+
+- 手机或平板：在 Host 上打开“此电脑”，显示手机二维码，然后运行 `flutter run -d android` 或 `flutter run -d ios`，使用相机扫描。
+- 另一台电脑：创建桌面配对码，在“我的电脑”中输入，核对全部四个英文验证词，并在 Host 旁确认批准。
+
+批准后，已保存的电脑卡片可以直接发起后续会话，无需再次配对。在 Controller 上删除卡片只会删除本地记录；在 Host 上撤销授权才会阻止后续连接。
+
+## TURN 配置
+
+默认优先使用直接 ICE。测试仅中继连接时，请在 Host 和 Controller 上配置相同的短期 TURN 参数：
+
+```bash
+ROAMMAND_ICE_TRANSPORT_POLICY=relay \
+ROAMMAND_TURN_URLS='turns:turn.example.com:5349' \
+ROAMMAND_TURN_USERNAME='<short-lived-username>' \
+ROAMMAND_TURN_PASSWORD='<short-lived-password>' \
+ROAMMAND_SIGNALING_ENDPOINT='wss://signal.example.com:8443/v1/connect' \
+cargo run -p roammand-host-agent --features native-webrtc -- serve
+```
+
+```bash
+cd apps/client_flutter
+flutter run -d ios \
+  --dart-define=ROAMMAND_ICE_TRANSPORT_POLICY=relay \
+  --dart-define=ROAMMAND_TURN_URLS=turns:turn.example.com:5349 \
+  --dart-define=ROAMMAND_TURN_USERNAME='<short-lived-username>' \
+  --dart-define=ROAMMAND_TURN_PASSWORD='<short-lived-password>'
+```
+
+TURN URL、用户名和密码必须同时提供或同时省略。不要提交或记录这些凭据。完整部署方式见 [Docker Compose 自托管](self-hosting/docker-compose.md)。
+
+## 构建平台 App
+
+```bash
+make app-build-macos
+make app-build-ios-simulator
+make app-build-android
+```
+
+Windows Release：
+
+```powershell
+cd apps\client_flutter
+flutter build windows --release
+```
+
+构建产物保存在 `apps/client_flutter/build/`，并由 Git 忽略。
+
+## 打包可安装的 Host
+
+默认 Release 构建要求工作树干净。打包脚本只会暂存允许的 App、Agent、Bridge/Helper、服务定义、许可证和排序后的 SHA-256 清单。设备身份、授权、连接地址、凭据、私钥和本地开发者路径不会进入安装包。
+
+### macOS
+
+```bash
+make package-macos
+sudo ./scripts/install_m8_macos.sh --package dist/m8-macos --dry-run
+sudo ./scripts/install_m8_macos.sh --package dist/m8-macos
+```
+
+安装器会把 `Roammand.app` 放入 `/Applications`，将特权二进制放入 `/Library/PrivilegedHelperTools`，并将 launchd 定义放入 `/Library/LaunchDaemons` 和 `/Library/LaunchAgents`。安装后注销并重新登录一次，使全局图形会话 Agent 生效。
+
+预览或移除已安装组件：
+
+```bash
+sudo ./scripts/uninstall_m8_macos.sh --dry-run
+sudo ./scripts/uninstall_m8_macos.sh
+```
+
+### Windows
+
+使用管理员 PowerShell：
+
+```powershell
+pwsh -NoProfile -File scripts/package_m8_windows.ps1
+pwsh -NoProfile -File scripts/check_m8_windows_package.ps1 -Package dist\m8-windows
+pwsh -NoProfile -File scripts/install_m8_windows.ps1 -Package dist\m8-windows -WhatIf
+pwsh -NoProfile -File scripts/install_m8_windows.ps1 -Package dist\m8-windows
+```
+
+预览或移除已安装组件：
+
+```powershell
+pwsh -NoProfile -File scripts/uninstall_m8_windows.ps1 -WhatIf
+pwsh -NoProfile -File scripts/uninstall_m8_windows.ps1
+```
+
+两个卸载器都会保留每位用户的设备身份和 Controller 授权。请使用[最终产品人工验收清单](operations/final-product-acceptance.md)在真实操作系统上验证受保护图形会话。
+
+## 配置本地 Apple 签名
+
+公开 Xcode 工程不包含 Apple 开发者身份。在仓库根目录配置由 Git 忽略的本地覆盖文件：
+
+```bash
+./scripts/configure_apple_signing.sh \
+  --team-id YOUR_TEAM_ID \
+  --bundle-id com.example.roammand
+./scripts/configure_apple_signing.sh --check
+```
+
+该命令会校验输入，以原子方式写入 `apps/client_flutter/apple/Signing.local.xcconfig`，并将权限设置为 `0600`。证书、私钥、Provisioning Profile、App Store Connect `*.p8` Key 和本地 Export Options 必须始终保留在 Git 之外。
+
+需要时可以检查实际生效的 Release 配置：
+
+```bash
+cd apps/client_flutter
+xcodebuild -project ios/Runner.xcodeproj -scheme Runner \
+  -configuration Release -sdk iphoneos -showBuildSettings \
+  | grep -E 'DEVELOPMENT_TEAM|PRODUCT_BUNDLE_IDENTIFIER'
+xcodebuild -project macos/Runner.xcodeproj -scheme Runner \
+  -configuration Release -showBuildSettings \
+  | grep -E 'DEVELOPMENT_TEAM|PRODUCT_BUNDLE_IDENTIFIER'
+```
+
+iOS 使用 App Store/TestFlight Archive 发行。完整 macOS Host 使用 Developer ID 签名、Hardened Runtime、签名安装器、公证和 stapling，通过官网下载发行。其需要特权组件且不使用沙盒的架构不适用于 Mac App Store；如需商店发行，必须采用独立的沙盒 Controller-only 设计。
+
+## 验证改动
+
+```bash
+make format-check
+make test
+make test-product
+```
+
+生成并验证带版本的协议产物：
+
+```bash
+make generate
+make generate-check
+make test-conformance
+```
+
+协议、配对、会话、Bridge、安全、自托管和运维契约分别记录在[架构](architecture/README.zh-CN.md)、[安全](security/README.zh-CN.md)、[自托管](self-hosting/docker-compose.md)和[运维](operations/README.zh-CN.md)文档中。

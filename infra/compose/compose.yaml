@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: Apache-2.0
+
+name: roammand
+
+services:
+  signaling:
+    build:
+      context: ../..
+      dockerfile: services/signaling/Dockerfile
+    image: roammand-signaling:0.0.1
+    restart: unless-stopped
+    read_only: true
+    user: "65532:65532"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      SIGNALING_LISTEN_ADDR: "0.0.0.0:8443"
+      SIGNALING_TLS_CERT_FILE: /run/secrets/tls_cert
+      SIGNALING_TLS_KEY_FILE: /run/secrets/tls_key
+    secrets:
+      - tls_cert
+      - tls_key
+    ports:
+      - "8443:8443/tcp"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,uid=65532,gid=65532
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --quiet
+        - --spider
+        - --no-check-certificate
+        - https://127.0.0.1:8443/healthz
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  coturn:
+    image: coturn/coturn:4.14.0-r0
+    restart: unless-stopped
+    read_only: true
+    user: "65534:65532"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - /usr/local/bin/roammand-coturn-entrypoint.sh
+    environment:
+      TURN_REALM: "${TURN_REALM:?Set TURN_REALM in the env file}"
+      TURN_EXTERNAL_IP: "${TURN_EXTERNAL_IP:?Set TURN_EXTERNAL_IP in the env file}"
+    volumes:
+      - type: bind
+        source: ./coturn-entrypoint.sh
+        target: /usr/local/bin/roammand-coturn-entrypoint.sh
+        read_only: true
+    secrets:
+      - tls_cert
+      - tls_key
+      - turn_username
+      - turn_password
+    ports:
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+      - "5349:5349/tcp"
+      - "5349:5349/udp"
+      - "49160-49200:49160-49200/udp"
+    tmpfs:
+      - /run/roammand:rw,noexec,nosuid,nodev,size=1m,mode=0700,uid=65534,gid=65532
+      - /var/lib/coturn:rw,noexec,nosuid,nodev,size=1m,mode=0700,uid=65534,gid=65532
+    healthcheck:
+      test:
+        - CMD
+        - turnutils_stunclient
+        - -p
+        - "3478"
+        - 127.0.0.1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  tls_cert:
+    file: "${TLS_CERT_FILE:?Set TLS_CERT_FILE in the env file}"
+  tls_key:
+    file: "${TLS_KEY_FILE:?Set TLS_KEY_FILE in the env file}"
+  turn_username:
+    file: "${TURN_USERNAME_FILE:?Set TURN_USERNAME_FILE in the env file}"
+  turn_password:
+    file: "${TURN_PASSWORD_FILE:?Set TURN_PASSWORD_FILE in the env file}"

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<service>
+  <name>RoammandPrivilegedBridge</name>
+  <displayName>Roammand Privileged Bridge</displayName>
+  <executable>C:\Program Files\Roammand\roammand-privileged-bridge.exe</executable>
+  <account>LocalSystem</account>
+  <startType>automatic</startType>
+  <interactive>false</interactive>
+  <sessionNotifications>true</sessionNotifications>
+  <recovery first="restart" second="restart" subsequent="restart" resetSeconds="86400" />
+</service>
