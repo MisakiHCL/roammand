@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:roammand/design_system/roammand_theme.dart';
 import 'package:roammand/desktop/desktop_app_root.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
@@ -13,6 +14,12 @@ import 'package:roammand_protocol/roammand_protocol.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isIOS) {
+    await SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
   if (Platform.isMacOS || Platform.isWindows) {
     await prepareDesktopWindow();
   }
@@ -80,11 +87,17 @@ final class _RoammandAppState extends State<RoammandApp> {
     }
     if (widget.mobileHome case final home?) return home;
     if (Platform.isIOS) {
-      return const MobileAppRoot(platform: DevicePlatform.DEVICE_PLATFORM_IOS);
+      return MobileAppRoot(
+        platform: DevicePlatform.DEVICE_PLATFORM_IOS,
+        localePreference: _localeController.preference,
+        onLocalePreferenceChanged: _localeController.setPreference,
+      );
     }
     if (Platform.isAndroid) {
-      return const MobileAppRoot(
+      return MobileAppRoot(
         platform: DevicePlatform.DEVICE_PLATFORM_ANDROID,
+        localePreference: _localeController.preference,
+        onLocalePreferenceChanged: _localeController.setPreference,
       );
     }
     return const DevelopmentStatusPage();

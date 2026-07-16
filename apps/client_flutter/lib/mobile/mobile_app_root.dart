@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
+import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/home/mobile_home_page.dart';
 import 'package:roammand/mobile/identity/device_name_provider.dart';
@@ -15,9 +16,17 @@ import 'package:roammand/pairing/trusted_host_store.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 final class MobileAppRoot extends StatefulWidget {
-  const MobileAppRoot({required this.platform, super.key});
+  const MobileAppRoot({
+    required this.platform,
+    this.localePreference = AppLocalePreference.system,
+    this.onLocalePreferenceChanged,
+    super.key,
+  });
 
   final DevicePlatform platform;
+  final AppLocalePreference localePreference;
+  final Future<void> Function(AppLocalePreference preference)?
+  onLocalePreferenceChanged;
 
   @override
   State<MobileAppRoot> createState() => _MobileAppRootState();
@@ -78,7 +87,12 @@ final class _MobileAppRootState extends State<MobileAppRoot> {
     final identity = _identity;
     final trustedHosts = _trustedHosts;
     if (identity != null && trustedHosts != null) {
-      return MobileHomePage(identity: identity, trustedHosts: trustedHosts);
+      return MobileHomePage(
+        identity: identity,
+        trustedHosts: trustedHosts,
+        localePreference: widget.localePreference,
+        onLocalePreferenceChanged: widget.onLocalePreferenceChanged,
+      );
     }
     if (_failed) {
       final strings = AppLocalizations.of(context);

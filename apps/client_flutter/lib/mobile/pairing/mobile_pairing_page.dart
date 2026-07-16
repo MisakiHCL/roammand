@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/identity/mobile_device_identity.dart';
+import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 import 'package:roammand/pairing/controller_pairing_engine.dart';
 import 'package:roammand/pairing/controller_pairing_models.dart';
 import 'package:roammand/pairing/pairing_signaling_client.dart';
@@ -19,8 +22,18 @@ import 'qr_scanner.dart';
 const _wordListAsset = 'assets/bip39-english.txt';
 const _pagePadding = 16.0;
 const _sectionSpacing = 16.0;
-const _previewAspectRatio = 3 / 4;
 const _fingerprintBytes = 8;
+const _scannerMessageWidth = 440.0;
+const _scannerOverlayPadding = 12.0;
+const _scannerElementSpacing = 8.0;
+const _scannerMessageHeight = 36.0;
+const _scannerFeedbackHeight = 40.0;
+const _scannerMinimumCutoutSize = 120.0;
+const _scannerMaximumCutoutSize = 240.0;
+const _scannerCutoutScreenFraction = 0.76;
+const _scannerCutoutOuterSpacing = 16.0;
+const _pairingTitleFontSize = 16.0;
+const _pairingBodyFontSize = 12.0;
 
 abstract interface class MobileControllerPairingSession {
   Stream<ControllerPairingSnapshot> get states;
@@ -84,6 +97,8 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
   bool _invalidQr = false;
   bool _claimedCode = false;
   bool _creatingSession = false;
+  bool _scannerStarting = false;
+  bool _successfulPairingCloseScheduled = false;
   bool _disposed = false;
   Timer? _countdown;
 
@@ -95,26 +110,40 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
     _scanner = widget.scanner ?? MobileQrScannerSession();
     _scannerSubscription = _scanner.events.listen(_onScannerEvent);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_disposed) unawaited(_scanner.start());
+      if (!_disposed) unawaited(_startScanner());
     });
+  }
+
+  Future<void> _startScanner() async {
+    if (_disposed || _scannerStarting) return;
+    _scannerStarting = true;
+    try {
+      await _scanner.start();
+    } finally {
+      _scannerStarting = false;
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_disposed || _claimedCode) return;
     if (state == AppLifecycleState.resumed) {
-      unawaited(_scanner.resume());
+      if (!_scannerStarting) unawaited(_scanner.resume());
     } else if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached ||
         state == AppLifecycleState.hidden) {
-      unawaited(_scanner.pause());
+      if (!_scannerStarting) unawaited(_scanner.pause());
     }
   }
 
   void _onScannerEvent(QrScannerEvent event) {
     if (_disposed || _claimedCode) return;
     switch (event) {
+      case QrScannerReady():
+        if (mounted && _scannerFailure != null) {
+          setState(() => _scannerFailure = null);
+        }
       case QrScannerCode(:final value):
         _acceptCode(value);
       case QrScannerFailed(:final failure):
@@ -178,11 +207,23 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
     if (!mounted) return;
     setState(() => _snapshot = snapshot);
     _countdown?.cancel();
+    if (snapshot.state == ControllerPairingState.accepted) {
+      _scheduleSuccessfulPairingClose();
+      return;
+    }
     if (!snapshot.isTerminal && snapshot.expiresAtUnixMs > 0) {
       _countdown = Timer.periodic(const Duration(seconds: 1), (_) {
         if (mounted) setState(() {});
       });
     }
+  }
+
+  void _scheduleSuccessfulPairingClose() {
+    if (_successfulPairingCloseScheduled) return;
+    _successfulPairingCloseScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop();
+    });
   }
 
   Future<void> _cancel() async {
@@ -205,56 +246,210 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
-    return PopScope(
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) unawaited(_cancel());
+    return Theme(
+      data: _compactPairingTheme(Theme.of(context)),
+      child: PopScope(
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) unawaited(_cancel());
+        },
+        child: _claimedCode
+            ? Scaffold(
+                appBar: AppBar(),
+                body: RoammandBackdrop(
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(_pagePadding),
+                      child: Builder(
+                        builder: (context) => _buildPairing(context, strings),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : Scaffold(
+                backgroundColor: Colors.black,
+                body: Builder(
+                  builder: (context) => _buildScanner(context, strings),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildScanner(BuildContext context, AppLocalizations strings) {
+    final safePadding = MediaQuery.paddingOf(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cutout = _scannerCutout(constraints.biggest, safePadding);
+        return Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            ColoredBox(color: Colors.black, child: _scanner.buildPreview()),
+            IgnorePointer(
+              child: CustomPaint(
+                key: const Key('mobile-scanner-mask'),
+                painter: _ScannerOverlayPainter(cutout: cutout),
+              ),
+            ),
+            Positioned.fromRect(
+              rect: cutout,
+              child: const IgnorePointer(
+                child: SizedBox.expand(key: Key('mobile-scanner-focus-area')),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: MobilePageHeader(
+                safePadding: safePadding,
+                surfaceKey: const Key('mobile-scanner-header'),
+                child: Row(
+                  children: <Widget>[
+                    MobilePageBackButton(
+                      buttonKey: const Key('mobile-scanner-close'),
+                      onPressed: () => unawaited(_cancel()),
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).backButtonTooltip,
+                    ),
+                    const Spacer(),
+                    _scannerButton(
+                      key: const Key('mobile-scanner-torch'),
+                      onPressed: () => unawaited(_scanner.toggleTorch()),
+                      tooltip: strings.mobileScannerTorchAction,
+                      icon: Icons.flashlight_on_outlined,
+                    ),
+                    const SizedBox(width: _scannerElementSpacing),
+                    _scannerButton(
+                      key: const Key('mobile-scanner-switch-camera'),
+                      onPressed: () => unawaited(_scanner.switchCamera()),
+                      tooltip: strings.mobileScannerSwitchCameraAction,
+                      icon: Icons.cameraswitch_outlined,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              left: _scannerOverlayPadding,
+              right: _scannerOverlayPadding,
+              bottom:
+                  safePadding.bottom +
+                  _scannerOverlayPadding +
+                  _scannerMessageHeight +
+                  _scannerElementSpacing,
+              child: _buildScannerFeedback(context, strings),
+            ),
+            Positioned(
+              left: _scannerOverlayPadding,
+              right: _scannerOverlayPadding,
+              bottom: safePadding.bottom + _scannerOverlayPadding,
+              child: _buildScannerMessage(context, strings),
+            ),
+          ],
+        );
       },
-      child: Scaffold(
-        appBar: AppBar(title: Text(strings.mobileScannerTitle)),
-        body: RoammandBackdrop(
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(_pagePadding),
-              child: _claimedCode
-                  ? _buildPairing(context, strings)
-                  : _buildScanner(strings),
+    );
+  }
+
+  Widget _buildScannerMessage(BuildContext context, AppLocalizations strings) =>
+      Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _scannerMessageWidth),
+          child: SizedBox(
+            key: const Key('mobile-scanner-message'),
+            height: _scannerMessageHeight,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Center(
+                  child: Text(
+                    strings.mobileScannerInstructions,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  ),
+                ),
+              ),
             ),
           ),
+        ),
+      );
+
+  Widget _buildScannerFeedback(BuildContext context, AppLocalizations strings) {
+    final text = _scannerFeedbackText(strings);
+    return SizedBox(
+      height: _scannerFeedbackHeight,
+      child: Center(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 160),
+          child: text == null
+              ? const SizedBox.shrink(key: Key('mobile-scanner-feedback-empty'))
+              : ConstrainedBox(
+                  key: const Key('mobile-scanner-feedback'),
+                  constraints: const BoxConstraints(
+                    maxWidth: _scannerMessageWidth,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.78),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: RoammandColors.emergency.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        text,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: RoammandColors.emergency,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
         ),
       ),
     );
   }
 
-  Widget _buildScanner(AppLocalizations strings) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: <Widget>[
-      Expanded(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: ColoredBox(
-            color: Colors.black,
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: _previewAspectRatio,
-                child: _scanner.buildPreview(),
-              ),
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(height: _sectionSpacing),
-      Text(strings.mobileScannerInstructions, textAlign: TextAlign.center),
-      if (_invalidQr || _scannerFailure != null) ...<Widget>[
-        const SizedBox(height: 8),
-        Text(
-          _invalidQr
-              ? strings.mobileInvalidQr
-              : _scannerFailureText(strings, _scannerFailure!),
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Theme.of(context).colorScheme.error),
-        ),
-      ],
-    ],
+  String? _scannerFeedbackText(AppLocalizations strings) {
+    if (_invalidQr) return strings.mobileInvalidQr;
+    final failure = _scannerFailure;
+    return failure == null ? null : _scannerFailureText(strings, failure);
+  }
+
+  Widget _scannerButton({
+    required Key key,
+    required VoidCallback onPressed,
+    required String tooltip,
+    required IconData icon,
+  }) => IconButton(
+    key: key,
+    onPressed: onPressed,
+    tooltip: tooltip,
+    constraints: const BoxConstraints.tightFor(
+      width: mobilePageHeaderActionSize,
+      height: mobilePageHeaderActionSize,
+    ),
+    padding: const EdgeInsets.all(8),
+    icon: Icon(icon, color: RoammandColors.textPrimary, size: 20),
   );
 
   Widget _buildPairing(BuildContext context, AppLocalizations strings) {
@@ -387,4 +582,125 @@ final class _EngineMobilePairingSession
   Future<void> cancel() => _engine.cancel();
   @override
   Future<void> close() => _engine.close();
+}
+
+Rect _scannerCutout(Size size, EdgeInsets safePadding) {
+  if (size.isEmpty) return Rect.zero;
+  final top = safePadding.top + mobilePageHeaderHeight + _scannerElementSpacing;
+  final bottom =
+      safePadding.bottom +
+      _scannerOverlayPadding +
+      _scannerMessageHeight +
+      _scannerFeedbackHeight +
+      (_scannerElementSpacing * 2);
+  final availableWidth = math.max(
+    0.0,
+    size.width - (_scannerOverlayPadding * 2),
+  );
+  final availableHeight = math.max(0.0, size.height - top - bottom);
+  final shortestAvailable = math.min(availableWidth, availableHeight);
+  final maximumAvailable = math.max(
+    0.0,
+    shortestAvailable - _scannerCutoutOuterSpacing,
+  );
+  final preferredSize = math.max(
+    _scannerMinimumCutoutSize,
+    shortestAvailable * _scannerCutoutScreenFraction,
+  );
+  final cutoutSize = math.min(
+    maximumAvailable,
+    math.min(_scannerMaximumCutoutSize, preferredSize),
+  );
+  return Rect.fromCenter(
+    center: Offset(size.width / 2, top + (availableHeight / 2)),
+    width: cutoutSize,
+    height: cutoutSize,
+  );
+}
+
+final class _ScannerOverlayPainter extends CustomPainter {
+  const _ScannerOverlayPainter({required this.cutout});
+
+  final Rect cutout;
+  static const _cornerLength = 28.0;
+  static const _cornerRadius = 16.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cutoutRRect = RRect.fromRectAndRadius(
+      cutout,
+      const Radius.circular(_cornerRadius),
+    );
+    final mask = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addRRect(cutoutRRect);
+    canvas.drawPath(mask, Paint()..color = const Color(0x8F000000));
+
+    final corners = Path()
+      ..moveTo(cutout.left, cutout.top + _cornerLength)
+      ..lineTo(cutout.left, cutout.top + _cornerRadius)
+      ..quadraticBezierTo(
+        cutout.left,
+        cutout.top,
+        cutout.left + _cornerRadius,
+        cutout.top,
+      )
+      ..lineTo(cutout.left + _cornerLength, cutout.top)
+      ..moveTo(cutout.right - _cornerLength, cutout.top)
+      ..lineTo(cutout.right - _cornerRadius, cutout.top)
+      ..quadraticBezierTo(
+        cutout.right,
+        cutout.top,
+        cutout.right,
+        cutout.top + _cornerRadius,
+      )
+      ..lineTo(cutout.right, cutout.top + _cornerLength)
+      ..moveTo(cutout.right, cutout.bottom - _cornerLength)
+      ..lineTo(cutout.right, cutout.bottom - _cornerRadius)
+      ..quadraticBezierTo(
+        cutout.right,
+        cutout.bottom,
+        cutout.right - _cornerRadius,
+        cutout.bottom,
+      )
+      ..lineTo(cutout.right - _cornerLength, cutout.bottom)
+      ..moveTo(cutout.left + _cornerLength, cutout.bottom)
+      ..lineTo(cutout.left + _cornerRadius, cutout.bottom)
+      ..quadraticBezierTo(
+        cutout.left,
+        cutout.bottom,
+        cutout.left,
+        cutout.bottom - _cornerRadius,
+      )
+      ..lineTo(cutout.left, cutout.bottom - _cornerLength);
+    canvas.drawPath(
+      corners,
+      Paint()
+        ..color = RoammandColors.signalCyan
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ScannerOverlayPainter oldDelegate) =>
+      oldDelegate.cutout != cutout;
+}
+
+ThemeData _compactPairingTheme(ThemeData theme) {
+  final text = theme.textTheme;
+  return theme.copyWith(
+    visualDensity: VisualDensity.compact,
+    textTheme: text.copyWith(
+      titleLarge: text.titleLarge?.copyWith(fontSize: _pairingTitleFontSize),
+      titleMedium: text.titleMedium?.copyWith(fontSize: _pairingTitleFontSize),
+      bodyLarge: text.bodyLarge?.copyWith(fontSize: _pairingBodyFontSize),
+      bodyMedium: text.bodyMedium?.copyWith(fontSize: _pairingBodyFontSize),
+      bodySmall: text.bodySmall?.copyWith(fontSize: _pairingBodyFontSize),
+      labelLarge: text.labelLarge?.copyWith(fontSize: _pairingBodyFontSize),
+      labelMedium: text.labelMedium?.copyWith(fontSize: _pairingBodyFontSize),
+    ),
+  );
 }

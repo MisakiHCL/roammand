@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:roammand/design_system/roammand_brand_mark.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
+import 'package:roammand/l10n/app_language_menu.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
@@ -224,49 +225,14 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
       return null;
     }
     return <Widget>[
-      PopupMenuButton<AppLocalePreference>(
+      AppLanguageMenu(
         key: const Key('language-menu'),
-        tooltip: strings.languageMenuTooltip,
-        icon: const Icon(Icons.language, size: 20),
-        onSelected: (preference) =>
-            unawaited(onLocalePreferenceChanged(preference)),
-        itemBuilder: (context) => <PopupMenuEntry<AppLocalePreference>>[
-          _languageMenuItem(
-            AppLocalePreference.system,
-            strings.languageSystemOption,
-          ),
-          _languageMenuItem(
-            AppLocalePreference.english,
-            strings.languageEnglishOption,
-          ),
-          _languageMenuItem(
-            AppLocalePreference.simplifiedChinese,
-            strings.languageSimplifiedChineseOption,
-          ),
-        ],
+        preference: widget.localePreference,
+        onPreferenceChanged: onLocalePreferenceChanged,
       ),
       const SizedBox(width: 8),
     ];
   }
-
-  PopupMenuItem<AppLocalePreference> _languageMenuItem(
-    AppLocalePreference preference,
-    String label,
-  ) => PopupMenuItem<AppLocalePreference>(
-    value: preference,
-    child: Row(
-      children: <Widget>[
-        SizedBox(
-          width: 20,
-          child: preference == widget.localePreference
-              ? const Icon(Icons.check, size: 16)
-              : null,
-        ),
-        const SizedBox(width: 12),
-        Text(label),
-      ],
-    ),
-  );
 
   Widget _buildControlPage(BuildContext context, AppLocalizations strings) {
     final endpointReady = _validSignalingEndpoint(widget.signalingEndpoint);

@@ -968,6 +968,18 @@ abstract class AppLocalizations {
   /// **'Point the camera at the QR code shown on your computer.'**
   String get mobileScannerInstructions;
 
+  /// No description provided for @mobileScannerTorchAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle flashlight'**
+  String get mobileScannerTorchAction;
+
+  /// No description provided for @mobileScannerSwitchCameraAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch camera'**
+  String get mobileScannerSwitchCameraAction;
+
   /// No description provided for @mobileScannerPermissionDenied.
   ///
   /// In en, this message translates to:
@@ -1385,7 +1397,7 @@ abstract class AppLocalizations {
   /// No description provided for @diagnosticsPreviewBody.
   ///
   /// In en, this message translates to:
-  /// **'Preview exactly what the local report includes and excludes. Nothing is uploaded or copied to the clipboard.'**
+  /// **'When a connection or reconnect fails, save this local report to troubleshoot session state, timing, and aggregate WebRTC health. Review exactly what it includes and excludes before saving. Nothing is uploaded or copied to the clipboard.'**
   String get diagnosticsPreviewBody;
 
   /// No description provided for @diagnosticsIncludedTitle.

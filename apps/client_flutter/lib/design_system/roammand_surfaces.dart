@@ -76,6 +76,7 @@ final class RoammandPageHero extends StatelessWidget {
     required this.title,
     required this.body,
     this.showMark = true,
+    this.markSize,
     this.action,
     super.key,
   });
@@ -84,6 +85,7 @@ final class RoammandPageHero extends StatelessWidget {
   final String title;
   final String body;
   final bool showMark;
+  final double? markSize;
   final Widget? action;
 
   @override
@@ -118,7 +120,7 @@ final class RoammandPageHero extends StatelessWidget {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
-              const RoammandBrandMark(size: 112),
+              RoammandBrandMark(size: markSize ?? 112),
               const SizedBox(width: 28),
               Expanded(child: copy),
             ],
@@ -127,7 +129,7 @@ final class RoammandPageHero extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const RoammandBrandMark(size: 88),
+            RoammandBrandMark(size: markSize ?? 88),
             const SizedBox(height: 24),
             copy,
           ],

@@ -516,6 +516,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Point the camera at the QR code shown on your computer.';
 
   @override
+  String get mobileScannerTorchAction => 'Toggle flashlight';
+
+  @override
+  String get mobileScannerSwitchCameraAction => 'Switch camera';
+
+  @override
   String get mobileScannerPermissionDenied =>
       'Camera access was denied. Allow camera access in system settings to scan a pairing QR code.';
 
@@ -747,7 +753,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get diagnosticsPreviewBody =>
-      'Preview exactly what the local report includes and excludes. Nothing is uploaded or copied to the clipboard.';
+      'When a connection or reconnect fails, save this local report to troubleshoot session state, timing, and aggregate WebRTC health. Review exactly what it includes and excludes before saving. Nothing is uploaded or copied to the clipboard.';
 
   @override
   String get diagnosticsIncludedTitle => 'Included';

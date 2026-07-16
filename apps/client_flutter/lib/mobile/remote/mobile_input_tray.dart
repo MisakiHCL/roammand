@@ -6,20 +6,25 @@ import 'package:flutter/material.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/remote/mobile_keyboard_controller.dart';
 
-const _trayPadding = 12.0;
-const _controlSpacing = 8.0;
+const _trayPadding = 8.0;
+const _controlSpacing = 4.0;
+const _compactControlHeight = 36.0;
 
 final class MobileInputTray extends StatefulWidget {
   const MobileInputTray({
     required this.controller,
     required this.enabled,
     this.onInputFailure,
+    this.padding = const EdgeInsets.all(_trayPadding),
+    this.compact = false,
     super.key,
   });
 
   final MobileKeyboardController? controller;
   final bool enabled;
   final void Function(Object error)? onInputFailure;
+  final EdgeInsetsGeometry padding;
+  final bool compact;
 
   @override
   State<MobileInputTray> createState() => _MobileInputTrayState();
@@ -40,7 +45,7 @@ final class _MobileInputTrayState extends State<MobileInputTray> {
     return Material(
       color: Theme.of(context).colorScheme.surface,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(_trayPadding),
+        padding: widget.padding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -69,74 +74,76 @@ final class _MobileInputTrayState extends State<MobileInputTray> {
                 ),
               ],
             ),
-            const SizedBox(height: _controlSpacing),
-            Wrap(
-              spacing: _controlSpacing,
-              runSpacing: _controlSpacing,
-              children: <Widget>[
-                _modifier(
-                  keyName: 'control',
-                  modifier: MobileModifierKey.control,
-                  label: strings.mobileModifierControl,
-                ),
-                _modifier(
-                  keyName: 'shift',
-                  modifier: MobileModifierKey.shift,
-                  label: strings.mobileModifierShift,
-                ),
-                _modifier(
-                  keyName: 'alt',
-                  modifier: MobileModifierKey.alt,
-                  label: strings.mobileModifierAlt,
-                ),
-                _modifier(
-                  keyName: 'command',
-                  modifier: MobileModifierKey.command,
-                  label: strings.mobileModifierCommand,
-                ),
-              ],
-            ),
-            const SizedBox(height: _controlSpacing),
-            Wrap(
-              spacing: _controlSpacing,
-              runSpacing: _controlSpacing,
-              children: <Widget>[
-                _special(
-                  keyName: 'escape',
-                  special: MobileSpecialKey.escape,
-                  label: strings.mobileKeyEscape,
-                ),
-                _special(
-                  keyName: 'tab',
-                  special: MobileSpecialKey.tab,
-                  label: strings.mobileKeyTab,
-                ),
-                _special(
-                  keyName: 'arrow-left',
-                  special: MobileSpecialKey.arrowLeft,
-                  label: strings.mobileKeyArrowLeft,
-                  icon: Icons.arrow_back,
-                ),
-                _special(
-                  keyName: 'arrow-up',
-                  special: MobileSpecialKey.arrowUp,
-                  label: strings.mobileKeyArrowUp,
-                  icon: Icons.arrow_upward,
-                ),
-                _special(
-                  keyName: 'arrow-right',
-                  special: MobileSpecialKey.arrowRight,
-                  label: strings.mobileKeyArrowRight,
-                  icon: Icons.arrow_forward,
-                ),
-                _special(
-                  keyName: 'arrow-down',
-                  special: MobileSpecialKey.arrowDown,
-                  label: strings.mobileKeyArrowDown,
-                  icon: Icons.arrow_downward,
-                ),
-              ],
-            ),
+            if (!widget.compact) ...<Widget>[
+              const SizedBox(height: _controlSpacing),
+              Wrap(
+                spacing: _controlSpacing,
+                runSpacing: _controlSpacing,
+                children: <Widget>[
+                  _modifier(
+                    keyName: 'control',
+                    modifier: MobileModifierKey.control,
+                    label: strings.mobileModifierControl,
+                  ),
+                  _modifier(
+                    keyName: 'shift',
+                    modifier: MobileModifierKey.shift,
+                    label: strings.mobileModifierShift,
+                  ),
+                  _modifier(
+                    keyName: 'alt',
+                    modifier: MobileModifierKey.alt,
+                    label: strings.mobileModifierAlt,
+                  ),
+                  _modifier(
+                    keyName: 'command',
+                    modifier: MobileModifierKey.command,
+                    label: strings.mobileModifierCommand,
+                  ),
+                ],
+              ),
+              const SizedBox(height: _controlSpacing),
+              Wrap(
+                spacing: _controlSpacing,
+                runSpacing: _controlSpacing,
+                children: <Widget>[
+                  _special(
+                    keyName: 'escape',
+                    special: MobileSpecialKey.escape,
+                    label: strings.mobileKeyEscape,
+                  ),
+                  _special(
+                    keyName: 'tab',
+                    special: MobileSpecialKey.tab,
+                    label: strings.mobileKeyTab,
+                  ),
+                  _special(
+                    keyName: 'arrow-left',
+                    special: MobileSpecialKey.arrowLeft,
+                    label: strings.mobileKeyArrowLeft,
+                    icon: Icons.arrow_back,
+                  ),
+                  _special(
+                    keyName: 'arrow-up',
+                    special: MobileSpecialKey.arrowUp,
+                    label: strings.mobileKeyArrowUp,
+                    icon: Icons.arrow_upward,
+                  ),
+                  _special(
+                    keyName: 'arrow-right',
+                    special: MobileSpecialKey.arrowRight,
+                    label: strings.mobileKeyArrowRight,
+                    icon: Icons.arrow_forward,
+                  ),
+                  _special(
+                    keyName: 'arrow-down',
+                    special: MobileSpecialKey.arrowDown,
+                    label: strings.mobileKeyArrowDown,
+                    icon: Icons.arrow_downward,
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -153,6 +160,9 @@ final class _MobileInputTrayState extends State<MobileInputTray> {
     return FilterChip(
       key: Key('mobile-modifier-$keyName'),
       label: Text(label),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       selected: selected,
       onSelected: widget.enabled && controller != null
           ? (active) {
@@ -174,7 +184,11 @@ final class _MobileInputTrayState extends State<MobileInputTray> {
     onPressed: widget.enabled && widget.controller != null
         ? () => _guard(widget.controller!.sendSpecial(special))
         : null,
-    icon: Icon(icon ?? Icons.keyboard, size: 20),
+    style: OutlinedButton.styleFrom(
+      minimumSize: const Size(0, _compactControlHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    ),
+    icon: Icon(icon ?? Icons.keyboard, size: 16),
     label: Text(label),
   );
 

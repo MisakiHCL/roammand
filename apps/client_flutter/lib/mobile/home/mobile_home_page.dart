@@ -8,15 +8,22 @@ import 'package:roammand/design_system/roammand_brand_mark.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
+import 'package:roammand/l10n/app_language_menu.dart';
+import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/identity/mobile_device_identity.dart';
 import 'package:roammand/mobile/pairing/mobile_pairing_page.dart';
 import 'package:roammand/mobile/remote/mobile_remote_launcher.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
 
-const _pagePadding = 20.0;
+const _pagePadding = 24.0;
 const _itemSpacing = 12.0;
-const _maximumContentWidth = 720.0;
+const _landscapeSectionSpacing = 32.0;
+const _maximumContentWidth = 1120.0;
+const _landscapeLayoutBreakpoint = 680.0;
+const _homeHeadlineFontSize = 24.0;
+const _homeTitleFontSize = 16.0;
+const _homeBodyFontSize = 12.0;
 
 typedef MobilePairingPageBuilder = Widget Function(BuildContext context);
 
@@ -27,6 +34,8 @@ final class MobileHomePage extends StatefulWidget {
     this.pairingPageBuilder,
     this.launchRemote,
     this.nowUnixMs,
+    this.localePreference = AppLocalePreference.system,
+    this.onLocalePreferenceChanged,
     super.key,
   });
 
@@ -35,6 +44,9 @@ final class MobileHomePage extends StatefulWidget {
   final MobilePairingPageBuilder? pairingPageBuilder;
   final MobileRemoteLauncher? launchRemote;
   final int Function()? nowUnixMs;
+  final AppLocalePreference localePreference;
+  final Future<void> Function(AppLocalePreference preference)?
+  onLocalePreferenceChanged;
 
   @override
   State<MobileHomePage> createState() => _MobileHomePageState();
@@ -118,57 +130,43 @@ final class _MobileHomePageState extends State<MobileHomePage> {
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
-    return Scaffold(
-      appBar: AppBar(title: RoammandAppBarTitle(title: strings.appTitle)),
-      body: RoammandBackdrop(
-        child: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _maximumContentWidth),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  _pagePadding,
-                  _pagePadding,
-                  _pagePadding,
-                  40,
+    return Theme(
+      data: _compactHomeTheme(Theme.of(context)),
+      child: Scaffold(
+        body: RoammandBackdrop(
+          child: SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: _maximumContentWidth,
                 ),
-                children: <Widget>[
-                  RoammandPageHero(
-                    eyebrow: strings.brandPrivacyLabel,
-                    title: strings.mobileHomeTitle,
-                    body: strings.mobileHomeSubtitle,
-                    showMark: false,
-                    action: Align(
-                      alignment: Alignment.centerLeft,
-                      child: FilledButton.icon(
-                        onPressed:
-                            widget.identity != null ||
-                                widget.pairingPageBuilder != null
-                            ? _scan
-                            : null,
-                        icon: const Icon(Icons.qr_code_scanner, size: 20),
-                        label: Text(strings.mobileScanQrAction),
-                      ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      _pagePadding,
+                      _pagePadding,
+                      _pagePadding,
+                      40,
                     ),
-                  ),
-                  const SizedBox(height: 28),
-                  if (_hosts.isEmpty)
-                    _EmptyState(strings: strings)
-                  else
-                    for (final host in _hosts) ...<Widget>[
-                      _MobileTrustedHostCard(
-                        host: host,
-                        connecting: _connectingHostKey == _hostKey(host),
-                        enabled:
-                            _connectingHostKey == null &&
-                            (widget.identity != null ||
-                                widget.launchRemote != null),
-                        onConnect: () => _connect(host),
-                      ),
-                      const SizedBox(height: _itemSpacing),
+                    children: <Widget>[
+                      if (constraints.maxWidth >= _landscapeLayoutBreakpoint)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Expanded(flex: 3, child: _buildHero(strings)),
+                            const SizedBox(width: _landscapeSectionSpacing),
+                            Expanded(flex: 4, child: _buildHosts(strings)),
+                          ],
+                        )
+                      else ...<Widget>[
+                        _buildHero(strings),
+                        const SizedBox(height: 24),
+                        _buildHosts(strings),
+                      ],
                     ],
-                ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -176,6 +174,57 @@ final class _MobileHomePageState extends State<MobileHomePage> {
       ),
     );
   }
+
+  Widget _buildHero(AppLocalizations strings) => RoammandPageHero(
+    eyebrow: strings.brandPrivacyLabel,
+    title: strings.mobileHomeTitle,
+    body: strings.mobileHomeSubtitle,
+    markSize: 72,
+    action: Align(
+      alignment: Alignment.centerLeft,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: <Widget>[
+          FilledButton.icon(
+            onPressed:
+                widget.identity != null || widget.pairingPageBuilder != null
+                ? _scan
+                : null,
+            icon: const Icon(Icons.qr_code_scanner, size: 20),
+            label: Text(strings.mobileScanQrAction),
+          ),
+          if (widget.onLocalePreferenceChanged case final onChanged?)
+            AppLanguageMenu(
+              key: const Key('mobile-language-menu'),
+              preference: widget.localePreference,
+              onPreferenceChanged: onChanged,
+            ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildHosts(AppLocalizations strings) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: <Widget>[
+      if (_hosts.isEmpty)
+        _EmptyState(strings: strings)
+      else
+        for (final host in _hosts) ...<Widget>[
+          _MobileTrustedHostCard(
+            host: host,
+            connecting: _connectingHostKey == _hostKey(host),
+            enabled:
+                _connectingHostKey == null &&
+                (widget.identity != null || widget.launchRemote != null),
+            onConnect: () => _connect(host),
+          ),
+          const SizedBox(height: _itemSpacing),
+        ],
+    ],
+  );
 }
 
 final class _MobileTrustedHostCard extends StatelessWidget {
@@ -199,7 +248,7 @@ final class _MobileTrustedHostCard extends StatelessWidget {
         : _formatDateTime(context, host.lastSuccessfulConnectionAtUnixMs);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -207,15 +256,15 @@ final class _MobileTrustedHostCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: <Widget>[
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: RoammandColors.auroraIndigo.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
                     Icons.computer_outlined,
-                    size: 24,
+                    size: 20,
                     color: RoammandColors.auroraSoft,
                   ),
                 ),
@@ -240,14 +289,14 @@ final class _MobileTrustedHostCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               strings.mobileControlLaterNotice,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 8),
             Text(strings.trustedHostLastConnectedLabel(lastConnected)),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: enabled ? onConnect : null,
               icon: connecting
@@ -276,11 +325,11 @@ final class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(24),
       child: Column(
         children: <Widget>[
-          const RoammandBrandMark(size: 72),
-          const SizedBox(height: 20),
+          const RoammandBrandMark(size: 64),
+          const SizedBox(height: 16),
           Text(
             strings.mobileHomeEmptyTitle,
             textAlign: TextAlign.center,
@@ -301,4 +350,22 @@ String _formatDateTime(BuildContext context, int unixMs) {
   final value = DateTime.fromMillisecondsSinceEpoch(unixMs).toLocal();
   final localizations = MaterialLocalizations.of(context);
   return '${localizations.formatFullDate(value)} ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(value))}';
+}
+
+ThemeData _compactHomeTheme(ThemeData theme) {
+  final text = theme.textTheme;
+  return theme.copyWith(
+    visualDensity: VisualDensity.compact,
+    textTheme: text.copyWith(
+      headlineMedium: text.headlineMedium?.copyWith(
+        fontSize: _homeHeadlineFontSize,
+      ),
+      titleLarge: text.titleLarge?.copyWith(fontSize: _homeTitleFontSize),
+      titleMedium: text.titleMedium?.copyWith(fontSize: _homeTitleFontSize),
+      bodyLarge: text.bodyLarge?.copyWith(fontSize: _homeBodyFontSize),
+      bodyMedium: text.bodyMedium?.copyWith(fontSize: _homeBodyFontSize),
+      labelLarge: text.labelLarge?.copyWith(fontSize: _homeBodyFontSize),
+      labelMedium: text.labelMedium?.copyWith(fontSize: _homeBodyFontSize),
+    ),
+  );
 }

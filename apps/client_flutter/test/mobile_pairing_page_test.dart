@@ -10,6 +10,7 @@ import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/identity/mobile_device_identity.dart';
 import 'package:roammand/mobile/pairing/mobile_pairing_page.dart';
 import 'package:roammand/mobile/pairing/qr_scanner.dart';
+import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 import 'package:roammand/pairing/controller_pairing_models.dart';
 import 'package:roammand/pairing/qr_pairing_uri.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
@@ -93,6 +94,268 @@ void main() {
     await repository.close();
   });
 
+  testWidgets('closes the scanner route automatically after pairing succeeds', (
+    tester,
+  ) async {
+    const now = 1_000_000;
+    final scanner = _FakeScanner();
+    final session = _FakeSession();
+    final identity = await MobileDeviceIdentity.fromSeed(
+      seed: List<int>.filled(32, 12),
+      displayName: 'Phone',
+      platform: DevicePlatform.DEVICE_PLATFORM_IOS,
+    );
+    final repository = TrustedHostRepository(persistence: _MemoryHosts());
+    await repository.initialize();
+    final navigatorKey = GlobalKey<NavigatorState>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(body: Text('home')),
+      ),
+    );
+    unawaited(
+      navigatorKey.currentState!.push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => MobilePairingPage(
+            identity: identity,
+            trustedHosts: repository,
+            scanner: scanner,
+            sessionFactory: () async => session,
+            nowUnixMs: () => now,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    scanner.emit(QrScannerCode(encodeQrPairingUri(_invitation(now))));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(MobilePairingPage), findsOneWidget);
+
+    session.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MobilePairingPage), findsNothing);
+    expect(find.text('home'), findsOneWidget);
+    await scanner.close();
+    await repository.close();
+  });
+
+  testWidgets('fills the scanner page and exposes floating camera controls', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    tester.view.padding = const FakeViewPadding(left: 132, right: 72);
+    addTearDown(() {
+      tester.view.padding = FakeViewPadding.zero;
+      return tester.binding.setSurfaceSize(null);
+    });
+    final scanner = _FakeScanner();
+    final identity = await MobileDeviceIdentity.fromSeed(
+      seed: List<int>.filled(32, 8),
+      displayName: 'Phone',
+      platform: DevicePlatform.DEVICE_PLATFORM_IOS,
+    );
+    final repository = TrustedHostRepository(persistence: _MemoryHosts());
+    await repository.initialize();
+
+    await tester.pumpWidget(
+      _app(
+        MobilePairingPage(
+          identity: identity,
+          trustedHosts: repository,
+          scanner: scanner,
+          sessionFactory: () async => _FakeSession(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.text('Scan QR code'), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const Key('fake-scanner-preview'))),
+      const Size(844, 390),
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('mobile-scanner-mask'))),
+      const Size(844, 390),
+    );
+    expect(find.byKey(const Key('mobile-scanner-close')), findsOneWidget);
+    expect(find.byType(MobilePageBackButton), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsNothing);
+    expect(find.byKey(const Key('mobile-scanner-torch')), findsOneWidget);
+    expect(
+      find.byKey(const Key('mobile-scanner-switch-camera')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getRect(find.byKey(const Key('mobile-scanner-header'))),
+      const Rect.fromLTWH(0, 0, 844, mobilePageHeaderHeight),
+    );
+    expect(
+      tester.getRect(find.byKey(const Key('mobile-scanner-close'))).left,
+      greaterThanOrEqualTo(44),
+    );
+    expect(
+      tester
+          .getRect(find.byKey(const Key('mobile-scanner-switch-camera')))
+          .right,
+      lessThanOrEqualTo(820),
+    );
+    for (final buttonKey in <Key>[
+      const Key('mobile-scanner-close'),
+      const Key('mobile-scanner-torch'),
+      const Key('mobile-scanner-switch-camera'),
+    ]) {
+      expect(
+        find.ancestor(
+          of: find.byKey(buttonKey),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Material && widget.shape is CircleBorder,
+          ),
+        ),
+        findsNothing,
+      );
+    }
+
+    await tester.tap(find.byKey(const Key('mobile-scanner-torch')));
+    await tester.tap(find.byKey(const Key('mobile-scanner-switch-camera')));
+    expect(scanner.toggleTorchCalls, 1);
+    expect(scanner.switchCameraCalls, 1);
+
+    final initialFocusArea = tester.getRect(
+      find.byKey(const Key('mobile-scanner-focus-area')),
+    );
+    final initialMessage = tester.getRect(
+      find.byKey(const Key('mobile-scanner-message')),
+    );
+    scanner.emit(const QrScannerCode('invalid-code'));
+    await tester.pump();
+    final focusArea = tester.getRect(
+      find.byKey(const Key('mobile-scanner-focus-area')),
+    );
+    final message = tester.getRect(
+      find.byKey(const Key('mobile-scanner-message')),
+    );
+    expect(focusArea, initialFocusArea);
+    expect(message, initialMessage);
+    expect(focusArea.bottom, lessThanOrEqualTo(message.top));
+    expect(find.byKey(const Key('mobile-scanner-feedback')), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.text(
+              'Point the camera at the QR code shown on your computer.',
+            ),
+          )
+          .style
+          ?.fontSize,
+      12,
+    );
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await scanner.close();
+    await repository.close();
+  });
+
+  testWidgets('does not restart while the first permission request is active', (
+    tester,
+  ) async {
+    final startGate = Completer<void>();
+    final scanner = _FakeScanner(startGate: startGate);
+    final identity = await MobileDeviceIdentity.fromSeed(
+      seed: List<int>.filled(32, 9),
+      displayName: 'Phone',
+      platform: DevicePlatform.DEVICE_PLATFORM_IOS,
+    );
+    final repository = TrustedHostRepository(persistence: _MemoryHosts());
+    await repository.initialize();
+
+    await tester.pumpWidget(
+      _app(
+        MobilePairingPage(
+          identity: identity,
+          trustedHosts: repository,
+          scanner: scanner,
+          sessionFactory: () async => _FakeSession(),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(scanner.startCalls, 1);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(scanner.pauseCalls, 0);
+    expect(scanner.resumeCalls, 0);
+    expect(find.text('The camera could not be started.'), findsNothing);
+
+    startGate.complete();
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await scanner.close();
+    await repository.close();
+  });
+
+  testWidgets('clears a transient camera error when scanning becomes ready', (
+    tester,
+  ) async {
+    final scanner = _FakeScanner();
+    final identity = await MobileDeviceIdentity.fromSeed(
+      seed: List<int>.filled(32, 10),
+      displayName: 'Phone',
+      platform: DevicePlatform.DEVICE_PLATFORM_IOS,
+    );
+    final repository = TrustedHostRepository(persistence: _MemoryHosts());
+    await repository.initialize();
+
+    await tester.pumpWidget(
+      _app(
+        MobilePairingPage(
+          identity: identity,
+          trustedHosts: repository,
+          scanner: scanner,
+          sessionFactory: () async => _FakeSession(),
+        ),
+      ),
+    );
+    await tester.pump();
+    final initialFocusArea = tester.getRect(
+      find.byKey(const Key('mobile-scanner-focus-area')),
+    );
+
+    scanner.emit(const QrScannerFailed(QrScannerFailure.initialization));
+    await tester.pump();
+    expect(find.text('The camera could not be started.'), findsOneWidget);
+    expect(
+      tester.getRect(find.byKey(const Key('mobile-scanner-focus-area'))),
+      initialFocusArea,
+    );
+
+    scanner.emit(const QrScannerReady());
+    await tester.pumpAndSettle();
+    expect(find.text('The camera could not be started.'), findsNothing);
+    expect(
+      tester.getRect(find.byKey(const Key('mobile-scanner-focus-area'))),
+      initialFocusArea,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await scanner.close();
+    await repository.close();
+  });
+
   testWidgets('shows an actionable signaling failure after scanning', (
     tester,
   ) async {
@@ -160,22 +423,39 @@ HostPairingInvitation _invitation(int now) {
 }
 
 final class _FakeScanner implements QrScannerSession {
+  _FakeScanner({this.startGate});
+
+  final Completer<void>? startGate;
   final StreamController<QrScannerEvent> _events =
       StreamController<QrScannerEvent>.broadcast(sync: true);
+  int startCalls = 0;
   int stopCalls = 0;
+  int pauseCalls = 0;
+  int resumeCalls = 0;
+  int toggleTorchCalls = 0;
+  int switchCameraCalls = 0;
   void emit(QrScannerEvent event) => _events.add(event);
   @override
   Stream<QrScannerEvent> get events => _events.stream;
   @override
-  Widget buildPreview() => const ColoredBox(color: Colors.black);
+  Widget buildPreview() =>
+      const ColoredBox(key: Key('fake-scanner-preview'), color: Colors.black);
   @override
-  Future<void> start() async {}
+  Future<void> start() async {
+    startCalls += 1;
+    await startGate?.future;
+  }
+
   @override
   Future<void> stop() async => stopCalls += 1;
   @override
-  Future<void> pause() async {}
+  Future<void> pause() async => pauseCalls += 1;
   @override
-  Future<void> resume() async {}
+  Future<void> resume() async => resumeCalls += 1;
+  @override
+  Future<void> toggleTorch() async => toggleTorchCalls += 1;
+  @override
+  Future<void> switchCamera() async => switchCameraCalls += 1;
   @override
   Future<void> close() => _events.close();
 }

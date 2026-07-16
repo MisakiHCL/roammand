@@ -6,6 +6,7 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
+import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/home/mobile_home_page.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
@@ -36,6 +37,46 @@ void main() {
     expect(find.text('我的电脑'), findsOneWidget);
     expect(find.text('扫描电脑二维码'), findsOneWidget);
     expect(find.text('尚未配对电脑'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('uses an in-content landscape hero and changes language', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = TrustedHostRepository(persistence: _MemoryHosts());
+    await repository.initialize();
+    AppLocalePreference? selectedPreference;
+
+    await tester.pumpWidget(
+      _app(
+        MobileHomePage(
+          trustedHosts: repository,
+          pairingPageBuilder: (_) => const SizedBox.shrink(),
+          localePreference: AppLocalePreference.system,
+          onLocalePreferenceChanged: (preference) async {
+            selectedPreference = preference;
+          },
+        ),
+        locale: const Locale('zh'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.byType(ListView), findsOneWidget);
+    expect(find.byKey(const Key('mobile-language-menu')), findsOneWidget);
+    expect(tester.widget<Text>(find.text('我的电脑')).style?.fontSize, 24);
+    await tester.tap(find.byKey(const Key('mobile-language-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('跟随系统'), findsOneWidget);
+    expect(find.text('English'), findsOneWidget);
+    expect(find.text('简体中文'), findsOneWidget);
+
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+    expect(selectedPreference, AppLocalePreference.english);
     expect(tester.takeException(), isNull);
   });
 

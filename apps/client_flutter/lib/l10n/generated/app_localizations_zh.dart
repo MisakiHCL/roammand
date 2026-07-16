@@ -477,6 +477,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mobileScannerInstructions => '请将相机对准电脑上显示的配对二维码。';
 
   @override
+  String get mobileScannerTorchAction => '开关手电筒';
+
+  @override
+  String get mobileScannerSwitchCameraAction => '切换摄像头';
+
+  @override
   String get mobileScannerPermissionDenied => '相机权限已被拒绝。请在系统设置中允许相机权限后再扫码。';
 
   @override
@@ -690,7 +696,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diagnosticsTitle => '隐私安全诊断';
 
   @override
-  String get diagnosticsPreviewBody => '请先查看本地报告明确包含和排除的数据。报告不会上传，也不会复制到剪贴板。';
+  String get diagnosticsPreviewBody =>
+      '连接或重连失败时，可保存这份本地报告，用于排查会话状态、耗时和 WebRTC 聚合健康指标。保存前可明确查看包含与排除的数据；报告不会上传，也不会复制到剪贴板。';
 
   @override
   String get diagnosticsIncludedTitle => '包含';

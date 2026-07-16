@@ -2,15 +2,18 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/diagnostics/diagnostics_collector.dart';
 import 'package:roammand/diagnostics/diagnostics_model.dart';
 import 'package:roammand/desktop/remote/input_sender.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/remote/mobile_remote_desktop_page.dart';
+import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 void main() {
@@ -47,6 +50,40 @@ void main() {
     expect(orientationArguments.last, isEmpty);
   });
 
+  testWidgets('keeps the iOS app landscape after leaving a remote session', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    final orientationArguments = <List<Object?>>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'SystemChrome.setPreferredOrientations') {
+          orientationArguments.add(List<Object?>.from(call.arguments as List));
+        }
+        return null;
+      },
+    );
+    try {
+      await tester.pumpWidget(_app(_PageFixture().page()));
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+
+      expect(orientationArguments, hasLength(2));
+      expect(orientationArguments.last, <String>[
+        'DeviceOrientation.landscapeLeft',
+        'DeviceOrientation.landscapeRight',
+      ]);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    }
+  });
+
   testWidgets('connects once and maps a delayed tap after rotation', (
     tester,
   ) async {
@@ -57,7 +94,7 @@ void main() {
     await tester.pump();
 
     expect(fixture.controller.connectCount, 1);
-    expect(find.byType(SafeArea), findsWidgets);
+    expect(find.byType(SafeArea), findsNothing);
     expect(find.text('Connected'), findsOneWidget);
 
     await tester.binding.setSurfaceSize(const Size(720, 360));
@@ -77,6 +114,192 @@ void main() {
     expect(clicks.single.pointerButton.x, 5000);
     expect(clicks.single.pointerButton.y, 5000);
   });
+
+  testWidgets('keeps status above the video with one session exit action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(_PageFixture().page()));
+    await tester.pump();
+
+    final status = find.byKey(const Key('mobile-remote-status'));
+    final surface = find.byKey(const Key('mobile-remote-gesture-surface'));
+    expect(status, findsOneWidget);
+    expect(surface, findsOneWidget);
+    expect(find.ancestor(of: status, matching: surface), findsNothing);
+    expect(find.byKey(const Key('mobile-remote-back-action')), findsOneWidget);
+    expect(find.byType(MobilePageBackButton), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsNothing);
+  });
+
+  testWidgets('fills horizontal safe areas with one continuous page surface', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    tester.view.padding = const FakeViewPadding(
+      left: 132,
+      right: 72,
+      bottom: 60,
+    );
+    addTearDown(() {
+      tester.view.padding = FakeViewPadding.zero;
+      return tester.binding.setSurfaceSize(null);
+    });
+    await tester.pumpWidget(_app(_PageFixture().page()));
+    await tester.pump();
+
+    final header = find.byKey(const Key('mobile-remote-header'));
+    final surface = find.byKey(const Key('mobile-remote-gesture-surface'));
+    final controlBar = find.byKey(const Key('mobile-remote-control-bar'));
+    expect(tester.getRect(header).left, 0);
+    expect(tester.getRect(header).right, 844);
+    expect(tester.getRect(surface).left, 0);
+    expect(tester.getRect(surface).right, 844);
+    expect(tester.getRect(controlBar).left, 0);
+    expect(tester.getRect(controlBar).right, 844);
+    expect(tester.getRect(controlBar).bottom, 390);
+    expect(tester.getSize(controlBar).height, 40);
+    expect(
+      tester.getRect(find.byKey(const Key('mobile-remote-back-action'))).left,
+      greaterThanOrEqualTo(44),
+    );
+    expect(
+      tester
+          .getRect(find.byKey(const Key('mobile-remote-diagnostics-action')))
+          .right,
+      lessThanOrEqualTo(820),
+    );
+    expect(tester.widget<Material>(header).color, RoammandColors.canvas);
+    expect(tester.widget<Material>(controlBar).color, RoammandColors.canvas);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('avoids overflow when the iOS keyboard reduces landscape space', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() {
+      tester.view.viewInsets = FakeViewPadding.zero;
+      return tester.binding.setSurfaceSize(null);
+    });
+    await tester.pumpWidget(_app(_PageFixture().page()));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('mobile-keyboard-toggle')));
+    await tester.pump();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 240);
+    await tester.pump();
+
+    expect(find.byKey(const Key('mobile-text-input')), findsOneWidget);
+    expect(find.byKey(const Key('mobile-remote-header')), findsOneWidget);
+    expect(
+      find.byKey(const Key('mobile-remote-gesture-surface')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('mobile-remote-control-bar')), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const Key('mobile-input-tray'))).height,
+      56,
+    );
+    expect(find.byKey(const Key('mobile-modifier-control')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'keeps the text field focused while the software keyboard opens',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(844, 390));
+      addTearDown(() {
+        tester.view.viewInsets = FakeViewPadding.zero;
+        return tester.binding.setSurfaceSize(null);
+      });
+      final fixture = _PageFixture();
+      await tester.pumpWidget(_app(fixture.page()));
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('mobile-keyboard-toggle')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('mobile-text-input')));
+      await tester.pump();
+      final editableBefore = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText))
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 720);
+      await tester.pump();
+
+      final editableAfter = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      expect(identical(editableAfter, editableBefore), isTrue);
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText))
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('mobile-input-tray'))).height,
+        56,
+      );
+      expect(find.byKey(const Key('mobile-remote-header')), findsOneWidget);
+      expect(
+        find.byKey(const Key('mobile-remote-gesture-surface')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('mobile-modifier-control')), findsNothing);
+
+      await tester.enterText(
+        find.byKey(const Key('mobile-text-input')),
+        'still focused',
+      );
+      await tester.tap(find.byKey(const Key('mobile-text-send')));
+      await tester.pump();
+      expect(
+        fixture.reliable.decoded
+            .where((event) => event.hasText())
+            .single
+            .text
+            .text,
+        'still focused',
+      );
+
+      final dismissOverlay = find.byKey(
+        const Key('mobile-dismiss-keyboard-overlay'),
+      );
+      expect(dismissOverlay, findsOneWidget);
+      await tester.tap(dismissOverlay);
+      await tester.pump(const Duration(milliseconds: 301));
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText))
+            .focusNode
+            .hasFocus,
+        isFalse,
+      );
+      expect(
+        fixture.reliable.decoded.where((event) => event.hasPointerButton()),
+        isEmpty,
+      );
+
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump();
+      expect(dismissOverlay, findsNothing);
+      expect(
+        find.byKey(const Key('mobile-remote-control-bar')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('mobile-modifier-control')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('sends text, modifiers and special keys from the mobile tray', (
     tester,
