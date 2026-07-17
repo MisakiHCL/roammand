@@ -68,6 +68,17 @@ if [[ "$(rg -c 'flutter run .*--no-pub' Makefile)" -ne 2 ]]; then
   exit 1
 fi
 
+if [[ "$(rg -c 'flutter build .*--no-pub' Makefile)" -ne 3 ]]; then
+  printf 'app build targets should reuse bootstrapped Flutter packages\n' >&2
+  exit 1
+fi
+
+if ! rg --quiet 'flutter analyze --no-pub' Makefile || \
+  ! rg --quiet 'flutter test --no-pub' Makefile; then
+  printf 'app checks should reuse bootstrapped Flutter packages\n' >&2
+  exit 1
+fi
+
 rg --quiet '^VERBOSE \?= 0$' Makefile || {
   printf 'missing quiet workflow default\n' >&2
   exit 1

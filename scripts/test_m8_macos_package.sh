@@ -17,6 +17,7 @@ rg -q '<string>LoginWindow</string>' packaging/macos/dev.roammand.SessionAgent.p
 test ! -e packaging/macos/dev.roammand.HostAgent.plist
 test "$(rg -c 'MACOSX_DEPLOYMENT_TARGET = 14\.4;' apps/client_flutter/macos/Runner.xcodeproj/project.pbxproj)" -eq 3
 rg -q -- '--features native-webrtc' scripts/package_m8_macos.sh
+rg -q -- 'flutter build macos --release --no-pub' scripts/package_m8_macos.sh
 rg -q 'bridge-install-secret\.bin' scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh
 rg -q 'bridge-owner-id' scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh
 rg -q '/var/run/roammand' scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh

@@ -88,9 +88,9 @@ flutter run -d android
 flutter run -d ios
 ```
 
-After `make bootstrap`, append `--no-pub` to reuse the locked package cache and
-avoid network access during normal launches. Use the command for the connected
-platform. The first launch confirms a best-effort system device name and creates an Ed25519 identity in protected local storage. Pairing accepts QR data only from the camera. After Host-local approval, choose **Connect** on the saved Host card to render video and use tap, double-tap, long-press drag, two-finger right-click, scroll, pinch zoom, text, modifiers, and special keys.
+After `make bootstrap`, the supported Make targets reuse the locked package
+cache without accessing pub.dev. Append `--no-pub` when invoking Flutter
+manually. Use the command for the connected platform. The first launch confirms a best-effort system device name and creates an Ed25519 identity in protected local storage. Pairing accepts QR data only from the camera. After Host-local approval, choose **Connect** on the saved Host card to render video and use tap, double-tap, long-press drag, two-finger right-click, scroll, pinch zoom, text, modifiers, and special keys.
 
 The signaling endpoint is read from the validated per-Host binding. The STUN
 service and the default signaling address for future manual pairing flows are

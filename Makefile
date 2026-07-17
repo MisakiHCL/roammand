@@ -45,7 +45,7 @@ app-check:
 	+$(call run-product-workflow,app-check-steps,app-check)
 
 app-check-steps:
-	cd $(FLUTTER_APP_DIR) && flutter analyze && flutter test
+	cd $(FLUTTER_APP_DIR) && flutter analyze --no-pub && flutter test --no-pub
 
 app-prepare-host-macos: check-libwebrtc
 	@LK_CUSTOM_WEBRTC="$$(./scripts/fetch_libwebrtc.sh)"; \
@@ -63,13 +63,13 @@ app-run-ios:
 	cd $(FLUTTER_APP_DIR) && flutter run -d ios --no-pub $(FLUTTER_ARGS)
 
 app-build-macos:
-	cd $(FLUTTER_APP_DIR) && flutter build macos --release $(FLUTTER_ARGS)
+	cd $(FLUTTER_APP_DIR) && flutter build macos --release --no-pub $(FLUTTER_ARGS)
 
 app-build-ios-simulator:
-	cd $(FLUTTER_APP_DIR) && flutter build ios --simulator --debug $(FLUTTER_ARGS)
+	cd $(FLUTTER_APP_DIR) && flutter build ios --simulator --debug --no-pub $(FLUTTER_ARGS)
 
 app-build-android:
-	cd $(FLUTTER_APP_DIR) && flutter build apk --debug $(FLUTTER_ARGS)
+	cd $(FLUTTER_APP_DIR) && flutter build apk --debug --no-pub $(FLUTTER_ARGS)
 
 package-macos:
 	./scripts/package_m8_macos.sh

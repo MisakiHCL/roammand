@@ -33,7 +33,9 @@ if [[ -z "$APP_BUNDLE$HOST_AGENT$BRIDGE$SESSION_AGENT" ]]; then
     -p roammand-host-agent --features native-webrtc
   LK_CUSTOM_WEBRTC="$WEBRTC_ROOT" cargo build --release \
     -p roammand-privileged-bridge --features native-webrtc
-  (cd apps/client_flutter && flutter build macos --release)
+  # Dependency resolution is explicit in `make bootstrap`; packaging reuses
+  # the locked cache and must not depend on pub.dev being reachable.
+  (cd apps/client_flutter && flutter build macos --release --no-pub)
   APP_BUNDLE="$ROOT_DIR/apps/client_flutter/build/macos/Build/Products/Release/roammand.app"
   HOST_AGENT="$ROOT_DIR/target/release/roammand-host-agent"
   BRIDGE="$ROOT_DIR/target/release/roammand-privileged-bridge"
