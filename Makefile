@@ -51,6 +51,8 @@ app-prepare-host-macos: check-libwebrtc
 	@LK_CUSTOM_WEBRTC="$$(./scripts/fetch_libwebrtc.sh)"; \
 	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo build \
 		-p roammand-host-agent --features native-webrtc
+	./scripts/sign_macos_development.sh \
+		"$(HOST_AGENT_DEBUG)" dev.roammand.host-agent
 
 app-run-macos: app-prepare-host-macos
 	cd $(FLUTTER_APP_DIR) && \

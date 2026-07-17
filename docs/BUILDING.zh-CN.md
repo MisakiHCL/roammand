@@ -73,6 +73,8 @@ make app-run-macos
 
 该目标会下载或复用校验过的 native WebRTC、增量构建 Debug Host Agent，并通过 `ROAMMAND_HOST_AGENT_EXECUTABLE` 让 GUI 托管该进程。官方 signaling 与 STUN 已内置，不需要本地服务终端。
 
+如果已经配置本地 Apple Team，且钥匙串中存在匹配的 Apple Development 身份，该目标还会为 Debug Agent 添加稳定签名；如果只有一个可用的开发身份，即使 Team 不同也只将它用于本地 Debug 二进制并打印警告，正式分发签名不受影响。第一次运行新签名时在钥匙串提示中选择“始终允许”；后续使用同一身份重新构建 Agent 时不应再次提示。没有开发签名身份时，macOS 仍可能在每次临时签名变化后询问。
+
 若使用手机作为 Controller，第二个终端运行：
 
 ```bash

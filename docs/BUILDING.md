@@ -76,7 +76,14 @@ make app-run-macos
 This target downloads or reuses verified native WebRTC, incrementally builds
 the Debug Host Agent, and passes it to the GUI through
 `ROAMMAND_HOST_AGENT_EXECUTABLE`. Official signaling and STUN are built in, so
-there is no local service terminal.
+there is no local service terminal. When a local Apple Team configuration and
+a matching—or the sole available—Apple Development identity are available, the
+target also applies a stable signature to the Debug Agent. A sole identity from
+a different Team is used only for this local Debug binary and produces a
+warning; distribution signing remains separate. On the first signed launch,
+choose **Always Allow** in the Keychain prompt; later Agent rebuilds signed by
+the same identity should not prompt again. Without a development identity,
+macOS can ask again after each rebuilt ad-hoc binary.
 
 When a phone is the Controller, use a second terminal for:
 
