@@ -199,5 +199,8 @@ void main() {
       ]);
       expect(invalid.exitCode, isNonZero);
     },
+    skip: Platform.isWindows
+        ? 'Apple signing is validated on the macOS CI runner.'
+        : false,
   );
 }

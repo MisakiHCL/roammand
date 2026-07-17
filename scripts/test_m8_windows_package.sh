@@ -34,9 +34,9 @@ if command -v pwsh >/dev/null; then
   mkdir -p "$TEMP_DIR/app"
   printf 'app\n' >"$TEMP_DIR/app/roammand.exe"
   printf 'host\n' >"$TEMP_DIR/host.exe"
-  printf '#!/bin/sh\nexit 0\n' >"$TEMP_DIR/bridge.exe"
-  printf '#!/bin/sh\nexit 0\n' >"$TEMP_DIR/helper.exe"
-  chmod 0755 "$TEMP_DIR/bridge.exe" "$TEMP_DIR/helper.exe"
+  printf '%s\n' 'fn main() {}' >"$TEMP_DIR/role_fixture.rs"
+  rustc "$TEMP_DIR/role_fixture.rs" -o "$TEMP_DIR/bridge.exe"
+  cp "$TEMP_DIR/bridge.exe" "$TEMP_DIR/helper.exe"
   pwsh -NoProfile -File scripts/package_m8_windows.ps1 \
     -Output "$TEMP_DIR/package" -AppDirectory "$TEMP_DIR/app" \
     -HostAgent "$TEMP_DIR/host.exe" -Bridge "$TEMP_DIR/bridge.exe" \
