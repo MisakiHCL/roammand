@@ -3,9 +3,11 @@
 param([Parameter(Mandatory = $true)][string]$Package)
 
 $ErrorActionPreference = "Stop"
-$ResolvedPackage = (Resolve-Path -LiteralPath $Package).Path.TrimEnd("\")
+$PackageDirectory = Get-Item -LiteralPath $Package
+$ResolvedPackage = $PackageDirectory.FullName.TrimEnd([IO.Path]::DirectorySeparatorChar)
 $DataRoot = Join-Path $ResolvedPackage "ProgramData\Roammand"
 $Manifest = Join-Path $DataRoot "install-manifest.sha256"
+$ManifestLinePattern = '^(?<Hash>[0-9A-Fa-f]{64}) \*(?<Path>.+)$'
 $Required = @(
   "Program Files\Roammand\roammand.exe",
   "Program Files\Roammand\roammand-host-agent.exe",
@@ -25,8 +27,9 @@ if (Get-ChildItem -LiteralPath $ResolvedPackage -Recurse -Force |
 }
 
 foreach ($Line in [IO.File]::ReadAllLines($Manifest)) {
-  if ($Line -notmatch '^(?<Hash>[0-9A-Fa-f]{64}) \*(?<Path>.+)$') { throw "Invalid manifest line" }
-  $ManifestPath = $Matches.Path
+  if (-not ($Line -match $ManifestLinePattern)) { throw "Invalid manifest line" }
+  $ExpectedHash = $Matches['Hash']
+  $ManifestPath = $Matches['Path']
   if ([IO.Path]::IsPathRooted($ManifestPath)) { throw "Manifest path escapes package" }
   $Candidate = [IO.Path]::GetFullPath((Join-Path $ResolvedPackage $ManifestPath))
   $RelativeCandidate = [IO.Path]::GetRelativePath($ResolvedPackage, $Candidate)
@@ -39,7 +42,7 @@ foreach ($Line in [IO.File]::ReadAllLines($Manifest)) {
   }
   if (-not (Test-Path -LiteralPath $Candidate -PathType Leaf)) { throw "Manifest file missing" }
   $Actual = (Get-FileHash -LiteralPath $Candidate -Algorithm SHA256).Hash
-  if ($Actual -ne $Matches.Hash) { throw "Manifest hash mismatch" }
+  if ($Actual -ne $ExpectedHash) { throw "Manifest hash mismatch" }
 }
 $Bridge = Join-Path $ResolvedPackage "Program Files\Roammand\roammand-privileged-bridge.exe"
 $Helper = Join-Path $ResolvedPackage "Program Files\Roammand\roammand-session-helper.exe"

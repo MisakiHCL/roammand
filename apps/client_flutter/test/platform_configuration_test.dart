@@ -158,15 +158,17 @@ void main() {
       final output = '${temporary.path}/Signing.local.xcconfig';
       final script = File(
         '../../scripts/configure_apple_signing.sh',
-      ).absolute.path;
+      ).absolute.path.replaceAll(r'\', '/');
+      final shellOutput = output.replaceAll(r'\', '/');
 
-      final configured = Process.runSync(script, <String>[
+      final configured = Process.runSync('bash', <String>[
+        script,
         '--team-id',
         'A1B2C3D4E5',
         '--bundle-id',
         'com.example.remote',
         '--output',
-        output,
+        shellOutput,
       ]);
       expect(configured.exitCode, 0, reason: configured.stderr as String);
       expect(
@@ -178,20 +180,22 @@ void main() {
         contains('ROAMMAND_APPLE_BUNDLE_ID = com.example.remote'),
       );
 
-      final checked = Process.runSync(script, <String>[
+      final checked = Process.runSync('bash', <String>[
+        script,
         '--check',
         '--output',
-        output,
+        shellOutput,
       ]);
       expect(checked.exitCode, 0, reason: checked.stderr as String);
 
-      final invalid = Process.runSync(script, <String>[
+      final invalid = Process.runSync('bash', <String>[
+        script,
         '--team-id',
         'not-a-team',
         '--bundle-id',
         'not-a-bundle-id',
         '--output',
-        output,
+        shellOutput,
       ]);
       expect(invalid.exitCode, isNonZero);
     },

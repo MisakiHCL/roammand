@@ -25,7 +25,8 @@ void main() {
     expect(result.usedDocumentsFallback, isFalse);
     expect(
       result.path,
-      '${downloads.path}/roammand-diagnostics-20260714-080910Z.json',
+      '${downloads.path}${Platform.pathSeparator}'
+      'roammand-diagnostics-20260714-080910Z.json',
     );
     final file = File(result.path);
     expect(file.existsSync(), isTrue);

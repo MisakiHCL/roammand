@@ -57,11 +57,12 @@ Copy-Item -LiteralPath (Join-Path $Root "licenses\MPL-2.0.txt") -Destination (Jo
 Copy-Item -LiteralPath (Join-Path $Root "licenses\Apache-2.0.txt") -Destination (Join-Path $DataRoot "licenses")
 
 $Manifest = Join-Path $DataRoot "install-manifest.sha256"
-$ResolvedOutput = (Resolve-Path -LiteralPath $Output).Path.TrimEnd("\")
-$Lines = Get-ChildItem -LiteralPath $Output -File -Recurse |
+$OutputDirectory = Get-Item -LiteralPath $Output
+$ResolvedOutput = $OutputDirectory.FullName.TrimEnd([IO.Path]::DirectorySeparatorChar)
+$Lines = $OutputDirectory.EnumerateFiles("*", [IO.SearchOption]::AllDirectories) |
   Where-Object { $_.FullName -ne $Manifest } |
   ForEach-Object {
-    $Relative = $_.FullName.Substring($ResolvedOutput.Length + 1)
+    $Relative = [IO.Path]::GetRelativePath($ResolvedOutput, $_.FullName)
     $Hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
     "$Hash *$Relative"
   } | Sort-Object
