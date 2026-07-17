@@ -2,8 +2,9 @@ BUF_BREAKING_AGAINST ?= .git\#branch=main
 FLUTTER_APP_DIR := apps/client_flutter
 FLUTTER_ARGS ?=
 VERBOSE ?= 0
+HOST_AGENT_DEBUG := $(abspath target/debug/roammand-host-agent)
 
-.PHONY: help bootstrap bootstrap-steps app-check app-check-steps app-run-macos app-run-ios app-build-macos app-build-ios-simulator app-build-android package-macos test-product test-product-steps doctor boundary check-libwebrtc fetch-libwebrtc format format-check generate generate-failure-check generate-check schema-lint schema-build schema-breaking test test-conformance test-dart test-host test-m4 test-m4-config test-m4-lifecycle test-m5 test-m5-config test-m5-lifecycle test-m6 test-m6-config test-m6-lifecycle test-m7 test-m7-config test-m7-fuzz test-m7-privacy test-m7-reconnect test-m8 test-m8-config test-m8-privacy test-native-webrtc test-rust test-go test-schema test-schema-contract test-signaling test-signaling-race
+.PHONY: help bootstrap bootstrap-steps app-check app-check-steps app-prepare-host-macos app-run-macos app-run-ios app-build-macos app-build-ios-simulator app-build-android package-macos test-product test-product-steps doctor boundary check-libwebrtc fetch-libwebrtc format format-check generate generate-failure-check generate-check schema-lint schema-build schema-breaking test test-conformance test-dart test-host test-m4 test-m4-config test-m4-lifecycle test-m5 test-m5-config test-m5-lifecycle test-m6 test-m6-config test-m6-lifecycle test-m7 test-m7-config test-m7-fuzz test-m7-privacy test-m7-reconnect test-m8 test-m8-config test-m8-privacy test-native-webrtc test-rust test-go test-schema test-schema-contract test-signaling test-signaling-race
 
 define run-product-workflow
 	@if [ "$(VERBOSE)" = "1" ]; then \
@@ -19,7 +20,7 @@ help:
 		'' \
 		'  make bootstrap                Install workspace dependencies' \
 		'  make app-check                Analyze and test the Flutter app' \
-		'  make app-run-macos            Run the macOS app' \
+		'  make app-run-macos            Build the Debug Host and run the macOS app' \
 		'  make app-run-ios              Run an available iOS target' \
 		'  make app-build-macos          Build the macOS release app' \
 		'  make app-build-ios-simulator  Build the iOS simulator app' \
@@ -46,8 +47,15 @@ app-check:
 app-check-steps:
 	cd $(FLUTTER_APP_DIR) && flutter analyze && flutter test
 
-app-run-macos:
-	cd $(FLUTTER_APP_DIR) && flutter run -d macos $(FLUTTER_ARGS)
+app-prepare-host-macos: check-libwebrtc
+	@LK_CUSTOM_WEBRTC="$$(./scripts/fetch_libwebrtc.sh)"; \
+	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo build \
+		-p roammand-host-agent --features native-webrtc
+
+app-run-macos: app-prepare-host-macos
+	cd $(FLUTTER_APP_DIR) && \
+	ROAMMAND_HOST_AGENT_EXECUTABLE="$(HOST_AGENT_DEBUG)" \
+	flutter run -d macos $(FLUTTER_ARGS)
 
 app-run-ios:
 	cd $(FLUTTER_APP_DIR) && flutter run -d ios $(FLUTTER_ARGS)

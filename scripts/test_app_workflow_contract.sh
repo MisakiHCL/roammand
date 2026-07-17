@@ -43,6 +43,16 @@ rg --quiet '^FLUTTER_ARGS \?=' Makefile || {
   exit 1
 }
 
+rg --quiet '^app-run-macos: app-prepare-host-macos$' Makefile || {
+  printf 'macOS development app does not prepare its managed Host Agent\n' >&2
+  exit 1
+}
+
+rg --quiet 'ROAMMAND_HOST_AGENT_EXECUTABLE=' Makefile || {
+  printf 'macOS development app does not receive the managed Agent path\n' >&2
+  exit 1
+}
+
 rg --quiet '^VERBOSE \?= 0$' Makefile || {
   printf 'missing quiet workflow default\n' >&2
   exit 1

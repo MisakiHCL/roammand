@@ -53,28 +53,20 @@ make app-check
 
 这些工作流会隐藏成功时的工具日志，最后只打印一行 `[PASS]` 结论；失败时会显示简短的错误末尾。需要查看完整过程时可添加 `VERBOSE=1`，例如 `make app-check VERBOSE=1`。
 
-启动 signaling 服务：
+使用内置官方 signaling 与 STUN 时，只需启动桌面 App：
 
 ```bash
-cd services/signaling
-go run ./cmd/signaling
+make app-run-macos
 ```
 
-在仓库根目录启动带原生 WebRTC 的 Host Agent：
+该命令会准备原生 WebRTC、增量构建 Debug Host Agent，并由桌面 GUI 启动和停止 Agent。测试手机 Controller 时，第二个终端只需运行对应的移动 App：
 
 ```bash
-ROAMMAND_SIGNALING_ENDPOINT='ws://127.0.0.1:8080/v1/connect' \
-cargo run -p roammand-host-agent --features native-webrtc -- serve
+cd apps/client_flutter
+flutter run -d ios # 或 flutter run -d android
 ```
 
-使用受保护的 Debug 开关运行 macOS App，然后在“网络服务 → 自定义服务”中填写相同地址：
-
-```bash
-make app-run-macos \
-  FLUTTER_ARGS='--dart-define=ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true'
-```
-
-Release 构建和常规跨设备网络必须使用所有设备都信任证书的 WSS。源码 Debug 构建可显式允许私有局域网 IP 上的明文 `ws://`，方便实体设备开发；受保护的启动命令、平台依赖、STUN 配置、Release 构建和 Host 打包见[从源码构建 Roammand](docs/BUILDING.zh-CN.md)。
+因此源码真机测试从原来的 signaling、Host Agent、桌面 App、移动 App 四个终端，缩减为桌面 App 与移动 App 两个终端。安装版 Release 不需要终端。自建服务、本地明文 `ws://` 调试、平台依赖、Release 构建和 Host 打包见[从源码构建 Roammand](docs/BUILDING.zh-CN.md)。
 
 桌面端和移动端提供相同的“网络服务”设置，可配置 signaling 与 STUN，并随时恢复官方配置。当前版本只尝试 ICE 直连，没有 TURN 中继兜底，因此部分严格网络环境仍可能连接失败。
 

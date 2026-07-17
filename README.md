@@ -53,29 +53,27 @@ make app-check
 
 These workflows hide successful tool output and print one final `[PASS]` line. If a workflow fails, it prints a short error tail. Add `VERBOSE=1` to stream the complete output, for example `make app-check VERBOSE=1`.
 
-Start the signaling service:
+With the built-in official signaling and STUN services, start only the desktop
+app:
 
 ```bash
-cd services/signaling
-go run ./cmd/signaling
+make app-run-macos
 ```
 
-Start the Host Agent with native WebRTC from the repository root:
+That command prepares native WebRTC, incrementally builds the Debug Host Agent,
+and lets the desktop GUI start and stop it. To test a phone Controller, use a
+second terminal for the mobile app:
 
 ```bash
-ROAMMAND_SIGNALING_ENDPOINT='ws://127.0.0.1:8080/v1/connect' \
-cargo run -p roammand-host-agent --features native-webrtc -- serve
+cd apps/client_flutter
+flutter run -d ios # or flutter run -d android
 ```
 
-Run the macOS app with the guarded Debug opt-in, then choose **Network
-services → Custom service** and enter the same endpoint:
-
-```bash
-make app-run-macos \
-  FLUTTER_ARGS='--dart-define=ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true'
-```
-
-Release builds and normal network use require WSS with a certificate trusted by every device. Source Debug builds can explicitly opt into plaintext `ws://` on a private LAN address for physical-device development; see [Building Roammand from source](docs/BUILDING.md) for the guarded commands, platform prerequisites, STUN configuration, release builds, and Host packaging.
+Physical-device source testing therefore drops from four terminals—signaling,
+Host Agent, desktop app, and mobile app—to two terminals for the desktop and
+mobile apps. Installed Release builds need no terminal. See [Building Roammand
+from source](docs/BUILDING.md) for self-hosting, guarded plaintext `ws://`
+debugging, platform prerequisites, Release builds, and Host packaging.
 
 Desktop and mobile apps expose the same Network services settings for signaling
 and STUN. The official profile can always be restored. This release attempts

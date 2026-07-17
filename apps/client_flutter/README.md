@@ -38,23 +38,30 @@ User-visible copy belongs in `lib/l10n/app_en.arb` and `lib/l10n/app_zh.arb`; ge
 
 ## Desktop Host and Controller
 
-The Rust Agent owns the desktop private key and Host grants. An installed GUI
-starts and stops its own Agent; an independently started development Agent
-remains separate and is never stopped by the GUI.
+The Rust Agent owns the desktop private key and Host grants. The supported
+macOS development command builds a Debug Agent and lets the GUI start and stop
+it; an independently started development Agent remains separate and is never
+stopped by the GUI.
 
-Start a Host Agent from the repository root:
+From the repository root, start the managed desktop development stack:
+
+```bash
+make app-run-macos
+```
+
+This prepares native WebRTC, incrementally builds the Agent, passes its path to
+Flutter, and starts with the official signaling and STUN profile without local
+server processes. Select a custom service from **Network services** only when
+testing another deployment.
+
+To keep the Agent independent for low-level development, start it explicitly,
+then run Flutter with automatic startup disabled:
 
 ```bash
 ROAMMAND_SIGNALING_ENDPOINT='wss://signal.example.com:8443/v1/connect' \
 cargo run -p roammand-host-agent --features native-webrtc -- serve
-```
 
-After `Host Agent ready`, start Flutter and select the matching custom service
-from **Network services**:
-
-```bash
-cd apps/client_flutter
-flutter run -d macos
+ROAMMAND_HOST_AGENT_AUTOSTART=false make app-run-macos
 ```
 
 Use `flutter run -d windows` on Windows. **This computer** creates a two-minute QR or code invitation, displays the pending Controller, and is the only place that can approve or revoke its one-way grant.

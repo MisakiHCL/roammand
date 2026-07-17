@@ -14,7 +14,7 @@ Run `make help` at the repository root to see the common commands.
 | --- | --- |
 | Check tools and resolve dependencies | `make bootstrap` |
 | Analyze and test the Flutter app | `make app-check` |
-| Run the macOS app | `make app-run-macos` |
+| Build the Debug Host and run the macOS app | `make app-run-macos` |
 | Run an available iOS target | `make app-run-ios` |
 | Build the macOS Release app | `make app-build-macos` |
 | Build the iOS Simulator app | `make app-build-ios-simulator` |
@@ -65,7 +65,31 @@ This checks the pinned toolchain and resolves Flutter, Dart, Rust, and Go depend
 
 ## Run Roammand locally
 
-### 1. Start signaling
+### Recommended: use the official services
+
+On macOS, run only:
+
+```bash
+make app-run-macos
+```
+
+This target downloads or reuses verified native WebRTC, incrementally builds
+the Debug Host Agent, and passes it to the GUI through
+`ROAMMAND_HOST_AGENT_EXECUTABLE`. Official signaling and STUN are built in, so
+there is no local service terminal.
+
+When a phone is the Controller, use a second terminal for:
+
+```bash
+cd apps/client_flutter
+flutter run -d ios # or flutter run -d android
+```
+
+Physical-device source testing therefore drops from four terminals to two.
+Installed desktop and mobile Release builds launch from their graphical
+interfaces and need no terminal.
+
+### Advanced: start local signaling
 
 For a same-computer loopback run:
 
@@ -115,7 +139,7 @@ go run ./cmd/signaling
 
 Use `wss://<server-name>:8443/v1/connect` as the endpoint. A reverse proxy must preserve binary WebSocket frames and the `roammand-signaling.v1.protobuf` subprotocol.
 
-### 2. Start the Host Agent
+### Advanced: start the Host Agent independently
 
 On the computer being controlled:
 
@@ -131,9 +155,9 @@ $env:ROAMMAND_SIGNALING_ENDPOINT = 'wss://signal.example.com:8443/v1/connect'
 cargo run -p roammand-host-agent --features native-webrtc -- serve
 ```
 
-The Host Agent owns the desktop device identity, authorization registry, WebRTC peer, capture, and input path. On macOS, grant Screen Recording and Accessibility when prompted.
+The Host Agent owns the desktop device identity, authorization registry, WebRTC peer, capture, and input path. On macOS, grant Screen Recording and Accessibility when prompted. This independent mode is for low-level development; the standard `make app-run-macos` workflow lets the GUI manage the Agent.
 
-### 3. Start the app
+### Advanced: start the app independently
 
 macOS:
 
@@ -149,9 +173,9 @@ cd apps\client_flutter
 flutter run -d windows --dart-define=ROAMMAND_SIGNALING_ENDPOINT=wss://signal.example.com:8443/v1/connect
 ```
 
-The Flutter app and Host Agent must run as the same operating-system user. The app connects to the Agent through authenticated current-user IPC; it does not start or supervise the Agent.
+The Flutter app and Host Agent must run as the same operating-system user. The app connects to the Agent through authenticated current-user IPC. The GUI starts and stops an Agent it owns; when it connects to a developer-started Agent, it never takes ownership or stops that process on exit.
 
-### 4. Pair a Controller
+### Pair a Controller
 
 - Phone or tablet: open **This computer** on the Host, show the phone QR code, run `flutter run -d android` or `flutter run -d ios`, and scan with the camera.
 - Another computer: create a desktop pairing code, enter it under **My computers**, compare all four English verification words, and approve beside the Host.

@@ -14,7 +14,7 @@
 | --- | --- |
 | 检查工具并解析依赖 | `make bootstrap` |
 | 分析和测试 Flutter App | `make app-check` |
-| 运行 macOS App | `make app-run-macos` |
+| 构建 Debug Host 并运行 macOS App | `make app-run-macos` |
 | 运行可用的 iOS 目标 | `make app-run-ios` |
 | 构建 macOS Release App | `make app-build-macos` |
 | 构建 iOS 模拟器 App | `make app-build-ios-simulator` |
@@ -63,7 +63,26 @@ make bootstrap
 
 ## 在本地运行 Roammand
 
-### 1. 启动 signaling
+### 推荐：使用官方服务
+
+在 macOS 上只运行：
+
+```bash
+make app-run-macos
+```
+
+该目标会下载或复用校验过的 native WebRTC、增量构建 Debug Host Agent，并通过 `ROAMMAND_HOST_AGENT_EXECUTABLE` 让 GUI 托管该进程。官方 signaling 与 STUN 已内置，不需要本地服务终端。
+
+若使用手机作为 Controller，第二个终端运行：
+
+```bash
+cd apps/client_flutter
+flutter run -d ios # 或 flutter run -d android
+```
+
+源码真机测试因此从四个终端缩减为两个。安装后的桌面与移动 Release 都直接从图形界面启动，不需要终端。
+
+### 高级：启动本地 signaling
 
 仅在同一台电脑上进行回环测试：
 
@@ -113,7 +132,7 @@ go run ./cmd/signaling
 
 将 `wss://<server-name>:8443/v1/connect` 作为连接地址。反向代理必须保留二进制 WebSocket 帧和 `roammand-signaling.v1.protobuf` 子协议。
 
-### 2. 启动 Host Agent
+### 高级：独立启动 Host Agent
 
 在被控制的电脑上运行：
 
@@ -129,9 +148,9 @@ $env:ROAMMAND_SIGNALING_ENDPOINT = 'wss://signal.example.com:8443/v1/connect'
 cargo run -p roammand-host-agent --features native-webrtc -- serve
 ```
 
-Host Agent 管理桌面设备身份、授权记录、WebRTC peer、画面采集和输入链路。在 macOS 上，请在系统提示时授予屏幕录制和辅助功能权限。
+Host Agent 管理桌面设备身份、授权记录、WebRTC peer、画面采集和输入链路。在 macOS 上，请在系统提示时授予屏幕录制和辅助功能权限。这种独立模式用于底层开发；标准的 `make app-run-macos` 已由 GUI 托管 Agent。
 
-### 3. 启动 App
+### 高级：单独启动 App
 
 macOS：
 
@@ -147,9 +166,9 @@ cd apps\client_flutter
 flutter run -d windows --dart-define=ROAMMAND_SIGNALING_ENDPOINT=wss://signal.example.com:8443/v1/connect
 ```
 
-Flutter App 和 Host Agent 必须由同一操作系统用户运行。App 通过仅限当前用户且经过认证的 IPC 连接 Agent，不负责启动或管理 Agent 进程。
+Flutter App 和 Host Agent 必须由同一操作系统用户运行。App 通过仅限当前用户且经过认证的 IPC 连接 Agent。GUI 会启动并停止自己托管的 Agent；如果它连接到开发者预先启动的 Agent，则不会取得所有权或在退出时停止它。
 
-### 4. 配对 Controller
+### 配对 Controller
 
 - 手机或平板：在 Host 上打开“此电脑”，显示手机二维码，然后运行 `flutter run -d android` 或 `flutter run -d ios`，使用相机扫描。
 - 另一台电脑：创建桌面配对码，在“我的电脑”中输入，核对全部四个英文验证词，并在 Host 旁确认批准。

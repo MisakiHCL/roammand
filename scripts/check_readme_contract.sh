@@ -119,7 +119,6 @@ for readme in "$ENGLISH_README" "$CHINESE_README"; do
     'make bootstrap' \
     'make app-check' \
     'make app-run-macos' \
-    'cargo run -p roammand-host-agent --features native-webrtc -- serve' \
     'docs/security/privacy-safe-diagnostics.md' \
     'LICENSES.md'; do
     require_text "$readme" "$expected"
