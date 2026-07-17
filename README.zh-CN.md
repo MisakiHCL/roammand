@@ -63,8 +63,13 @@ make app-run-macos
 
 ```bash
 cd apps/client_flutter
-flutter run -d ios --no-pub # 或 flutter run -d android --no-pub
+flutter devices
+flutter run -d YOUR_IOS_DEVICE_ID --no-pub
+# Android：flutter run -d YOUR_ANDROID_DEVICE_ID --no-pub
 ```
+
+`-d` 需要接收 `flutter devices` 列出的准确设备 ID；`ios` 和 `android`
+是平台名称，不能作为可靠的真机选择器。
 
 因此源码真机测试从原来的 signaling、Host Agent、桌面 App、移动 App 四个终端，缩减为桌面 App 与移动 App 两个终端。安装版 Release 不需要终端。自建服务、本地明文 `ws://` 调试、平台依赖、Release 构建和 Host 打包见[从源码构建 Roammand](docs/BUILDING.zh-CN.md)。
 

@@ -131,8 +131,8 @@ require_text "$CHINESE_README" 'docs/self-hosting/docker-compose.zh-CN.md'
 for expected in \
   'Roammand Flutter app' \
   'make app-check' \
-  'flutter run -d android' \
-  'flutter run -d ios' \
+  'flutter run -d YOUR_ANDROID_DEVICE_ID' \
+  'flutter run -d YOUR_IOS_DEVICE_ID' \
   'Mobile Controller V1' \
   'Diagnostics'; do
   require_text "$CLIENT_README" "$expected"

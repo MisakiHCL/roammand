@@ -84,9 +84,15 @@ For physical-device development on a trusted LAN, source Debug builds may explic
 Run a physical device:
 
 ```bash
-flutter run -d android
-flutter run -d ios
+flutter devices
+flutter run -d YOUR_ANDROID_DEVICE_ID
+flutter run -d YOUR_IOS_DEVICE_ID
 ```
+
+Pass one device at a time. The `-d` option takes the ID reported by
+`flutter devices`, not the `android` or `ios` platform name. From the repository
+root, iOS can also be run with
+`make app-run-ios IOS_DEVICE=YOUR_IOS_DEVICE_ID`.
 
 After `make bootstrap`, the supported Make targets reuse the locked package
 cache without accessing pub.dev. Append `--no-pub` when invoking Flutter

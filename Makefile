@@ -1,6 +1,7 @@
 BUF_BREAKING_AGAINST ?= .git\#branch=main
 FLUTTER_APP_DIR := apps/client_flutter
 FLUTTER_ARGS ?=
+IOS_DEVICE ?=
 VERBOSE ?= 0
 HOST_AGENT_DEBUG := $(abspath target/debug/roammand-host-agent)
 
@@ -21,7 +22,8 @@ help:
 		'  make bootstrap                Install workspace dependencies' \
 		'  make app-check                Analyze and test the Flutter app' \
 		'  make app-run-macos            Build the Debug Host and run the macOS app' \
-		'  make app-run-ios              Run an available iOS target' \
+		'  make app-run-ios IOS_DEVICE=device-id' \
+		'                                Run a selected iOS target' \
 		'  make app-build-macos          Build the macOS release app' \
 		'  make app-build-ios-simulator  Build the iOS simulator app' \
 		'  make app-build-android        Build the Android debug APK' \
@@ -29,6 +31,7 @@ help:
 		'  make test-product             Run the complete product gate' \
 		'' \
 		"Pass Flutter options with FLUTTER_ARGS='--dart-define=KEY=value'." \
+		'Get IOS_DEVICE from flutter devices before running an iOS target.' \
 		'Set VERBOSE=1 to stream bootstrap, app-check, or test-product output.' \
 		'Full repository gate: make test-product'
 
@@ -60,7 +63,11 @@ app-run-macos: app-prepare-host-macos
 	flutter run -d macos --no-pub $(FLUTTER_ARGS)
 
 app-run-ios:
-	cd $(FLUTTER_APP_DIR) && flutter run -d ios --no-pub $(FLUTTER_ARGS)
+	@if [ -z "$(strip $(IOS_DEVICE))" ]; then \
+		printf 'IOS_DEVICE is required; run flutter devices and pass its device ID\n' >&2; \
+		exit 2; \
+	fi
+	cd $(FLUTTER_APP_DIR) && flutter run -d "$(IOS_DEVICE)" --no-pub $(FLUTTER_ARGS)
 
 app-build-macos:
 	cd $(FLUTTER_APP_DIR) && flutter build macos --release --no-pub $(FLUTTER_ARGS)

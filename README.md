@@ -66,8 +66,13 @@ second terminal for the mobile app:
 
 ```bash
 cd apps/client_flutter
-flutter run -d ios --no-pub # or flutter run -d android --no-pub
+flutter devices
+flutter run -d YOUR_IOS_DEVICE_ID --no-pub
+# Or: flutter run -d YOUR_ANDROID_DEVICE_ID --no-pub
 ```
+
+`-d` takes the exact device ID listed by `flutter devices`; `ios` and
+`android` are platform names, not reliable physical-device selectors.
 
 Physical-device source testing therefore drops from four terminals—signaling,
 Host Agent, desktop app, and mobile app—to two terminals for the desktop and

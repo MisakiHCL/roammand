@@ -43,6 +43,21 @@ rg --quiet '^FLUTTER_ARGS \?=' Makefile || {
   exit 1
 }
 
+rg --quiet '^IOS_DEVICE \?=$' Makefile || {
+  printf 'missing explicit iOS device selector\n' >&2
+  exit 1
+}
+
+rg --quiet 'flutter run -d "\$\(IOS_DEVICE\)" --no-pub' Makefile || {
+  printf 'iOS development target does not use the selected device ID\n' >&2
+  exit 1
+}
+
+if rg --quiet 'flutter run -d ios' Makefile; then
+  printf 'iOS platform name must not be used as a physical-device selector\n' >&2
+  exit 1
+fi
+
 rg --quiet '^app-run-macos: app-prepare-host-macos$' Makefile || {
   printf 'macOS development app does not prepare its managed Host Agent\n' >&2
   exit 1

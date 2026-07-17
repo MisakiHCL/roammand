@@ -15,7 +15,7 @@ Run `make help` at the repository root to see the common commands.
 | Check tools and resolve dependencies | `make bootstrap` |
 | Analyze and test the Flutter app | `make app-check` |
 | Build the Debug Host and run the macOS app | `make app-run-macos` |
-| Run an available iOS target | `make app-run-ios` |
+| Run a selected iOS target | `make app-run-ios IOS_DEVICE=YOUR_IOS_DEVICE_ID` |
 | Build the macOS Release app | `make app-build-macos` |
 | Build the iOS Simulator app | `make app-build-ios-simulator` |
 | Build the Android Debug APK | `make app-build-android` |
@@ -89,8 +89,15 @@ When a phone is the Controller, use a second terminal for:
 
 ```bash
 cd apps/client_flutter
-flutter run -d ios --no-pub # or flutter run -d android --no-pub
+flutter devices
+flutter run -d YOUR_IOS_DEVICE_ID --no-pub
+# Or: flutter run -d YOUR_ANDROID_DEVICE_ID --no-pub
 ```
+
+`-d` takes an exact ID from `flutter devices`. Do not pass the platform name
+`ios` or `android` when selecting a physical device. From the repository root,
+the equivalent iOS command is
+`make app-run-ios IOS_DEVICE=YOUR_IOS_DEVICE_ID`.
 
 Physical-device source testing therefore drops from four terminals to two.
 Installed desktop and mobile Release builds launch from their graphical
@@ -129,11 +136,11 @@ make app-run-macos \
 ```
 
 ```bash
-make app-run-ios \
+make app-run-ios IOS_DEVICE=YOUR_IOS_DEVICE_ID \
   FLUTTER_ARGS='--dart-define=ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true'
 ```
 
-For Android, run `flutter run -d android --dart-define=ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true` from `apps/client_flutter`. On iOS, approve the Local Network prompt. The Rust environment switch is honored only in builds with debug assertions, and the Flutter switch only when `kDebugMode` is true. Profile, Release, and packaged Hosts ignore the opt-in and continue to reject non-loopback `ws://`. Host bindings created with a plaintext private-LAN endpoint are development-only; pair again through WSS before testing a Profile or Release app.
+For Android, run `flutter run -d YOUR_ANDROID_DEVICE_ID --dart-define=ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true` from `apps/client_flutter`. On iOS, approve the Local Network prompt. The Rust environment switch is honored only in builds with debug assertions, and the Flutter switch only when `kDebugMode` is true. Profile, Release, and packaged Hosts ignore the opt-in and continue to reject non-loopback `ws://`. Host bindings created with a plaintext private-LAN endpoint are development-only; pair again through WSS before testing a Profile or Release app.
 
 For normal cross-device use and all release acceptance, use WSS and a certificate trusted by every device:
 
@@ -185,7 +192,7 @@ The Flutter app and Host Agent must run as the same operating-system user. The a
 
 ### Pair a Controller
 
-- Phone or tablet: open **This computer** on the Host, show the phone QR code, run `flutter run -d android` or `flutter run -d ios`, and scan with the camera.
+- Phone or tablet: open **This computer** on the Host, show the phone QR code, run `flutter run -d YOUR_DEVICE_ID` with an ID from `flutter devices`, and scan with the camera.
 - Another computer: create a desktop pairing code, enter it under **My computers**, compare all four English verification words, and approve beside the Host.
 
 After approval, the saved computer card can start future sessions without pairing again. Deleting the card on a Controller is local-only; revoking on the Host blocks future sessions.
@@ -227,7 +234,7 @@ cargo run -p roammand-host-agent --features native-webrtc -- serve
 
 ```bash
 cd apps/client_flutter
-flutter run -d ios \
+flutter run -d YOUR_IOS_DEVICE_ID \
   --dart-define=ROAMMAND_ICE_TRANSPORT_POLICY=relay \
   --dart-define=ROAMMAND_TURN_URLS=turns:turn.example.com:5349 \
   --dart-define=ROAMMAND_TURN_USERNAME='<short-lived-username>' \
