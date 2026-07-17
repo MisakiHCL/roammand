@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/desktop/host_agent/host_agent_controller.dart';
+import 'package:roammand/desktop/host_agent/host_agent_process.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 void main() {
@@ -61,6 +62,31 @@ void main() {
     expect(failing.closeCount, 1);
     expect(recovered.closeCount, 1);
   });
+
+  test(
+    'starts and stops a GUI-owned Host Agent after initial IPC failure',
+    () async {
+      final unavailable = FakeHostAgentApi()..connectError = true;
+      final recovered = FakeHostAgentApi();
+      final process = FakeHostAgentProcessLifecycle();
+      var attempts = 0;
+      final controller = HostAgentController(
+        clientFactory: () => attempts++ == 0 ? unavailable : recovered,
+        processLifecycle: process,
+        refreshInterval: const Duration(hours: 1),
+      );
+
+      await controller.start();
+
+      expect(controller.state, HostAgentViewState.ready);
+      expect(process.startCount, 1);
+      expect(unavailable.closeCount, 1);
+      await controller.shutdown();
+      expect(process.stopCount, 1);
+      expect(recovered.closeCount, 1);
+      controller.dispose();
+    },
+  );
 
   test('restores and monotonically merges Host pairing state', () async {
     final api = FakeHostAgentApi();
@@ -168,6 +194,22 @@ void main() {
     controller.dispose();
     await Future<void>.delayed(Duration.zero);
   });
+}
+
+final class FakeHostAgentProcessLifecycle implements HostAgentProcessLifecycle {
+  int startCount = 0;
+  int stopCount = 0;
+
+  @override
+  Future<bool> start() async {
+    startCount += 1;
+    return true;
+  }
+
+  @override
+  Future<void> stop() async {
+    stopCount += 1;
+  }
 }
 
 class FakeHostAgentApi implements HostAgentApi {

@@ -77,6 +77,37 @@ void main() {
     await tester.pump();
     expect(tray.disposeCount, 1);
   });
+
+  testWidgets('tray exit closes an owned Host Agent before the application', (
+    tester,
+  ) async {
+    final api = TrayFakeHostAgentApi();
+    final host = HostAgentController(
+      clientFactory: () => api,
+      refreshInterval: const Duration(hours: 1),
+    );
+    final tray = TrayFakePort();
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: DesktopAppRoot(
+          hostAgentController: host,
+          disposeHostAgentController: true,
+          trayPort: tray,
+          home: const Text('desktop-root'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.runAsync(() => tray.emit(HostTrayCommand.exitApplication));
+
+    expect(api.closeCount, 1);
+    expect(tray.exitCount, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
 }
 
 final class TrayFakePort implements HostTrayPort {
@@ -84,6 +115,7 @@ final class TrayFakePort implements HostTrayPort {
   final List<HostTrayMenu> menus = <HostTrayMenu>[];
   int initializeCount = 0;
   int hideCount = 0;
+  int exitCount = 0;
   int disposeCount = 0;
 
   @override
@@ -107,7 +139,7 @@ final class TrayFakePort implements HostTrayPort {
   Future<void> hideWindow() async => hideCount += 1;
 
   @override
-  Future<void> exitApplication() async {}
+  Future<void> exitApplication() async => exitCount += 1;
 
   @override
   Future<void> dispose() async => disposeCount += 1;
@@ -120,6 +152,7 @@ final class TrayFakeHostAgentApi implements HostAgentApi {
       StreamController<HostPairingStatusSnapshot>.broadcast();
   final StreamController<PrivilegedBridgeStatusSnapshot> bridgeEvents =
       StreamController<PrivilegedBridgeStatusSnapshot>.broadcast();
+  int closeCount = 0;
 
   @override
   Stream<SessionTerminatedEvent> get sessionTerminations =>
@@ -162,6 +195,7 @@ final class TrayFakeHostAgentApi implements HostAgentApi {
 
   @override
   Future<void> close() async {
+    closeCount += 1;
     await sessionEvents.close();
     await pairingEvents.close();
     await bridgeEvents.close();

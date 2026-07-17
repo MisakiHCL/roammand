@@ -8,17 +8,21 @@ final class HostTrayController {
     required HostTrayPort port,
     required Future<void> Function() emergencyStop,
     required Future<bool> Function() confirmControlledExit,
+    required Future<void> Function() beforeExit,
   }) : // Public constructor labels keep dependency injection readable.
        // ignore: prefer_initializing_formals
        _port = port,
        // ignore: prefer_initializing_formals
        _emergencyStop = emergencyStop,
        // ignore: prefer_initializing_formals
-       _confirmControlledExit = confirmControlledExit;
+       _confirmControlledExit = confirmControlledExit,
+       // ignore: prefer_initializing_formals
+       _beforeExit = beforeExit;
 
   final HostTrayPort _port;
   final Future<void> Function() _emergencyStop;
   final Future<bool> Function() _confirmControlledExit;
+  final Future<void> Function() _beforeExit;
 
   HostTraySnapshot? _snapshot;
   HostTraySnapshot? _desiredSnapshot;
@@ -94,6 +98,7 @@ final class HostTrayController {
           if (_snapshot?.controlActive ?? false) {
             await _emergencyStop();
           }
+          await _beforeExit();
           await _port.exitApplication();
       }
     } finally {

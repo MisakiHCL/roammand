@@ -9,6 +9,7 @@ import 'package:roammand/l10n/generated/app_localizations.dart';
 
 import 'home/desktop_home_page.dart';
 import 'host_agent/host_agent_controller.dart';
+import 'host_agent/host_agent_process.dart';
 import 'host_agent/host_status_page.dart';
 import 'host_agent/privileged_bridge_presenter.dart';
 import 'tray/flutter_host_tray_port.dart';
@@ -28,6 +29,7 @@ final class DesktopAppRoot extends StatefulWidget {
   const DesktopAppRoot({
     super.key,
     this.hostAgentController,
+    this.hostAgentProcessLifecycle,
     this.trayPort,
     this.home,
     this.signalingEndpoint = _signalingEndpoint,
@@ -37,6 +39,7 @@ final class DesktopAppRoot extends StatefulWidget {
   });
 
   final HostAgentController? hostAgentController;
+  final HostAgentProcessLifecycle? hostAgentProcessLifecycle;
   final HostTrayPort? trayPort;
   final Widget? home;
   final String signalingEndpoint;
@@ -60,12 +63,21 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
   void initState() {
     super.initState();
     _ownsHostAgent = widget.hostAgentController == null;
-    _hostAgent = widget.hostAgentController ?? HostAgentController();
+    _hostAgent =
+        widget.hostAgentController ??
+        HostAgentController(
+          processLifecycle:
+              widget.hostAgentProcessLifecycle ??
+              DesktopHostAgentProcess(
+                signalingEndpoint: widget.signalingEndpoint,
+              ),
+        );
     _trayPort = widget.trayPort ?? FlutterHostTrayPort();
     _tray = HostTrayController(
       port: _trayPort,
       emergencyStop: _hostAgent.emergencyStopRemoteSession,
       confirmControlledExit: _confirmControlledExit,
+      beforeExit: _shutdownOwnedHostAgent,
     );
     _hostAgent.addListener(_onHostChanged);
     unawaited(_hostAgent.start());
@@ -132,6 +144,13 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
           ),
         ) ??
         false;
+  }
+
+  Future<void> _shutdownOwnedHostAgent() {
+    if (!_ownsHostAgent && !widget.disposeHostAgentController) {
+      return Future<void>.value();
+    }
+    return _hostAgent.shutdown();
   }
 
   @override

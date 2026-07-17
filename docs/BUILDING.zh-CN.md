@@ -209,7 +209,9 @@ sudo ./scripts/install_m8_macos.sh --package dist/m8-macos --dry-run
 sudo ./scripts/install_m8_macos.sh --package dist/m8-macos
 ```
 
-安装器会把 `Roammand.app` 放入 `/Applications`，将特权二进制放入 `/Library/PrivilegedHelperTools`，并将 launchd 定义放入 `/Library/LaunchDaemons` 和 `/Library/LaunchAgents`。安装后注销并重新登录一次，使全局图形会话 Agent 生效。
+安装器会把 `Roammand.app` 放入 `/Applications`，将 Host 与特权二进制放入 `/Library/PrivilegedHelperTools`，并将受保护会话的 launchd 定义放入 `/Library/LaunchDaemons` 和 `/Library/LaunchAgents`。打开 GUI 会启动已安装的 Host Agent；关闭窗口时 GUI 与 Agent 会继续在托盘运行，只有明确选择“退出”才会停止由该 GUI 启动的 Agent。安装后注销并重新登录一次，使受保护会话 Agent 生效。
+
+开发者仍可先独立运行 `roammand-host-agent serve` 再启动 GUI；GUI 会连接既有进程，不会取得其所有权，也不会在退出时停止它。设置 `ROAMMAND_HOST_AGENT_AUTOSTART=false` 可以关闭已安装 Agent 的自动启动回退，设置 `ROAMMAND_HOST_AGENT_EXECUTABLE` 可以指定用于测试的 Agent 二进制。
 
 预览或移除已安装组件：
 

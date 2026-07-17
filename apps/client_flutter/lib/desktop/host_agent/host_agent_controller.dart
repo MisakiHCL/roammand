@@ -6,10 +6,19 @@ import 'package:flutter/foundation.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 import 'host_agent_client.dart';
+import 'host_agent_process.dart';
 
 export 'host_agent_models.dart';
 
 const _defaultRefreshInterval = Duration(seconds: 30);
+const _managedStartupRetryDelays = <Duration>[
+  Duration(milliseconds: 50),
+  Duration(milliseconds: 100),
+  Duration(milliseconds: 200),
+  Duration(milliseconds: 400),
+  Duration(milliseconds: 800),
+  Duration(milliseconds: 1500),
+];
 
 enum HostAgentViewState { connecting, ready, offline, error }
 
@@ -18,10 +27,15 @@ enum EmergencyStopOutcome { idle, succeeded, failed }
 final class HostAgentController extends ChangeNotifier {
   HostAgentController({
     HostAgentApi Function()? clientFactory,
+    HostAgentProcessLifecycle? processLifecycle,
     this.refreshInterval = _defaultRefreshInterval,
-  }) : _clientFactory = clientFactory ?? HostAgentClient.new;
+  }) : _clientFactory = clientFactory ?? HostAgentClient.new,
+       // Public constructor labels keep dependency injection readable.
+       // ignore: prefer_initializing_formals
+       _processLifecycle = processLifecycle;
 
   final HostAgentApi Function() _clientFactory;
+  final HostAgentProcessLifecycle? _processLifecycle;
   final Duration refreshInterval;
 
   HostAgentViewState _state = HostAgentViewState.connecting;
@@ -41,7 +55,9 @@ final class HostAgentController extends ChangeNotifier {
   EmergencyStopOutcome _emergencyStopOutcome = EmergencyStopOutcome.idle;
   int _bridgeGeneration = 0;
   bool _disposed = false;
+  bool _notifierDisposed = false;
   int _generation = 0;
+  Future<void>? _shutdownOperation;
 
   HostAgentViewState get state => _state;
   HostStatus? get status => _status;
@@ -57,9 +73,41 @@ final class HostAgentController extends ChangeNotifier {
   bool isRevoking(List<int> grantId) =>
       _revokingGrantIds.contains(_grantKey(grantId));
 
-  Future<void> start() => _connect();
+  Future<void> start() => _connectWithManagedFallback();
 
-  Future<void> retry() => _connect();
+  Future<void> retry() => _connectWithManagedFallback();
+
+  Future<void> _connectWithManagedFallback() async {
+    await _connect();
+    final processLifecycle = _processLifecycle;
+    if (_disposed ||
+        _state != HostAgentViewState.offline ||
+        processLifecycle == null) {
+      return;
+    }
+    bool managedProcessAvailable;
+    try {
+      managedProcessAvailable = await processLifecycle.start();
+    } on Object {
+      managedProcessAvailable = false;
+    }
+    if (_disposed || !managedProcessAvailable) {
+      return;
+    }
+    for (final delay in _managedStartupRetryDelays) {
+      await Future<void>.delayed(delay);
+      if (_disposed) {
+        return;
+      }
+      await _connect();
+      if (_disposed || _state == HostAgentViewState.ready) {
+        return;
+      }
+      if (_state != HostAgentViewState.offline) {
+        return;
+      }
+    }
+  }
 
   Future<void> refresh() async {
     final client = _client;
@@ -358,8 +406,17 @@ final class HostAgentController extends ChangeNotifier {
     }
   }
 
-  @override
-  void dispose() {
+  Future<void> shutdown() {
+    final pending = _shutdownOperation;
+    if (pending != null) {
+      return pending;
+    }
+    final operation = _shutdown();
+    _shutdownOperation = operation;
+    return operation;
+  }
+
+  Future<void> _shutdown() async {
     if (_disposed) {
       return;
     }
@@ -367,17 +424,28 @@ final class HostAgentController extends ChangeNotifier {
     _generation += 1;
     _refreshTimer?.cancel();
     _refreshTimer = null;
-    unawaited(_eventSubscription?.cancel());
+    final eventSubscription = _eventSubscription;
     _eventSubscription = null;
-    unawaited(_pairingSubscription?.cancel());
+    final pairingSubscription = _pairingSubscription;
     _pairingSubscription = null;
-    unawaited(_bridgeSubscription?.cancel());
+    final bridgeSubscription = _bridgeSubscription;
     _bridgeSubscription = null;
     final client = _client;
     _client = null;
-    if (client != null) {
-      unawaited(client.close());
+    await eventSubscription?.cancel();
+    await pairingSubscription?.cancel();
+    await bridgeSubscription?.cancel();
+    await client?.close();
+    await _processLifecycle?.stop();
+  }
+
+  @override
+  void dispose() {
+    if (_notifierDisposed) {
+      return;
     }
+    _notifierDisposed = true;
+    unawaited(shutdown());
     super.dispose();
   }
 }

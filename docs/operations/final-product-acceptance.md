@@ -37,9 +37,9 @@ not treat a staged package as proof of protected-desktop runtime behavior.
 1. Install the Host package with administrator consent. Expected: program and
    service files are installed only in the documented platform locations; the
    device identity and grants are not placed in service data.
-2. Restart/sign out and in if the platform instructions request it. Expected:
-   the Host Agent, application/tray, broker, and graphical-session Helper are
-   available after login.
+2. Restart/sign out and in if the platform instructions request it, then open
+   Roammand. Expected: the GUI starts its installed Host Agent while the broker
+   and graphical-session Helper are available through the platform services.
 3. On macOS, grant Screen Recording and Accessibility only to the installed
    Host components. Expected: denying either permission reports a localized
    permission state and remote input remains disabled.
@@ -50,7 +50,8 @@ not treat a staged package as proof of protected-desktop runtime behavior.
    required, or Failed means protected-session acceptance cannot proceed and
    must remain Pending or Failed.
 6. Close the Host window. Expected: it hides while the tray remains visible.
-   Use the tray to show it again. Explicit Exit is the only normal UI exit.
+   The Host Agent remains available. Use the tray to show it again. Explicit
+   Exit is the only normal UI exit and stops the Agent owned by that GUI.
 
 ## Pairing and normal control
 
@@ -124,9 +125,10 @@ simulation, unit test, cross-compile, or package dry-run is not a substitute.
 26. Uninstall with administrator consent. Expected: services, Helpers, package
     data, and application files are removed; per-user identity and grants are
     preserved by default.
-27. Confirm the service/launchd jobs and tray are gone. If the product is being
-    retired, delete retained per-user application data separately only after
-    deciding that device identity and grants are no longer needed.
+27. Confirm the GUI-owned Host Agent, service/launchd jobs, and tray are gone.
+    If the product is being retired, delete retained per-user application data
+    separately only after deciding that device identity and grants are no
+    longer needed.
 
 The supported boundary excludes cold-start access before the Host owner has
 ever logged in, continued control after full logout or Host Agent exit,

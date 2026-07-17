@@ -10,7 +10,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($Package)) { $Package = Join-Path $Root "dist\m8-windows" }
 & (Join-Path $PSScriptRoot "check_m8_windows_package.ps1") -Package $Package | Out-Null
 if ($WhatIf) {
-  Write-Output "Would install verified app, Host Agent, LocalSystem service, Helper, restricted service data, and recovery policy; no changes made"
+  Write-Output "Would install verified app, GUI-managed Host Agent, LocalSystem bridge, Helper, restricted service data, and recovery policy; no changes made"
   exit 0
 }
 
@@ -58,4 +58,4 @@ $OwnerSid = $Identity.User.Value
 & sc.exe failure $ServiceName "reset= 86400" "actions= restart/5000/restart/15000/restart/30000" | Out-Null
 & sc.exe failureflag $ServiceName 1 | Out-Null
 Start-Service -Name $ServiceName
-Write-Output "Windows Host service installed"
+Write-Output "Windows Host components installed; open Roammand to start its Host Agent"

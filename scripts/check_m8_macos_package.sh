@@ -13,12 +13,15 @@ readonly REQUIRED=(
   "Library/PrivilegedHelperTools/roammand-privileged-bridge"
   "Library/PrivilegedHelperTools/roammand-session-agent"
   "Library/LaunchDaemons/dev.roammand.PrivilegedBridge.plist"
-  "Library/LaunchAgents/dev.roammand.HostAgent.plist"
   "Library/LaunchAgents/dev.roammand.SessionAgent.plist"
 )
 for path in "${REQUIRED[@]}"; do
   [[ -e "$PACKAGE_DIR/$path" ]] || { printf 'missing staged macOS path: %s\n' "$path" >&2; exit 1; }
 done
+[[ ! -e "$PACKAGE_DIR/Library/LaunchAgents/dev.roammand.HostAgent.plist" ]] || {
+  printf 'GUI-managed Host Agent must not be installed as a launchd job\n' >&2
+  exit 1
+}
 [[ -f "$MANIFEST" ]] || { printf 'missing macOS package manifest\n' >&2; exit 1; }
 (
   cd "$PACKAGE_DIR"

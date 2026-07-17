@@ -209,7 +209,17 @@ sudo ./scripts/install_m8_macos.sh --package dist/m8-macos --dry-run
 sudo ./scripts/install_m8_macos.sh --package dist/m8-macos
 ```
 
-The installer places `Roammand.app` in `/Applications`, privileged binaries in `/Library/PrivilegedHelperTools`, and launchd definitions in `/Library/LaunchDaemons` and `/Library/LaunchAgents`. Sign out and in once so the global graphical-session agents load.
+The installer places `Roammand.app` in `/Applications`, installed Host and
+privileged binaries in `/Library/PrivilegedHelperTools`, and protected-session
+launchd definitions in `/Library/LaunchDaemons` and `/Library/LaunchAgents`.
+Opening the GUI starts its installed Host Agent. Closing the window keeps both
+running in the tray; explicit **Exit** stops the Agent started by that GUI.
+Sign out and in once so the protected-session Agent loads.
+
+For independent development, start `roammand-host-agent serve` before the GUI;
+the GUI connects to that existing process and does not own or stop it. Set
+`ROAMMAND_HOST_AGENT_AUTOSTART=false` to disable installed-Agent fallback, or
+set `ROAMMAND_HOST_AGENT_EXECUTABLE` to test a specific Agent binary.
 
 Preview and remove installed components with:
 

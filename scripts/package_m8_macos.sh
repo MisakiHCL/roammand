@@ -63,8 +63,7 @@ install -m 0755 "$SESSION_AGENT" \
   "$OUTPUT_DIR/Library/PrivilegedHelperTools/roammand-session-agent"
 install -m 0644 packaging/macos/dev.roammand.PrivilegedBridge.plist \
   "$OUTPUT_DIR/Library/LaunchDaemons/dev.roammand.PrivilegedBridge.plist"
-install -m 0644 packaging/macos/dev.roammand.HostAgent.plist \
-  packaging/macos/dev.roammand.SessionAgent.plist \
+install -m 0644 packaging/macos/dev.roammand.SessionAgent.plist \
   "$OUTPUT_DIR/Library/LaunchAgents/"
 install -m 0644 licenses/MPL-2.0.txt licenses/Apache-2.0.txt \
   "$OUTPUT_DIR/Library/Application Support/Roammand/licenses/"

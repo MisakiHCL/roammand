@@ -14,6 +14,7 @@ void main() {
       port: port,
       emergencyStop: () async {},
       confirmControlledExit: () async => true,
+      beforeExit: () async {},
     );
     const ready = HostTraySnapshot(
       statusLabel: 'Ready',
@@ -47,11 +48,13 @@ void main() {
     () async {
       final port = FakeHostTrayPort();
       var emergencyStops = 0;
+      var beforeExitCalls = 0;
       var allowExit = false;
       final controller = HostTrayController(
         port: port,
         emergencyStop: () async => emergencyStops += 1,
         confirmControlledExit: () async => allowExit,
+        beforeExit: () async => beforeExitCalls += 1,
       );
       await controller.start(
         iconAssetPath: 'tray.png',
@@ -73,9 +76,11 @@ void main() {
 
       await port.emit(HostTrayCommand.exitApplication);
       expect(port.exitCount, 0);
+      expect(beforeExitCalls, 0);
       allowExit = true;
       await port.emit(HostTrayCommand.exitApplication);
       expect(emergencyStops, 2);
+      expect(beforeExitCalls, 1);
       expect(port.exitCount, 1);
 
       await controller.dispose();
@@ -91,6 +96,7 @@ void main() {
       port: port,
       emergencyStop: () async {},
       confirmControlledExit: () async => true,
+      beforeExit: () async {},
     );
     const english = HostTraySnapshot(
       statusLabel: 'Ready',

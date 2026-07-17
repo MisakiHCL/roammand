@@ -16,7 +16,7 @@ done
 
 "$ROOT_DIR/scripts/check_m8_macos_package.sh" "$PACKAGE_DIR" >/dev/null
 if $DRY_RUN; then
-  printf 'would install verified app, Host Agent, daemon, session agent, launchd files, and manifest; no changes made\n'
+  printf 'would install verified app, GUI-managed Host Agent, daemon, session agent, launchd files, and manifest; no changes made\n'
   exit 0
 fi
 [[ "$EUID" -eq 0 ]] || { printf 'administrator privileges are required; run with sudo or use --dry-run\n' >&2; exit 1; }
@@ -33,6 +33,8 @@ readonly OWNER_ID="$SERVICE_DATA_DIR/bridge-owner-id"
 readonly BRIDGE_RUNTIME_DIR="/var/run/roammand"
 
 launchctl bootout system/dev.roammand.PrivilegedBridge 2>/dev/null || true
+launchctl bootout "gui/$INSTALL_UID/dev.roammand.HostAgent" 2>/dev/null || true
+rm -f "/Library/LaunchAgents/dev.roammand.HostAgent.plist"
 rm -rf "/Applications/Roammand.app" "/Applications/Roammand.app"
 rm -rf "$LEGACY_SERVICE_DATA_DIR"
 cp -R "$PACKAGE_DIR/Applications/Roammand.app" "/Applications/Roammand.app"
@@ -58,4 +60,4 @@ chmod 0444 "$OWNER_ID"
 chown root:wheel "$BRIDGE_RUNTIME_DIR"
 chmod 0755 "$BRIDGE_RUNTIME_DIR"
 launchctl bootstrap system "/Library/LaunchDaemons/dev.roammand.PrivilegedBridge.plist"
-printf 'macOS Host components installed; sign out and in once to load global LaunchAgents\n'
+printf 'macOS Host components installed; open Roammand to start its Host Agent, then sign out and in once to load the protected-session Agent\n'
