@@ -654,6 +654,63 @@ class AppLocalizationsEn extends AppLocalizations {
   String get languageSimplifiedChineseOption => '简体中文';
 
   @override
+  String get settingsTooltip => 'Settings';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsGeneralSection => 'General';
+
+  @override
+  String get settingsConnectionSection => 'Connection';
+
+  @override
+  String get settingsAdvancedSection => 'Advanced';
+
+  @override
+  String get settingsLanguageTitle => 'Language';
+
+  @override
+  String get settingsLanguageBody => 'Choose the language used by Roammand.';
+
+  @override
+  String get uninstallSettingsTitle => 'Uninstall Roammand';
+
+  @override
+  String get uninstallSettingsBody =>
+      'Remove the app and installed background components from this Mac.';
+
+  @override
+  String get uninstallDevelopmentBuildBody =>
+      'Uninstall is available from the installed macOS app, not a development build.';
+
+  @override
+  String get uninstallUnavailableBody =>
+      'The protected uninstaller is missing. Reinstall Roammand before uninstalling.';
+
+  @override
+  String get uninstallCheckingBody => 'Checking the installed uninstaller…';
+
+  @override
+  String get uninstallConfirmTitle => 'Uninstall Roammand?';
+
+  @override
+  String get uninstallConfirmBody =>
+      'Remote sessions will stop and the app, Host Agent, privileged bridge, and protected-session Agent will be removed.';
+
+  @override
+  String get uninstallPreserveDataNotice =>
+      'This keeps this Mac’s device identity, pairing records, and preferences so they can be restored after reinstalling.';
+
+  @override
+  String get uninstallConfirmAction => 'Uninstall';
+
+  @override
+  String get uninstallFailed =>
+      'Roammand could not be uninstalled. No personal data was removed.';
+
+  @override
   String get desktopControlTitle => 'Control a computer';
 
   @override

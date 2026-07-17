@@ -27,20 +27,19 @@ if [[ ! "$INSTALL_UID" =~ ^[0-9]+$ || "$INSTALL_UID" == "0" ]]; then
 fi
 
 readonly SERVICE_DATA_DIR="/Library/Application Support/Roammand"
-readonly LEGACY_SERVICE_DATA_DIR="/Library/Application Support/Roammand"
 readonly INSTALL_SECRET="$SERVICE_DATA_DIR/bridge-install-secret.bin"
 readonly OWNER_ID="$SERVICE_DATA_DIR/bridge-owner-id"
 readonly BRIDGE_RUNTIME_DIR="/var/run/roammand"
 
 launchctl bootout system/dev.roammand.PrivilegedBridge 2>/dev/null || true
 launchctl bootout "gui/$INSTALL_UID/dev.roammand.HostAgent" 2>/dev/null || true
+launchctl bootout "gui/$INSTALL_UID/dev.roammand.SessionAgent" 2>/dev/null || true
 rm -f "/Library/LaunchAgents/dev.roammand.HostAgent.plist"
-rm -rf "/Applications/Roammand.app" "/Applications/Roammand.app"
-rm -rf "$LEGACY_SERVICE_DATA_DIR"
+rm -rf "/Applications/Roammand.app" "$SERVICE_DATA_DIR"
 cp -R "$PACKAGE_DIR/Applications/Roammand.app" "/Applications/Roammand.app"
 install -d -o root -g wheel -m 0755 "/Library/PrivilegedHelperTools" \
   "/Library/LaunchDaemons" "/Library/LaunchAgents" \
-  "$SERVICE_DATA_DIR" "$BRIDGE_RUNTIME_DIR"
+  "$SERVICE_DATA_DIR/licenses" "$BRIDGE_RUNTIME_DIR"
 install -o root -g wheel -m 0755 "$PACKAGE_DIR/Library/PrivilegedHelperTools/"* \
   "/Library/PrivilegedHelperTools/"
 install -o root -g wheel -m 0644 "$PACKAGE_DIR/Library/LaunchDaemons/"* \
@@ -50,6 +49,12 @@ install -o root -g wheel -m 0644 "$PACKAGE_DIR/Library/LaunchAgents/"* \
 install -o root -g wheel -m 0644 \
   "$PACKAGE_DIR/Library/Application Support/Roammand/install-manifest.sha256" \
   "$SERVICE_DATA_DIR/install-manifest.sha256"
+install -o root -g wheel -m 0644 \
+  "$PACKAGE_DIR/Library/Application Support/Roammand/licenses/"* \
+  "$SERVICE_DATA_DIR/licenses/"
+install -o root -g wheel -m 0755 \
+  "$PACKAGE_DIR/Library/Application Support/Roammand/uninstall-macos.sh" \
+  "$SERVICE_DATA_DIR/uninstall-macos.sh"
 umask 077
 dd if=/dev/urandom of="$INSTALL_SECRET" bs=32 count=1 2>/dev/null
 chown "$INSTALL_UID":wheel "$INSTALL_SECRET"

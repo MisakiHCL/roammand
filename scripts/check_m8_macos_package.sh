@@ -14,10 +14,17 @@ readonly REQUIRED=(
   "Library/PrivilegedHelperTools/roammand-session-agent"
   "Library/LaunchDaemons/dev.roammand.PrivilegedBridge.plist"
   "Library/LaunchAgents/dev.roammand.SessionAgent.plist"
+  "Library/Application Support/Roammand/uninstall-macos.sh"
+  "Library/Application Support/Roammand/licenses/MPL-2.0.txt"
+  "Library/Application Support/Roammand/licenses/Apache-2.0.txt"
 )
 for path in "${REQUIRED[@]}"; do
   [[ -e "$PACKAGE_DIR/$path" ]] || { printf 'missing staged macOS path: %s\n' "$path" >&2; exit 1; }
 done
+[[ -x "$PACKAGE_DIR/Library/Application Support/Roammand/uninstall-macos.sh" ]] || {
+  printf 'staged macOS uninstaller is not executable\n' >&2
+  exit 1
+}
 [[ ! -e "$PACKAGE_DIR/Library/LaunchAgents/dev.roammand.HostAgent.plist" ]] || {
   printf 'GUI-managed Host Agent must not be installed as a launchd job\n' >&2
   exit 1

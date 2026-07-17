@@ -69,6 +69,8 @@ install -m 0644 packaging/macos/dev.roammand.SessionAgent.plist \
   "$OUTPUT_DIR/Library/LaunchAgents/"
 install -m 0644 licenses/MPL-2.0.txt licenses/Apache-2.0.txt \
   "$OUTPUT_DIR/Library/Application Support/Roammand/licenses/"
+install -m 0755 scripts/uninstall_m8_macos.sh \
+  "$OUTPUT_DIR/Library/Application Support/Roammand/uninstall-macos.sh"
 
 readonly MANIFEST="$OUTPUT_DIR/Library/Application Support/Roammand/install-manifest.sha256"
 (

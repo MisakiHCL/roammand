@@ -258,7 +258,7 @@ Build output remains under `apps/client_flutter/build/` and is ignored by Git.
 
 ## Package the installed Host
 
-Package scripts require a clean worktree for their default Release build. They stage only allowlisted apps, agents, bridge/helpers, service definitions, licenses, and a sorted SHA-256 manifest. Device identities, grants, endpoints, credentials, private keys, and local developer paths are excluded.
+Package scripts require a clean worktree for their default Release build. They stage only allowlisted apps, agents, bridge/helpers, service definitions, licenses, a protected uninstaller, and a sorted SHA-256 manifest. Device identities, grants, endpoints, credentials, private keys, and local developer paths are excluded.
 
 ### macOS
 
@@ -275,12 +275,18 @@ Opening the GUI starts its installed Host Agent. Closing the window keeps both
 running in the tray; explicit **Exit** stops the Agent started by that GUI.
 Sign out and in once so the protected-session Agent loads.
 
+An installed build exposes **Settings → Advanced → Uninstall Roammand**. It
+requests administrator approval, stops the installed services, and removes the
+app and background components. Development builds keep this action disabled so
+they cannot accidentally target a separate installed copy.
+
 For independent development, start `roammand-host-agent serve` before the GUI;
 the GUI connects to that existing process and does not own or stop it. Set
 `ROAMMAND_HOST_AGENT_AUTOSTART=false` to disable installed-Agent fallback, or
 set `ROAMMAND_HOST_AGENT_EXECUTABLE` to test a specific Agent binary.
 
-Preview and remove installed components with:
+The repository script remains available as a terminal fallback or dry-run
+preview:
 
 ```bash
 sudo ./scripts/uninstall_m8_macos.sh --dry-run
@@ -305,7 +311,7 @@ pwsh -NoProfile -File scripts/uninstall_m8_windows.ps1 -WhatIf
 pwsh -NoProfile -File scripts/uninstall_m8_windows.ps1
 ```
 
-Both uninstallers preserve each user's device identity and Controller grants. Use the [final product acceptance checklist](operations/final-product-acceptance.md) to validate protected graphical sessions on real operating systems.
+Both uninstallers preserve each user's device identity, Controller grants, and preferences by default. Use the [final product acceptance checklist](operations/final-product-acceptance.md) to validate protected graphical sessions on real operating systems.
 
 ## Configure local Apple signing
 

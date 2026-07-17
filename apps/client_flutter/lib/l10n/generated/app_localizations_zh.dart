@@ -605,6 +605,58 @@ class AppLocalizationsZh extends AppLocalizations {
   String get languageSimplifiedChineseOption => '简体中文';
 
   @override
+  String get settingsTooltip => '设置';
+
+  @override
+  String get settingsTitle => '设置';
+
+  @override
+  String get settingsGeneralSection => '常规';
+
+  @override
+  String get settingsConnectionSection => '连接';
+
+  @override
+  String get settingsAdvancedSection => '高级';
+
+  @override
+  String get settingsLanguageTitle => '语言';
+
+  @override
+  String get settingsLanguageBody => '选择 Roammand 使用的显示语言。';
+
+  @override
+  String get uninstallSettingsTitle => '卸载 Roammand';
+
+  @override
+  String get uninstallSettingsBody => '从这台 Mac 移除应用及已安装的后台组件。';
+
+  @override
+  String get uninstallDevelopmentBuildBody => '卸载仅可从已安装的 macOS 应用执行，开发构建不可使用。';
+
+  @override
+  String get uninstallUnavailableBody => '受保护的卸载器缺失，请先重新安装 Roammand。';
+
+  @override
+  String get uninstallCheckingBody => '正在检查已安装的卸载器…';
+
+  @override
+  String get uninstallConfirmTitle => '卸载 Roammand？';
+
+  @override
+  String get uninstallConfirmBody => '远程会话将停止，应用、主机代理、特权桥接和受保护会话代理都会被移除。';
+
+  @override
+  String get uninstallPreserveDataNotice =>
+      '将保留这台 Mac 的设备身份、配对记录和偏好设置，以便重新安装后继续使用。';
+
+  @override
+  String get uninstallConfirmAction => '卸载';
+
+  @override
+  String get uninstallFailed => '无法卸载 Roammand；未删除任何个人数据。';
+
+  @override
   String get desktopControlTitle => '控制一台电脑';
 
   @override

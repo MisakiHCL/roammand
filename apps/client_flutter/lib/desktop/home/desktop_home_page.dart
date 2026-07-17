@@ -6,13 +6,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:roammand/design_system/roammand_brand_mark.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
-import 'package:roammand/l10n/app_language_menu.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/network/network_service_configuration.dart';
 import 'package:roammand/network/network_service_controller.dart';
-import 'package:roammand/network/network_service_settings_page.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
+import 'package:roammand/settings/app_settings_page.dart';
+import 'package:roammand/settings/uninstall/app_uninstaller.dart';
 
 import '../host_agent/host_agent_client.dart';
 import '../host_agent/host_status_page.dart';
@@ -63,6 +63,8 @@ final class DesktopHomePage extends StatefulWidget {
     this.nowUnixMs,
     this.localePreference = AppLocalePreference.system,
     this.onLocalePreferenceChanged,
+    this.uninstaller,
+    this.beforeUninstall,
   });
 
   final Widget? hostPage;
@@ -75,6 +77,8 @@ final class DesktopHomePage extends StatefulWidget {
   final AppLocalePreference localePreference;
   final Future<void> Function(AppLocalePreference preference)?
   onLocalePreferenceChanged;
+  final AppUninstaller? uninstaller;
+  final Future<void> Function()? beforeUninstall;
 
   @override
   State<DesktopHomePage> createState() => _DesktopHomePageState();
@@ -224,20 +228,13 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
       };
 
   List<Widget>? _appBarActions(AppLocalizations strings) {
-    final onLocalePreferenceChanged = widget.onLocalePreferenceChanged;
     final actions = <Widget>[
       if (widget.networkServices != null)
         IconButton(
-          key: const Key('desktop-network-settings'),
-          onPressed: _openNetworkSettings,
-          tooltip: strings.networkSettingsTooltip,
-          icon: const Icon(Icons.settings_ethernet, size: 20),
-        ),
-      if (onLocalePreferenceChanged != null)
-        AppLanguageMenu(
-          key: const Key('language-menu'),
-          preference: widget.localePreference,
-          onPreferenceChanged: onLocalePreferenceChanged,
+          key: const Key('desktop-settings'),
+          onPressed: _openSettings,
+          tooltip: strings.settingsTooltip,
+          icon: const Icon(Icons.settings_outlined, size: 20),
         ),
       const SizedBox(width: 8),
     ];
@@ -436,26 +433,18 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
     }
   }
 
-  Future<void> _openNetworkSettings() async {
+  Future<void> _openSettings() async {
     final controller = widget.networkServices;
     if (controller == null) return;
-    final result = await Navigator.of(context)
-        .push<NetworkServiceSettingsResult>(
-          MaterialPageRoute<NetworkServiceSettingsResult>(
-            builder: (_) => NetworkServiceSettingsPage(
-              controller: controller,
-              warnAboutHostRestart: true,
-            ),
-          ),
-        );
-    if (!mounted || result == null || !result.changed) return;
-    final strings = AppLocalizations.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          result.signalingChanged
-              ? strings.networkHostMigrationSaved
-              : strings.networkConfigurationSaved,
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => AppSettingsPage(
+          localePreference: widget.localePreference,
+          onLocalePreferenceChanged: widget.onLocalePreferenceChanged,
+          networkServices: controller,
+          mobileContext: false,
+          uninstaller: widget.uninstaller,
+          beforeUninstall: widget.beforeUninstall,
         ),
       ),
     );

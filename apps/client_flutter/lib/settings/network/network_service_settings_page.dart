@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 
-import 'network_service_configuration.dart';
-import 'network_service_controller.dart';
+import 'package:roammand/network/network_service_configuration.dart';
+import 'package:roammand/network/network_service_controller.dart';
 
 const _pagePadding = 24.0;
 const _sectionSpacing = 24.0;

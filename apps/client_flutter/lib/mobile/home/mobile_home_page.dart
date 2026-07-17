@@ -8,15 +8,14 @@ import 'package:roammand/design_system/roammand_brand_mark.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
-import 'package:roammand/l10n/app_language_menu.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/identity/mobile_device_identity.dart';
 import 'package:roammand/mobile/pairing/mobile_pairing_page.dart';
 import 'package:roammand/mobile/remote/mobile_remote_launcher.dart';
 import 'package:roammand/network/network_service_controller.dart';
-import 'package:roammand/network/network_service_settings_page.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
+import 'package:roammand/settings/app_settings_page.dart';
 
 const _pagePadding = 24.0;
 const _itemSpacing = 12.0;
@@ -201,18 +200,12 @@ final class _MobileHomePageState extends State<MobileHomePage> {
             icon: const Icon(Icons.qr_code_scanner, size: 20),
             label: Text(strings.mobileScanQrAction),
           ),
-          if (widget.onLocalePreferenceChanged case final onChanged?)
-            AppLanguageMenu(
-              key: const Key('mobile-language-menu'),
-              preference: widget.localePreference,
-              onPreferenceChanged: onChanged,
-            ),
           if (widget.networkServices != null)
             IconButton.filledTonal(
-              key: const Key('mobile-network-settings'),
-              onPressed: _openNetworkSettings,
-              tooltip: strings.networkSettingsTooltip,
-              icon: const Icon(Icons.settings_ethernet, size: 20),
+              key: const Key('mobile-settings'),
+              onPressed: _openSettings,
+              tooltip: strings.settingsTooltip,
+              icon: const Icon(Icons.settings_outlined, size: 20),
             ),
         ],
       ),
@@ -239,23 +232,17 @@ final class _MobileHomePageState extends State<MobileHomePage> {
     ],
   );
 
-  Future<void> _openNetworkSettings() async {
+  Future<void> _openSettings() async {
     final controller = widget.networkServices;
     if (controller == null) return;
-    final result = await Navigator.of(context)
-        .push<NetworkServiceSettingsResult>(
-          MaterialPageRoute<NetworkServiceSettingsResult>(
-            builder: (_) => NetworkServiceSettingsPage(
-              controller: controller,
-              warnAboutHostRestart: false,
-              mobileContext: true,
-            ),
-          ),
-        );
-    if (!mounted || result == null || !result.changed) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).networkConfigurationSaved),
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => AppSettingsPage(
+          localePreference: widget.localePreference,
+          onLocalePreferenceChanged: widget.onLocalePreferenceChanged,
+          networkServices: controller,
+          mobileContext: true,
+        ),
       ),
     );
   }

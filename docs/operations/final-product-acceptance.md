@@ -122,9 +122,10 @@ simulation, unit test, cross-compile, or package dry-run is not a substitute.
 
 25. Preview uninstall (`--dry-run` on macOS or `-WhatIf` on Windows). Expected:
     no system state changes.
-26. Uninstall with administrator consent. Expected: services, Helpers, package
-    data, and application files are removed; per-user identity and grants are
-    preserved by default.
+26. Use **Settings → Advanced → Uninstall Roammand**, or the terminal fallback,
+    and approve administrator access. Expected: services, Helpers, package data,
+    and application files are removed; per-user identity, grants, and preferences
+    are preserved by default.
 27. Confirm the GUI-owned Host Agent, service/launchd jobs, and tray are gone.
     If the product is being retired, delete retained per-user application data
     separately only after deciding that device identity and grants are no

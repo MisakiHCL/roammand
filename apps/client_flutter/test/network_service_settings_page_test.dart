@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/network/network_service_configuration.dart';
 import 'package:roammand/network/network_service_controller.dart';
-import 'package:roammand/network/network_service_settings_page.dart';
+import 'package:roammand/settings/network/network_service_settings_page.dart';
 
 void main() {
   testWidgets('saves a custom profile and restores official defaults', (

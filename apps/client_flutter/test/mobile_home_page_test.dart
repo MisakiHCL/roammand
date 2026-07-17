@@ -9,6 +9,7 @@ import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/home/mobile_home_page.dart';
+import 'package:roammand/network/network_service_controller.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
 import 'package:roammand/pairing/trusted_host_store.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
@@ -21,12 +22,15 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final repository = TrustedHostRepository(persistence: _MemoryHosts());
     await repository.initialize();
+    final networkServices = NetworkServiceController.transient();
+    addTearDown(networkServices.dispose);
 
     await tester.pumpWidget(
       _app(
         MobileHomePage(
           trustedHosts: repository,
           pairingPageBuilder: (_) => const SizedBox.shrink(),
+          networkServices: networkServices,
         ),
         locale: const Locale('zh'),
         textScaler: const TextScaler.linear(1.4),
@@ -47,6 +51,8 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final repository = TrustedHostRepository(persistence: _MemoryHosts());
     await repository.initialize();
+    final networkServices = NetworkServiceController.transient();
+    addTearDown(networkServices.dispose);
     AppLocalePreference? selectedPreference;
 
     await tester.pumpWidget(
@@ -54,6 +60,7 @@ void main() {
         MobileHomePage(
           trustedHosts: repository,
           pairingPageBuilder: (_) => const SizedBox.shrink(),
+          networkServices: networkServices,
           localePreference: AppLocalePreference.system,
           onLocalePreferenceChanged: (preference) async {
             selectedPreference = preference;
@@ -66,15 +73,17 @@ void main() {
 
     expect(find.byType(AppBar), findsNothing);
     expect(find.byType(ListView), findsOneWidget);
-    expect(find.byKey(const Key('mobile-language-menu')), findsOneWidget);
+    expect(find.byKey(const Key('mobile-settings')), findsOneWidget);
     expect(tester.widget<Text>(find.text('我的电脑')).style?.fontSize, 24);
-    await tester.tap(find.byKey(const Key('mobile-language-menu')));
+    await tester.tap(find.byKey(const Key('mobile-settings')));
     await tester.pumpAndSettle();
-    expect(find.text('跟随系统'), findsOneWidget);
-    expect(find.text('English'), findsOneWidget);
-    expect(find.text('简体中文'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('settings-language-selector')));
+    await tester.pumpAndSettle();
+    expect(find.text('跟随系统'), findsWidgets);
+    expect(find.text('English'), findsWidgets);
+    expect(find.text('简体中文'), findsWidgets);
 
-    await tester.tap(find.text('English'));
+    await tester.tap(find.text('English').last);
     await tester.pumpAndSettle();
     expect(selectedPreference, AppLocalePreference.english);
     expect(tester.takeException(), isNull);

@@ -234,7 +234,7 @@ flutter build windows --release
 
 ## 打包可安装的 Host
 
-默认 Release 构建要求工作树干净。打包脚本只会暂存允许的 App、Agent、Bridge/Helper、服务定义、许可证和排序后的 SHA-256 清单。设备身份、授权、连接地址、凭据、私钥和本地开发者路径不会进入安装包。
+默认 Release 构建要求工作树干净。打包脚本只会暂存允许的 App、Agent、Bridge/Helper、服务定义、许可证、受保护卸载器和排序后的 SHA-256 清单。设备身份、授权、连接地址、凭据、私钥和本地开发者路径不会进入安装包。
 
 ### macOS
 
@@ -246,9 +246,11 @@ sudo ./scripts/install_m8_macos.sh --package dist/m8-macos
 
 安装器会把 `Roammand.app` 放入 `/Applications`，将 Host 与特权二进制放入 `/Library/PrivilegedHelperTools`，并将受保护会话的 launchd 定义放入 `/Library/LaunchDaemons` 和 `/Library/LaunchAgents`。打开 GUI 会启动已安装的 Host Agent；关闭窗口时 GUI 与 Agent 会继续在托盘运行，只有明确选择“退出”才会停止由该 GUI 启动的 Agent。安装后注销并重新登录一次，使受保护会话 Agent 生效。
 
+安装版会提供“**设置 → 高级 → 卸载 Roammand**”。该操作会请求管理员授权，停止已安装的服务，并移除 App 与后台组件。开发构建中的卸载入口保持禁用，避免误删另一份正式安装版本。
+
 开发者仍可先独立运行 `roammand-host-agent serve` 再启动 GUI；GUI 会连接既有进程，不会取得其所有权，也不会在退出时停止它。设置 `ROAMMAND_HOST_AGENT_AUTOSTART=false` 可以关闭已安装 Agent 的自动启动回退，设置 `ROAMMAND_HOST_AGENT_EXECUTABLE` 可以指定用于测试的 Agent 二进制。
 
-预览或移除已安装组件：
+仓库脚本仍可作为终端兜底方式，也可先预览卸载操作：
 
 ```bash
 sudo ./scripts/uninstall_m8_macos.sh --dry-run
@@ -273,7 +275,7 @@ pwsh -NoProfile -File scripts/uninstall_m8_windows.ps1 -WhatIf
 pwsh -NoProfile -File scripts/uninstall_m8_windows.ps1
 ```
 
-两个卸载器都会保留每位用户的设备身份和 Controller 授权。请使用[最终产品人工验收清单](operations/final-product-acceptance.md)在真实操作系统上验证受保护图形会话。
+两个卸载器默认都会保留每位用户的设备身份、Controller 授权和偏好设置。请使用[最终产品人工验收清单](operations/final-product-acceptance.md)在真实操作系统上验证受保护图形会话。
 
 ## 配置本地 Apple 签名
 

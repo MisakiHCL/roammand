@@ -1220,6 +1220,108 @@ abstract class AppLocalizations {
   /// **'简体中文'**
   String get languageSimplifiedChineseOption;
 
+  /// No description provided for @settingsTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTooltip;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsGeneralSection.
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get settingsGeneralSection;
+
+  /// No description provided for @settingsConnectionSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection'**
+  String get settingsConnectionSection;
+
+  /// No description provided for @settingsAdvancedSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get settingsAdvancedSection;
+
+  /// No description provided for @settingsLanguageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingsLanguageTitle;
+
+  /// No description provided for @settingsLanguageBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the language used by Roammand.'**
+  String get settingsLanguageBody;
+
+  /// No description provided for @uninstallSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Uninstall Roammand'**
+  String get uninstallSettingsTitle;
+
+  /// No description provided for @uninstallSettingsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the app and installed background components from this Mac.'**
+  String get uninstallSettingsBody;
+
+  /// No description provided for @uninstallDevelopmentBuildBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Uninstall is available from the installed macOS app, not a development build.'**
+  String get uninstallDevelopmentBuildBody;
+
+  /// No description provided for @uninstallUnavailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The protected uninstaller is missing. Reinstall Roammand before uninstalling.'**
+  String get uninstallUnavailableBody;
+
+  /// No description provided for @uninstallCheckingBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking the installed uninstaller…'**
+  String get uninstallCheckingBody;
+
+  /// No description provided for @uninstallConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Uninstall Roammand?'**
+  String get uninstallConfirmTitle;
+
+  /// No description provided for @uninstallConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote sessions will stop and the app, Host Agent, privileged bridge, and protected-session Agent will be removed.'**
+  String get uninstallConfirmBody;
+
+  /// No description provided for @uninstallPreserveDataNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This keeps this Mac’s device identity, pairing records, and preferences so they can be restored after reinstalling.'**
+  String get uninstallPreserveDataNotice;
+
+  /// No description provided for @uninstallConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Uninstall'**
+  String get uninstallConfirmAction;
+
+  /// No description provided for @uninstallFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Roammand could not be uninstalled. No personal data was removed.'**
+  String get uninstallFailed;
+
   /// No description provided for @desktopControlTitle.
   ///
   /// In en, this message translates to:

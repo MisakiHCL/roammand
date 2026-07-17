@@ -23,8 +23,9 @@ rg -q 'bridge-owner-id' scripts/install_m8_macos.sh scripts/uninstall_m8_macos.s
 rg -q '/var/run/roammand' scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh
 rg -q '/Applications/Roammand\.app' scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh
 rg -q 'Application Support/Roammand' scripts/package_m8_macos.sh scripts/install_m8_macos.sh
+rg -q 'uninstall-macos\.sh' scripts/package_m8_macos.sh scripts/install_m8_macos.sh
 if rg -n '(private[_ -]?key|seed|signaling|turn[_ -]?password|/Users/|--shell|interactive service)' \
-  packaging/macos scripts/package_m8_macos.sh scripts/install_m8_macos.sh; then
+  packaging/macos scripts/package_m8_macos.sh scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh; then
   printf 'macOS package contains forbidden privilege or local data\n' >&2
   exit 1
 fi

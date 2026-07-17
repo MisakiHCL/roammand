@@ -8,6 +8,7 @@ import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/network/network_service_configuration.dart';
 import 'package:roammand/network/network_service_controller.dart';
+import 'package:roammand/settings/uninstall/app_uninstaller.dart';
 
 import 'home/desktop_home_page.dart';
 import 'host_agent/host_agent_controller.dart';
@@ -39,6 +40,7 @@ final class DesktopAppRoot extends StatefulWidget {
     this.disposeHostAgentController = false,
     this.localePreference = AppLocalePreference.system,
     this.onLocalePreferenceChanged,
+    this.appUninstaller,
   });
 
   final HostAgentController? hostAgentController;
@@ -51,6 +53,7 @@ final class DesktopAppRoot extends StatefulWidget {
   final AppLocalePreference localePreference;
   final Future<void> Function(AppLocalePreference preference)?
   onLocalePreferenceChanged;
+  final AppUninstaller? appUninstaller;
 
   @override
   State<DesktopAppRoot> createState() => _DesktopAppRootState();
@@ -207,6 +210,15 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
     return _hostAgent.shutdown();
   }
 
+  Future<void> _prepareForUninstall() async {
+    try {
+      await _hostAgent.emergencyStopRemoteSession();
+    } catch (_) {
+      // The root-owned uninstaller still stops every installed process. This
+      // request only gives an available Agent a chance to release input first.
+    }
+  }
+
   @override
   Widget build(BuildContext context) =>
       widget.home ??
@@ -214,6 +226,10 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
         localePreference: widget.localePreference,
         onLocalePreferenceChanged: widget.onLocalePreferenceChanged,
         networkServices: _networkServices,
+        uninstaller:
+            widget.appUninstaller ??
+            (Platform.isMacOS ? MacOsAppUninstaller() : null),
+        beforeUninstall: _prepareForUninstall,
         hostPage: HostStatusPage(
           controller: _hostAgent,
           autoStart: false,

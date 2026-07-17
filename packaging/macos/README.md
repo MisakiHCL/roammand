@@ -7,13 +7,15 @@
 
 The staged package contains the Flutter application, current-user Host Agent,
 root bridge daemon, Aqua/LoginWindow session agent, fixed launchd definitions,
-licenses, and a sorted SHA-256 manifest.
+licenses, a protected uninstaller, and a sorted SHA-256 manifest.
 
 Installation requires explicit administrator consent. It installs only under
 `/Applications`, `/Library/PrivilegedHelperTools`, `/Library/LaunchDaemons`,
 `/Library/LaunchAgents`, and `/Library/Application Support/Roammand`.
-Uninstall preserves each user's device identity and Controller grants unless the
-user deletes that application data separately.
+The installed GUI exposes the protected uninstaller under **Settings → Advanced**.
+It preserves each user's device identity, Controller grants, and preferences
+unless the user deletes that application data separately. The repository
+script remains the terminal fallback and supports `--dry-run`.
 
 Use the repository scripts to stage, verify, install, or uninstall. Run the
 install and uninstall scripts with `--dry-run` first to inspect every action.

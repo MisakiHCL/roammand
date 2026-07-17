@@ -11,6 +11,7 @@ import 'package:roammand/desktop/home/trusted_computers_controller.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
+import 'package:roammand/network/network_service_controller.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
 import 'package:roammand/pairing/trusted_host_store.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
@@ -197,6 +198,8 @@ void main() {
 
   testWidgets('offers system, English, and Simplified Chinese', (tester) async {
     final persistence = HomeMemoryPersistence();
+    final networkServices = NetworkServiceController.transient();
+    addTearDown(networkServices.dispose);
     AppLocalePreference? selectedPreference;
     await tester.pumpWidget(
       _app(
@@ -204,6 +207,7 @@ void main() {
           hostPage: const Text('this-computer-content'),
           trustedComputersController: _trustedController(persistence),
           signalingEndpoint: _endpoint,
+          networkServices: networkServices,
           localePreference: AppLocalePreference.system,
           onLocalePreferenceChanged: (preference) async {
             selectedPreference = preference;
@@ -214,13 +218,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('language-menu')));
+    await tester.tap(find.byKey(const Key('desktop-settings')));
     await tester.pumpAndSettle();
-    expect(find.text('跟随系统'), findsOneWidget);
-    expect(find.text('English'), findsOneWidget);
-    expect(find.text('简体中文'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('settings-language-selector')));
+    await tester.pumpAndSettle();
+    expect(find.text('跟随系统'), findsWidgets);
+    expect(find.text('English'), findsWidgets);
+    expect(find.text('简体中文'), findsWidgets);
 
-    await tester.tap(find.text('English'));
+    await tester.tap(find.text('English').last);
     await tester.pumpAndSettle();
     expect(selectedPreference, AppLocalePreference.english);
   });
