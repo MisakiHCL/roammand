@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageOps
 
 
 IOS_ICONS = {
@@ -61,6 +61,16 @@ def resized(source: Image.Image, size: int, *, opaque: bool) -> Image.Image:
     return image.convert("RGB" if opaque else "RGBA")
 
 
+def resized_template(source: Image.Image, size: int) -> Image.Image:
+    """Convert a black-on-white preview into a black-and-clear template."""
+    rgba = source.convert("RGBA")
+    darkness = ImageOps.invert(ImageOps.grayscale(rgba))
+    alpha = ImageChops.multiply(rgba.getchannel("A"), darkness)
+    template = Image.new("RGBA", rgba.size, (0, 0, 0, 0))
+    template.putalpha(alpha)
+    return template.resize((size, size), Image.Resampling.LANCZOS)
+
+
 def save_set(
     source: Image.Image,
     root: Path,
@@ -106,7 +116,7 @@ def main() -> None:
     app_asset.parent.mkdir(parents=True, exist_ok=True)
     resized(app_icon, 1024, opaque=True).save(brand_png, optimize=True)
     resized(app_icon, 256, opaque=False).save(app_asset, optimize=True)
-    resized(tray_icon, 32, opaque=False).save(tray_asset, optimize=True)
+    resized_template(tray_icon, 32).save(tray_asset, optimize=True)
 
     resized(app_icon, 256, opaque=False).save(
         root / "apps/client_flutter/windows/runner/resources/app_icon.ico",

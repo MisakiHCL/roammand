@@ -57,4 +57,19 @@ if rg -q 'canvas\.drawRRect\(workspace|1\.25 \* scale' \
   exit 1
 fi
 
+python3 - <<'PY'
+from PIL import Image
+
+image = Image.open(
+    "apps/client_flutter/assets/brand/roammand_tray_template.png"
+).convert("RGBA")
+alpha = list(image.getchannel("A").getdata())
+if image.size != (32, 32) or not any(value == 0 for value in alpha):
+    raise SystemExit("macOS tray template must contain a transparent background")
+if not any(value > 0 for value in alpha):
+    raise SystemExit("macOS tray template must contain visible logo pixels")
+if any(pixel[:3] != (0, 0, 0) for pixel in image.getdata() if pixel[3] > 0):
+    raise SystemExit("macOS tray template must contain only black and clear pixels")
+PY
+
 printf 'Roammand brand asset contract ok\n'

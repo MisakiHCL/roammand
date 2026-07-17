@@ -428,16 +428,37 @@ fn with_macos_installed_bridge(
     }
     let expected_executable = PathBuf::from(MACOS_HOST_AGENT_PATH);
     let executable = env::current_exe().map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
-    if executable != expected_executable {
+    if !same_macos_installed_executable(&executable, &expected_executable) {
         return Err(RuntimeError::PrivilegedBridgeUnavailable);
     }
     let privileged_bridge = PrivilegedBridgeRuntimeConfig::load_installed(
         PathBuf::from(MACOS_BRIDGE_SOCKET_PATH),
         &secret,
         &owner,
-        &executable,
+        &expected_executable,
     )?;
     Ok(config.with_privileged_bridge(privileged_bridge))
+}
+
+#[cfg(target_os = "macos")]
+fn same_macos_installed_executable(actual: &Path, expected: &Path) -> bool {
+    use std::{fs, os::unix::fs::MetadataExt};
+
+    let Ok(actual_metadata) = fs::symlink_metadata(actual) else {
+        return false;
+    };
+    let Ok(expected_metadata) = fs::symlink_metadata(expected) else {
+        return false;
+    };
+    if !actual_metadata.is_file()
+        || actual_metadata.file_type().is_symlink()
+        || !expected_metadata.is_file()
+        || expected_metadata.file_type().is_symlink()
+    {
+        return false;
+    }
+    actual_metadata.dev() == expected_metadata.dev()
+        && actual_metadata.ino() == expected_metadata.ino()
 }
 
 /// Waits for Ctrl-C or the platform termination signal.
@@ -913,5 +934,39 @@ const fn protocol_version() -> ProtocolVersion {
     ProtocolVersion {
         major: PROTOCOL_MAJOR_VERSION,
         minor: PROTOCOL_MINOR_VERSION,
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod macos_installed_executable_tests {
+    use std::{fs, os::unix::fs::symlink};
+
+    use tempfile::tempdir;
+
+    use super::same_macos_installed_executable;
+
+    #[test]
+    fn accepts_two_paths_to_the_same_regular_file() {
+        let directory = tempdir().expect("temporary directory");
+        let installed = directory.path().join("installed-agent");
+        let alternate = directory.path().join("alternate-agent");
+        fs::write(&installed, b"agent").expect("installed fixture");
+        fs::hard_link(&installed, &alternate).expect("alternate file identity");
+
+        assert!(same_macos_installed_executable(&alternate, &installed));
+    }
+
+    #[test]
+    fn rejects_different_files_and_symbolic_links() {
+        let directory = tempdir().expect("temporary directory");
+        let installed = directory.path().join("installed-agent");
+        let other = directory.path().join("other-agent");
+        let link = directory.path().join("linked-agent");
+        fs::write(&installed, b"agent").expect("installed fixture");
+        fs::write(&other, b"agent").expect("other fixture");
+        symlink(&installed, &link).expect("symbolic link fixture");
+
+        assert!(!same_macos_installed_executable(&other, &installed));
+        assert!(!same_macos_installed_executable(&link, &installed));
     }
 }
