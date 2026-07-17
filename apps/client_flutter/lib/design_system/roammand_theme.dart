@@ -4,15 +4,19 @@ import 'package:flutter/material.dart';
 
 import 'roammand_colors.dart';
 
-const _compactDisplaySmallSize = 32.0;
-const _compactHeadlineLargeSize = 28.0;
-const _compactHeadlineMediumSize = 24.0;
-const _compactHeadlineSmallSize = 20.0;
-const _compactTitleLargeSize = 20.0;
-const _compactBodyLargeSize = 14.0;
+const _compactDisplaySmallSize = 30.0;
+const _compactHeadlineLargeSize = 26.0;
+const _compactHeadlineMediumSize = 22.0;
+const _compactHeadlineSmallSize = 18.0;
+const _compactTitleLargeSize = 18.0;
+const _compactTitleMediumSize = 14.0;
+const _compactTitleSmallSize = 13.0;
+const _compactBodyLargeSize = 13.0;
+const _compactBodyMediumSize = 13.0;
+const _compactLabelLargeSize = 13.0;
 
 abstract final class RoammandTheme {
-  static ThemeData dark({bool compactTypography = false}) {
+  static ThemeData dark({bool compactDesktop = false}) {
     final baseScheme = ColorScheme.fromSeed(
       seedColor: RoammandColors.auroraIndigo,
       brightness: Brightness.dark,
@@ -88,7 +92,7 @@ abstract final class RoammandTheme {
         fontWeight: FontWeight.w600,
       ),
     );
-    final textTheme = compactTypography
+    final textTheme = compactDesktop
         ? brandedTextTheme.copyWith(
             displaySmall: brandedTextTheme.displaySmall?.copyWith(
               fontSize: _compactDisplaySmallSize,
@@ -105,11 +109,28 @@ abstract final class RoammandTheme {
             titleLarge: brandedTextTheme.titleLarge?.copyWith(
               fontSize: _compactTitleLargeSize,
             ),
+            titleMedium: brandedTextTheme.titleMedium?.copyWith(
+              fontSize: _compactTitleMediumSize,
+            ),
+            titleSmall: brandedTextTheme.titleSmall?.copyWith(
+              fontSize: _compactTitleSmallSize,
+            ),
             bodyLarge: brandedTextTheme.bodyLarge?.copyWith(
               fontSize: _compactBodyLargeSize,
             ),
+            bodyMedium: brandedTextTheme.bodyMedium?.copyWith(
+              fontSize: _compactBodyMediumSize,
+            ),
+            labelLarge: brandedTextTheme.labelLarge?.copyWith(
+              fontSize: _compactLabelLargeSize,
+            ),
           )
         : brandedTextTheme;
+    final controlHeight = compactDesktop ? 40.0 : 48.0;
+    final buttonPadding = EdgeInsets.symmetric(
+      horizontal: compactDesktop ? 16 : 20,
+      vertical: compactDesktop ? 8 : 12,
+    );
     final roundedRectangle = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(20),
     );
@@ -151,8 +172,8 @@ abstract final class RoammandTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          minimumSize: Size(0, controlHeight),
+          padding: buttonPadding,
           backgroundColor: RoammandColors.inverseSurface,
           foregroundColor: RoammandColors.inverseInk,
           disabledBackgroundColor: RoammandColors.outline,
@@ -163,8 +184,8 @@ abstract final class RoammandTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          minimumSize: Size(0, controlHeight),
+          padding: buttonPadding,
           foregroundColor: RoammandColors.textPrimary,
           side: const BorderSide(color: RoammandColors.outline),
           textStyle: textTheme.labelLarge,
@@ -173,7 +194,7 @@ abstract final class RoammandTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          minimumSize: const Size(44, 44),
+          minimumSize: Size.square(compactDesktop ? 40 : 44),
           foregroundColor: RoammandColors.auroraSoft,
           textStyle: textTheme.labelLarge,
           shape: buttonShape,
@@ -181,7 +202,7 @@ abstract final class RoammandTheme {
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          minimumSize: const Size.square(44),
+          minimumSize: Size.square(compactDesktop ? 40 : 44),
           foregroundColor: RoammandColors.textSecondary,
           highlightColor: RoammandColors.auroraIndigo.withValues(alpha: 0.16),
         ),
@@ -189,9 +210,9 @@ abstract final class RoammandTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: RoammandColors.deepSurface,
-        contentPadding: const EdgeInsets.symmetric(
+        contentPadding: EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 16,
+          vertical: compactDesktop ? 12 : 16,
         ),
         labelStyle: const TextStyle(color: RoammandColors.textSecondary),
         hintStyle: const TextStyle(color: RoammandColors.textSecondary),
@@ -212,7 +233,7 @@ abstract final class RoammandTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 72,
+        height: compactDesktop ? 64 : 72,
         elevation: 0,
         backgroundColor: RoammandColors.deepSurface,
         indicatorColor: RoammandColors.auroraIndigo.withValues(alpha: 0.22),

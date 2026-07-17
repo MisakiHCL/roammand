@@ -77,8 +77,8 @@ final class _RoammandAppState extends State<RoammandApp> {
 
   @override
   Widget build(BuildContext context) {
-    final macosTypography = defaultTargetPlatform == TargetPlatform.macOS;
-    final theme = RoammandTheme.dark(compactTypography: macosTypography);
+    final macosDesktop = defaultTargetPlatform == TargetPlatform.macOS;
+    final theme = RoammandTheme.dark(compactDesktop: macosDesktop);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       locale: _localeController.locale,

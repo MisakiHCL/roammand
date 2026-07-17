@@ -32,22 +32,28 @@ void main() {
     expect(_contrast(scheme.error, scheme.onError), greaterThanOrEqualTo(4.5));
   });
 
-  test(
-    'compact typography reduces large macOS roles without shrinking labels',
-    () {
-      final regular = RoammandTheme.dark().textTheme;
-      final compact = RoammandTheme.dark(compactTypography: true).textTheme;
+  test('compact macOS theme reduces typography and control height', () {
+    final regular = RoammandTheme.dark().textTheme;
+    final compactTheme = RoammandTheme.dark(compactDesktop: true);
+    final compact = compactTheme.textTheme;
 
-      expect(compact.displaySmall?.fontSize, 32);
-      expect(compact.headlineLarge?.fontSize, 28);
-      expect(compact.headlineMedium?.fontSize, 24);
-      expect(compact.headlineSmall?.fontSize, 20);
-      expect(compact.titleLarge?.fontSize, 20);
-      expect(compact.bodyLarge?.fontSize, 14);
-      expect(compact.bodyMedium?.fontSize, regular.bodyMedium?.fontSize);
-      expect(compact.labelSmall?.fontSize, regular.labelSmall?.fontSize);
-    },
-  );
+    expect(compact.displaySmall?.fontSize, 30);
+    expect(compact.headlineLarge?.fontSize, 26);
+    expect(compact.headlineMedium?.fontSize, 22);
+    expect(compact.headlineSmall?.fontSize, 18);
+    expect(compact.titleLarge?.fontSize, 18);
+    expect(compact.titleMedium?.fontSize, 14);
+    expect(compact.bodyLarge?.fontSize, 13);
+    expect(compact.bodyMedium?.fontSize, 13);
+    expect(compact.labelLarge?.fontSize, 13);
+    expect(compact.labelSmall?.fontSize, regular.labelSmall?.fontSize);
+    expect(
+      compactTheme.filledButtonTheme.style?.minimumSize?.resolve(
+        <WidgetState>{},
+      ),
+      const Size(0, 40),
+    );
+  });
 
   testWidgets('brand mark remains accessible at compact sizes', (tester) async {
     await tester.pumpWidget(

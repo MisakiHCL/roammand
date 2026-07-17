@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/desktop/home/desktop_home_page.dart';
 import 'package:roammand/desktop/home/trusted_computers_controller.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
+import 'package:roammand/design_system/roammand_theme.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/network/network_service_controller.dart';
@@ -67,6 +68,40 @@ void main() {
     await tester.tap(find.text('Remote control'));
     await tester.pumpAndSettle();
     expect(find.text('My computers'), findsOneWidget);
+  });
+
+  testWidgets('fits the empty remote page in the default macOS window', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final persistence = HomeMemoryPersistence();
+    await tester.pumpWidget(
+      _app(
+        DesktopHomePage(
+          hostPage: const Text('this-computer-content'),
+          trustedComputersController: _trustedController(persistence),
+          signalingEndpoint: _endpoint,
+        ),
+        theme: RoammandTheme.dark(
+          compactDesktop: true,
+        ).copyWith(platform: TargetPlatform.macOS),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remote control'));
+    await tester.pumpAndSettle();
+
+    final list = find.byKey(const Key('desktop-remote-control-list'));
+    final scrollable = find.descendant(
+      of: list,
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+
+    expect(position.maxScrollExtent, 0);
+    expect(find.text('No computers paired yet'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('connects only from a persisted Host and timestamps success', (
@@ -321,9 +356,10 @@ Widget _app(
   Widget home, {
   Locale? locale,
   TargetPlatform platform = TargetPlatform.macOS,
+  ThemeData? theme,
 }) => MaterialApp(
   locale: locale,
-  theme: ThemeData(platform: platform),
+  theme: theme ?? ThemeData(platform: platform),
   localizationsDelegates: AppLocalizations.localizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: home,

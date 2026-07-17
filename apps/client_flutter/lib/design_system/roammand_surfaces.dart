@@ -77,6 +77,7 @@ final class RoammandPageHero extends StatelessWidget {
     required this.body,
     this.showMark = true,
     this.markSize,
+    this.horizontalBreakpoint = 520,
     this.action,
     super.key,
   });
@@ -86,6 +87,7 @@ final class RoammandPageHero extends StatelessWidget {
   final String body;
   final bool showMark;
   final double? markSize;
+  final double horizontalBreakpoint;
   final Widget? action;
 
   @override
@@ -114,7 +116,8 @@ final class RoammandPageHero extends StatelessWidget {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final horizontal = showMark && constraints.maxWidth >= 520;
+        final horizontal =
+            showMark && constraints.maxWidth >= horizontalBreakpoint;
         if (!showMark) return copy;
         if (horizontal) {
           return Row(

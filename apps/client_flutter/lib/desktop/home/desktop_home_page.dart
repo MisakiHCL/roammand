@@ -38,10 +38,16 @@ const _sectionSpacing = 24.0;
 const _itemSpacing = 12.0;
 const _cardPadding = 24.0;
 const _maximumContentWidth = 760.0;
+const _compactPagePadding = 20.0;
+const _compactSectionSpacing = 16.0;
+const _compactCardPadding = 20.0;
+const _compactHeroBreakpoint = 440.0;
+const _compactHeroMarkSize = 64.0;
+const _compactEmptyIconSize = 40.0;
 const _macosSidebarWidth = 208.0;
 const _macosTitleBarHeight = 48.0;
 const _sidebarPadding = 16.0;
-const _sidebarItemHeight = 48.0;
+const _sidebarItemHeight = 44.0;
 const _sidebarItemRadius = 12.0;
 const _signalingEndpointEnvironment = 'ROAMMAND_SIGNALING_ENDPOINT';
 const _signalingEndpoint = String.fromEnvironment(
@@ -136,8 +142,12 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
           showAppBar: false,
           signalingEndpoint: _activeSignalingEndpoint,
         );
-    final controlPage = _buildControlPage(context, strings);
     final platform = Theme.of(context).platform;
+    final controlPage = _buildControlPage(
+      context,
+      strings,
+      compact: platform == TargetPlatform.macOS,
+    );
     final tabOrder = _desktopTabOrder;
     final selectedIndex = tabOrder.indexOf(_selectedTab);
     return LayoutBuilder(
@@ -372,14 +382,22 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
     return actions.length == 1 ? null : actions;
   }
 
-  Widget _buildControlPage(BuildContext context, AppLocalizations strings) {
+  Widget _buildControlPage(
+    BuildContext context,
+    AppLocalizations strings, {
+    required bool compact,
+  }) {
     final endpointReady = _validSignalingEndpoint(_activeSignalingEndpoint);
+    final pagePadding = compact ? _compactPagePadding : _pagePadding;
+    final sectionSpacing = compact ? _compactSectionSpacing : _sectionSpacing;
+    final cardPadding = compact ? _compactCardPadding : 28.0;
     return RoammandBackdrop(
       child: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
           child: ListView(
-            padding: const EdgeInsets.all(_pagePadding),
+            key: const Key('desktop-remote-control-list'),
+            padding: EdgeInsets.all(pagePadding),
             children: <Widget>[
               Center(
                 child: ConstrainedBox(
@@ -391,11 +409,15 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
                     children: <Widget>[
                       Card(
                         child: Padding(
-                          padding: const EdgeInsets.all(28),
+                          padding: EdgeInsets.all(cardPadding),
                           child: RoammandPageHero(
                             eyebrow: strings.brandPrivacyLabel,
                             title: strings.trustedComputersTitle,
                             body: strings.desktopHomeSubtitle,
+                            markSize: compact ? _compactHeroMarkSize : null,
+                            horizontalBreakpoint: compact
+                                ? _compactHeroBreakpoint
+                                : 520,
                             action: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
@@ -422,8 +444,12 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: _sectionSpacing),
-                      ..._buildTrustedComputerState(context, strings),
+                      SizedBox(height: sectionSpacing),
+                      ..._buildTrustedComputerState(
+                        context,
+                        strings,
+                        compact: compact,
+                      ),
                     ],
                   ),
                 ),
@@ -437,15 +463,16 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
 
   List<Widget> _buildTrustedComputerState(
     BuildContext context,
-    AppLocalizations strings,
-  ) => switch (_trustedComputers.state) {
+    AppLocalizations strings, {
+    required bool compact,
+  }) => switch (_trustedComputers.state) {
     TrustedComputersState.loading => <Widget>[
       const Center(child: CircularProgressIndicator()),
     ],
     TrustedComputersState.error => <Widget>[
       Card(
         child: Padding(
-          padding: const EdgeInsets.all(_cardPadding),
+          padding: EdgeInsets.all(compact ? _compactCardPadding : _cardPadding),
           child: Text(strings.trustedComputersLoadFailed),
         ),
       ),
@@ -454,17 +481,24 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
       <Widget>[
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(28),
+            padding: EdgeInsets.all(compact ? _compactCardPadding : 28),
             child: Column(
               children: <Widget>[
-                const RoammandBrandMark(size: 72),
-                const SizedBox(height: 20),
+                if (compact)
+                  Icon(
+                    Icons.computer_outlined,
+                    size: _compactEmptyIconSize,
+                    color: Theme.of(context).colorScheme.secondary,
+                  )
+                else
+                  const RoammandBrandMark(size: 72),
+                SizedBox(height: compact ? 12 : 20),
                 Text(
                   strings.trustedComputersEmptyTitle,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: compact ? 4 : 8),
                 Text(
                   strings.trustedComputersEmptyBody,
                   textAlign: TextAlign.center,

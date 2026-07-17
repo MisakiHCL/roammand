@@ -55,8 +55,8 @@ void main() {
       await tester.pumpWidget(const RoammandApp(desktopHostEnabled: false));
 
       final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
-      expect(app.theme?.textTheme.titleLarge?.fontSize, 20);
-      expect(app.theme?.textTheme.bodyLarge?.fontSize, 14);
+      expect(app.theme?.textTheme.titleLarge?.fontSize, 18);
+      expect(app.theme?.textTheme.bodyLarge?.fontSize, 13);
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
