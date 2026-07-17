@@ -66,7 +66,7 @@ second terminal for the mobile app:
 
 ```bash
 cd apps/client_flutter
-flutter run -d ios # or flutter run -d android
+flutter run -d ios --no-pub # or flutter run -d android --no-pub
 ```
 
 Physical-device source testing therefore drops from four terminals—signaling,

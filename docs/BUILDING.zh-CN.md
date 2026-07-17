@@ -77,10 +77,10 @@ make app-run-macos
 
 ```bash
 cd apps/client_flutter
-flutter run -d ios # 或 flutter run -d android
+flutter run -d ios --no-pub # 或 flutter run -d android --no-pub
 ```
 
-源码真机测试因此从四个终端缩减为两个。安装后的桌面与移动 Release 都直接从图形界面启动，不需要终端。
+源码真机测试因此从四个终端缩减为两个。安装后的桌面与移动 Release 都直接从图形界面启动，不需要终端。依赖文件改变后重新运行 `make bootstrap`；平时的运行目标会直接使用锁定并已缓存的依赖。
 
 ### 高级：启动本地 signaling
 

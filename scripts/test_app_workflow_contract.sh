@@ -53,6 +53,11 @@ rg --quiet 'ROAMMAND_HOST_AGENT_EXECUTABLE=' Makefile || {
   exit 1
 }
 
+if [[ "$(rg -c 'flutter run .*--no-pub' Makefile)" -ne 2 ]]; then
+  printf 'development app targets should reuse bootstrapped Flutter packages\n' >&2
+  exit 1
+fi
+
 rg --quiet '^VERBOSE \?= 0$' Makefile || {
   printf 'missing quiet workflow default\n' >&2
   exit 1

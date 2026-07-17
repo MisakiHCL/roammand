@@ -82,12 +82,13 @@ When a phone is the Controller, use a second terminal for:
 
 ```bash
 cd apps/client_flutter
-flutter run -d ios # or flutter run -d android
+flutter run -d ios --no-pub # or flutter run -d android --no-pub
 ```
 
 Physical-device source testing therefore drops from four terminals to two.
 Installed desktop and mobile Release builds launch from their graphical
-interfaces and need no terminal.
+interfaces and need no terminal. Re-run `make bootstrap` after dependency files
+change; normal run targets intentionally use the locked, cached packages.
 
 ### Advanced: start local signaling
 

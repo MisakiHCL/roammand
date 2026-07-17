@@ -55,10 +55,10 @@ app-prepare-host-macos: check-libwebrtc
 app-run-macos: app-prepare-host-macos
 	cd $(FLUTTER_APP_DIR) && \
 	ROAMMAND_HOST_AGENT_EXECUTABLE="$(HOST_AGENT_DEBUG)" \
-	flutter run -d macos $(FLUTTER_ARGS)
+	flutter run -d macos --no-pub $(FLUTTER_ARGS)
 
 app-run-ios:
-	cd $(FLUTTER_APP_DIR) && flutter run -d ios $(FLUTTER_ARGS)
+	cd $(FLUTTER_APP_DIR) && flutter run -d ios --no-pub $(FLUTTER_ARGS)
 
 app-build-macos:
 	cd $(FLUTTER_APP_DIR) && flutter build macos --release $(FLUTTER_ARGS)
