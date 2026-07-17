@@ -1,0 +1,3 @@
+[target.x86_64-pc-windows-msvc]
+# The pinned libwebrtc archive is built with the static MSVC runtime.
+rustflags = ["-C", "target-feature=+crt-static"]
