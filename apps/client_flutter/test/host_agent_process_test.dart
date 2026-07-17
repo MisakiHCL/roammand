@@ -74,11 +74,15 @@ void main() {
     expect(environment.containsKey('ROAMMAND_TURN_PASSWORD'), isFalse);
   });
 
-  test('managed profile replaces inherited ICE and TURN overrides', () {
+  test('managed profile uses an allowlist and replaces network overrides', () {
     final environment = hostAgentProcessEnvironment(
       configuration: NetworkServiceConfiguration.official(),
       parentEnvironment: const <String, String>{
         'PATH': '/usr/bin',
+        'HOME': '/Users/tester',
+        'ROAMMAND_RUNTIME_DIR': '/tmp/roammand-runtime',
+        'UNRELATED_API_TOKEN': 'must-not-be-inherited',
+        'HTTP_PROXY': 'http://proxy.example.test:8080',
         'ROAMMAND_SIGNALING_ENDPOINT': 'wss://old.example.test/v1/connect',
         'ROAMMAND_STUN_URLS': 'stun:old.example.test:3478',
         'ROAMMAND_TURN_URLS': 'turn:old.example.test:3478',
@@ -88,6 +92,8 @@ void main() {
     );
 
     expect(environment['PATH'], '/usr/bin');
+    expect(environment['HOME'], '/Users/tester');
+    expect(environment['ROAMMAND_RUNTIME_DIR'], '/tmp/roammand-runtime');
     expect(
       environment['ROAMMAND_SIGNALING_ENDPOINT'],
       'wss://signal.hcl.life/v1/connect',
@@ -96,5 +102,7 @@ void main() {
     expect(environment.containsKey('ROAMMAND_TURN_URLS'), isFalse);
     expect(environment.containsKey('ROAMMAND_TURN_USERNAME'), isFalse);
     expect(environment.containsKey('ROAMMAND_TURN_PASSWORD'), isFalse);
+    expect(environment.containsKey('UNRELATED_API_TOKEN'), isFalse);
+    expect(environment.containsKey('HTTP_PROXY'), isFalse);
   });
 }

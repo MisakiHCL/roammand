@@ -2,7 +2,7 @@
 
 use std::process::ExitCode;
 
-use roammand_host_agent::{AgentRuntime, production_config_from_env, wait_for_shutdown_signal};
+use roammand_host_agent::{AgentRuntime, RuntimeError, production_config_from_env};
 
 const USAGE: &str =
     "Roammand Host Agent\n\nUsage:\n  roammand-host-agent serve\n  roammand-host-agent --help";
@@ -30,6 +30,7 @@ async fn main() -> ExitCode {
 }
 
 async fn run() -> Result<(), roammand_host_agent::RuntimeError> {
+    install_tls_crypto_provider()?;
     let config = production_config_from_env()?;
     let remote_sessions_enabled = config.remote().is_some();
     let running = AgentRuntime::start(&config)?;
@@ -39,8 +40,14 @@ async fn run() -> Result<(), roammand_host_agent::RuntimeError> {
         "disabled"
     };
     println!("Host Agent ready (remote sessions: {remote_state})");
-    let signal_result = wait_for_shutdown_signal().await;
-    let shutdown_result = running.shutdown().await;
-    signal_result?;
-    shutdown_result
+    running.wait_for_shutdown().await
+}
+
+fn install_tls_crypto_provider() -> Result<(), RuntimeError> {
+    if rustls::crypto::CryptoProvider::get_default().is_some() {
+        return Ok(());
+    }
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|_| RuntimeError::TlsCryptoProvider)
 }

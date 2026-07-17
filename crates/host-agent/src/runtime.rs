@@ -173,6 +173,8 @@ pub enum RuntimeError {
     Environment,
     #[error("Host Agent remote session configuration is invalid")]
     RemoteConfiguration,
+    #[error("Host Agent TLS crypto provider is unavailable")]
+    TlsCryptoProvider,
     #[error("Host Agent was built without native WebRTC support")]
     NativeWebRtcUnavailable,
     #[error("Host Agent remote session runtime failed")]
@@ -262,6 +264,31 @@ pub struct RunningAgent {
 }
 
 impl RunningAgent {
+    /// Waits until the Agent task exits or the process receives a shutdown signal.
+    ///
+    /// Unlike waiting for the operating-system signal alone, this also surfaces an
+    /// unexpected local IPC or remote-session failure to the owning process.
+    ///
+    /// # Errors
+    ///
+    /// Returns a stable error if signal handling or the Agent task fails.
+    pub async fn wait_for_shutdown(mut self) -> Result<(), RuntimeError> {
+        let mut task = self.task.take().ok_or(RuntimeError::Task)?;
+        tokio::select! {
+            signal_result = wait_for_shutdown_signal() => {
+                signal_result?;
+                if let Some(sender) = self.shutdown_sender.take() {
+                    let _ = sender.send(true);
+                }
+                task.await.map_err(|_| RuntimeError::Task)?
+            }
+            task_result = &mut task => {
+                self.shutdown_sender.take();
+                task_result.map_err(|_| RuntimeError::Task)?
+            }
+        }
+    }
+
     /// Stops accepting clients, closes active connections, joins their tasks,
     /// and removes local discovery artifacts.
     ///

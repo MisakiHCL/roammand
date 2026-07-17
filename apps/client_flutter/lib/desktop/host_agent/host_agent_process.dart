@@ -19,16 +19,28 @@ const _forcedProcessShutdownTimeout = Duration(seconds: 1);
 const _signalingEndpointEnvironment = 'ROAMMAND_SIGNALING_ENDPOINT';
 const _iceTransportPolicyEnvironment = 'ROAMMAND_ICE_TRANSPORT_POLICY';
 const _stunUrlsEnvironment = 'ROAMMAND_STUN_URLS';
-const _turnUrlsEnvironment = 'ROAMMAND_TURN_URLS';
-const _turnUsernameEnvironment = 'ROAMMAND_TURN_USERNAME';
-const _turnPasswordEnvironment = 'ROAMMAND_TURN_PASSWORD';
-const _managedNetworkEnvironmentKeys = <String>{
-  _signalingEndpointEnvironment,
-  _iceTransportPolicyEnvironment,
-  _stunUrlsEnvironment,
-  _turnUrlsEnvironment,
-  _turnUsernameEnvironment,
-  _turnPasswordEnvironment,
+const _inheritedHostAgentEnvironmentKeys = <String>{
+  // Current-user directories used by the Agent on macOS and Windows.
+  'HOME',
+  'LOCALAPPDATA',
+  'USERPROFILE',
+  // Minimal process/runtime environment needed across supported desktops.
+  'PATH',
+  'PATHEXT',
+  'SystemRoot',
+  'SYSTEMROOT',
+  'WINDIR',
+  'TMPDIR',
+  'TEMP',
+  'TMP',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  // Explicitly supported development and packaging overrides.
+  'ROAMMAND_DATA_DIR',
+  'ROAMMAND_RUNTIME_DIR',
+  'ROAMMAND_DEVICE_NAME',
+  'ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING',
 };
 
 abstract interface class HostAgentProcessLifecycle {
@@ -238,9 +250,12 @@ Map<String, String> hostAgentProcessEnvironment({
   required NetworkServiceConfiguration configuration,
   required Map<String, String> parentEnvironment,
 }) {
-  final environment = Map<String, String>.of(parentEnvironment);
-  for (final key in _managedNetworkEnvironmentKeys) {
-    environment.remove(key);
+  final environment = <String, String>{};
+  for (final key in _inheritedHostAgentEnvironmentKeys) {
+    final value = parentEnvironment[key];
+    if (value != null) {
+      environment[key] = value;
+    }
   }
   environment.addAll(hostAgentLaunchEnvironment(configuration));
   return environment;
