@@ -112,6 +112,43 @@ final class TrustedHostRepository {
     ]);
   });
 
+  /// Saves a successfully authenticated pairing.
+  ///
+  /// Re-pairing the same public Host identity replaces its signaling address
+  /// while preserving list order. This is the explicit first-version migration
+  /// path when a Host changes signaling services.
+  Future<void> savePairing(TrustedHostBinding binding) => _serialized(() async {
+    _ensureReady();
+    final normalized = binding.deepCopy();
+    try {
+      validateTrustedHostBindings(<TrustedHostBinding>[
+        normalized..displayOrder = 0,
+      ]);
+    } catch (_) {
+      throw const TrustedHostRepositoryException(
+        TrustedHostRepositoryError.persistence,
+      );
+    }
+    final key = _deviceKey(normalized.hostIdentity.deviceId);
+    final existingIndex = _hosts.indexWhere(
+      (host) => _deviceKey(host._hostIdentity.deviceId) == key,
+    );
+    if (existingIndex < 0) {
+      normalized.displayOrder = _hosts.length;
+      await _commit(<TrustedHostRecord>[
+        ..._hosts,
+        TrustedHostRecord._(normalized),
+      ]);
+      return;
+    }
+    normalized
+      ..displayOrder = _hosts[existingIndex].displayOrder
+      ..lastSuccessfulConnectionAtUnixMs = Int64.ZERO;
+    final next = List<TrustedHostRecord>.of(_hosts)
+      ..[existingIndex] = TrustedHostRecord._(normalized);
+    await _commit(next);
+  });
+
   Future<bool> deleteLocal(List<int> hostDeviceId) => _serialized(() async {
     _ensureReady();
     final key = _deviceKey(hostDeviceId);

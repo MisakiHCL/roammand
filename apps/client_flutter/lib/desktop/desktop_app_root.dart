@@ -6,6 +6,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
+import 'package:roammand/network/network_service_configuration.dart';
+import 'package:roammand/network/network_service_controller.dart';
 
 import 'home/desktop_home_page.dart';
 import 'host_agent/host_agent_controller.dart';
@@ -30,6 +32,7 @@ final class DesktopAppRoot extends StatefulWidget {
     super.key,
     this.hostAgentController,
     this.hostAgentProcessLifecycle,
+    this.networkServices,
     this.trayPort,
     this.home,
     this.signalingEndpoint = _signalingEndpoint,
@@ -40,6 +43,7 @@ final class DesktopAppRoot extends StatefulWidget {
 
   final HostAgentController? hostAgentController;
   final HostAgentProcessLifecycle? hostAgentProcessLifecycle;
+  final NetworkServiceController? networkServices;
   final HostTrayPort? trayPort;
   final Widget? home;
   final String signalingEndpoint;
@@ -54,23 +58,33 @@ final class DesktopAppRoot extends StatefulWidget {
 
 final class _DesktopAppRootState extends State<DesktopAppRoot> {
   late final HostAgentController _hostAgent;
+  late final NetworkServiceController _networkServices;
+  late NetworkServiceConfiguration _networkConfiguration;
   late final HostTrayPort _trayPort;
   late final HostTrayController _tray;
   late final bool _ownsHostAgent;
+  late final bool _ownsNetworkServices;
   bool _trayStarted = false;
+  Future<void> _pendingNetworkRestart = Future<void>.value();
 
   @override
   void initState() {
     super.initState();
+    _ownsNetworkServices = widget.networkServices == null;
+    _networkServices =
+        widget.networkServices ??
+        NetworkServiceController.transient(
+          configuration: _legacyNetworkConfiguration(widget.signalingEndpoint),
+        );
+    _networkConfiguration = _networkServices.configuration;
+    _networkServices.addListener(_onNetworkConfigurationChanged);
     _ownsHostAgent = widget.hostAgentController == null;
     _hostAgent =
         widget.hostAgentController ??
         HostAgentController(
           processLifecycle:
               widget.hostAgentProcessLifecycle ??
-              DesktopHostAgentProcess(
-                signalingEndpoint: widget.signalingEndpoint,
-              ),
+              DesktopHostAgentProcess(configuration: _networkConfiguration),
         );
     _trayPort = widget.trayPort ?? FlutterHostTrayPort();
     _tray = HostTrayController(
@@ -81,6 +95,46 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
     );
     _hostAgent.addListener(_onHostChanged);
     unawaited(_hostAgent.start());
+  }
+
+  void _onNetworkConfigurationChanged() {
+    final next = _networkServices.configuration;
+    if (next == _networkConfiguration) return;
+    _networkConfiguration = next;
+    if (mounted) setState(() {});
+    _pendingNetworkRestart = _pendingNetworkRestart
+        .then((_) => _hostAgent.applyNetworkConfiguration(next))
+        .then<void>(
+          _handleNetworkRestartOutcome,
+          onError: (_) {
+            if (!mounted) return;
+            _showNetworkRestartMessage(
+              AppLocalizations.of(context).networkHostRestartFailed,
+            );
+          },
+        );
+  }
+
+  void _handleNetworkRestartOutcome(ManagedHostAgentRestartOutcome outcome) {
+    if (!mounted) return;
+    final strings = AppLocalizations.of(context);
+    switch (outcome) {
+      case ManagedHostAgentRestartOutcome.restarted:
+        return;
+      case ManagedHostAgentRestartOutcome.notOwned:
+        _showNetworkRestartMessage(strings.networkExternalHostRestartRequired);
+        return;
+      case ManagedHostAgentRestartOutcome.unavailable:
+        _showNetworkRestartMessage(strings.networkHostRestartFailed);
+        return;
+    }
+  }
+
+  void _showNetworkRestartMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -159,17 +213,22 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
       DesktopHomePage(
         localePreference: widget.localePreference,
         onLocalePreferenceChanged: widget.onLocalePreferenceChanged,
+        networkServices: _networkServices,
         hostPage: HostStatusPage(
           controller: _hostAgent,
           autoStart: false,
           disposeController: false,
           showAppBar: false,
-          signalingEndpoint: widget.signalingEndpoint,
+          signalingEndpoint: _networkConfiguration.signalingEndpoint.toString(),
         ),
       );
 
   @override
   void dispose() {
+    _networkServices.removeListener(_onNetworkConfigurationChanged);
+    if (_ownsNetworkServices) {
+      _networkServices.dispose();
+    }
     _hostAgent.removeListener(_onHostChanged);
     if (_ownsHostAgent || widget.disposeHostAgentController) {
       _hostAgent.dispose();
@@ -177,6 +236,17 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
     unawaited(_tray.dispose());
     super.dispose();
   }
+}
+
+NetworkServiceConfiguration _legacyNetworkConfiguration(String endpoint) {
+  final normalized = endpoint.trim();
+  if (normalized.isEmpty) return NetworkServiceConfiguration.official();
+  final configuration = NetworkServiceConfiguration(
+    kind: NetworkServiceProfileKind.custom,
+    signalingEndpoint: Uri.parse(normalized),
+  );
+  configuration.validate();
+  return configuration;
 }
 
 String get _trayIconAsset =>

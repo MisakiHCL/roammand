@@ -9,4 +9,4 @@
 - [发行验收](final-product-acceptance.md) — 在真实 macOS、Windows、iOS 和 Android 上检查安装、配对、控制、恢复、权限、本机停止、紧急停止和清理。
 - [官方信令与中继服务实施计划](official-infrastructure-plan.zh-CN.md) — 记录暂缓实施的正式端点、安全边界与部署验收要求，不包含运维人员的基础设施私有信息。
 
-执行清单前，请先使用[从源码构建 Roammand](../BUILDING.zh-CN.md)中的打包与安装命令。自托管 signaling 与 TURN 部署见 [Docker Compose 自托管](../self-hosting/docker-compose.md)。
+执行清单前，请先使用[从源码构建 Roammand](../BUILDING.zh-CN.md)中的打包与安装命令。自托管 signaling 与 STUN 部署见 [Docker Compose 自托管](../self-hosting/docker-compose.zh-CN.md)。

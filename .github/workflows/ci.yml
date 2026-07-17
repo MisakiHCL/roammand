@@ -251,8 +251,6 @@ jobs:
             -subj "/CN=localhost" \
             -keyout infra/compose/secrets/tls-key.pem \
             -out infra/compose/secrets/tls-cert.pem
-          openssl rand -hex 12 > infra/compose/secrets/turn-username
-          openssl rand -hex 32 > infra/compose/secrets/turn-password
           sudo chown "$(id -un)":65532 infra/compose/secrets/*
           chmod 640 infra/compose/secrets/*
       - name: Validate self-hosted Compose

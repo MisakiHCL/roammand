@@ -3,6 +3,7 @@
 package config
 
 import (
+	"net/netip"
 	"testing"
 	"time"
 )
@@ -25,10 +26,11 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadOverrides(t *testing.T) {
 	values := map[string]string{
-		"SIGNALING_LISTEN_ADDR":      "localhost:9443",
-		"SIGNALING_TLS_CERT_FILE":    "server.crt",
-		"SIGNALING_TLS_KEY_FILE":     "server.key",
-		"SIGNALING_SHUTDOWN_TIMEOUT": "15s",
+		"SIGNALING_LISTEN_ADDR":         "localhost:9443",
+		"SIGNALING_TLS_CERT_FILE":       "server.crt",
+		"SIGNALING_TLS_KEY_FILE":        "server.key",
+		"SIGNALING_TRUSTED_PROXY_CIDRS": "127.0.0.0/8,::1/128",
+		"SIGNALING_SHUTDOWN_TIMEOUT":    "15s",
 	}
 	config, err := Load(func(key string) string { return values[key] })
 	if err != nil {
@@ -37,6 +39,8 @@ func TestLoadOverrides(t *testing.T) {
 	if config.ListenAddress != values["SIGNALING_LISTEN_ADDR"] ||
 		config.TLSCertificateFile != values["SIGNALING_TLS_CERT_FILE"] ||
 		config.TLSPrivateKeyFile != values["SIGNALING_TLS_KEY_FILE"] ||
+		len(config.TrustedProxyCIDRs) != 2 ||
+		config.TrustedProxyCIDRs[0] != netip.MustParsePrefix("127.0.0.0/8") ||
 		config.ShutdownTimeout != 15*time.Second {
 		t.Fatalf("unexpected config: %+v", config)
 	}
@@ -60,6 +64,7 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 		"listen address":  {"SIGNALING_LISTEN_ADDR": "not-an-address"},
 		"zero timeout":    {"SIGNALING_SHUTDOWN_TIMEOUT": "0s"},
 		"invalid timeout": {"SIGNALING_SHUTDOWN_TIMEOUT": "eventually"},
+		"invalid proxy":   {"SIGNALING_TRUSTED_PROXY_CIDRS": "loopback"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := Load(func(key string) string { return values[key] }); err == nil {

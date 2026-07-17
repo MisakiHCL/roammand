@@ -29,6 +29,7 @@ use roammand_privileged_bridge::windows_runtime::WindowsBridgeTransportConnector
 
 const SIGNALING_ENDPOINT_ENV: &str = "ROAMMAND_SIGNALING_ENDPOINT";
 const ICE_TRANSPORT_POLICY_ENV: &str = "ROAMMAND_ICE_TRANSPORT_POLICY";
+const STUN_URLS_ENV: &str = "ROAMMAND_STUN_URLS";
 const TURN_URLS_ENV: &str = "ROAMMAND_TURN_URLS";
 const TURN_USERNAME_ENV: &str = "ROAMMAND_TURN_USERNAME";
 const TURN_PASSWORD_ENV: &str = "ROAMMAND_TURN_PASSWORD";
@@ -116,24 +117,31 @@ pub struct RemoteIceServerConfig {
 }
 
 impl RemoteIceServerConfig {
-    /// Creates one bounded TURN server configuration.
+    /// Creates one bounded STUN or TURN server configuration.
     ///
     /// # Errors
     ///
-    /// Returns a configuration error for missing, malformed, over-limit, or
-    /// credential-bearing TURN URLs and invalid credentials.
+    /// Returns a configuration error for missing, malformed, mixed, or
+    /// over-limit URLs, STUN credentials, or TURN without credentials.
     pub fn new(
         urls: Vec<String>,
         username: String,
         password: String,
     ) -> Result<Self, RuntimeError> {
+        let all_stun = urls.iter().all(|value| valid_stun_url(value));
+        let all_turn = urls.iter().all(|value| valid_turn_url(value));
+        let valid_credentials = if all_stun {
+            username.is_empty() && password.is_empty()
+        } else if all_turn {
+            !username.is_empty() && !password.is_empty()
+        } else {
+            false
+        };
         if urls.is_empty()
             || urls.len() > MAX_ICE_URLS_PER_SERVER
-            || username.is_empty()
-            || password.is_empty()
             || username.len() > MAX_ICE_CREDENTIAL_UTF8_BYTES
             || password.len() > MAX_ICE_CREDENTIAL_UTF8_BYTES
-            || urls.iter().any(|value| !valid_turn_url(value))
+            || !valid_credentials
         {
             return Err(RuntimeError::RemoteConfiguration);
         }
@@ -142,6 +150,10 @@ impl RemoteIceServerConfig {
             username,
             password,
         })
+    }
+
+    fn provides_turn(&self) -> bool {
+        self.urls.iter().all(|value| valid_turn_url(value))
     }
 }
 
@@ -178,7 +190,8 @@ impl RemoteRuntimeConfig {
         crate::validate_signaling_endpoint(&endpoint)
             .map_err(|_| RuntimeError::RemoteConfiguration)?;
         if ice_servers.len() > MAX_ICE_SERVERS
-            || (ice_transport_policy == IceTransportPolicy::Relay && ice_servers.is_empty())
+            || (ice_transport_policy == IceTransportPolicy::Relay
+                && !ice_servers.iter().any(RemoteIceServerConfig::provides_turn))
         {
             return Err(RuntimeError::RemoteConfiguration);
         }
@@ -697,11 +710,13 @@ pub(crate) fn with_remote_config_from_env(
 ) -> Result<AgentRuntimeConfig, RuntimeError> {
     let endpoint = optional_unicode_env(SIGNALING_ENDPOINT_ENV)?;
     let policy = optional_unicode_env(ICE_TRANSPORT_POLICY_ENV)?;
+    let stun_urls = optional_unicode_env(STUN_URLS_ENV)?;
     let turn_urls = optional_unicode_env(TURN_URLS_ENV)?;
     let turn_username = optional_unicode_env(TURN_USERNAME_ENV)?;
     let turn_password = optional_unicode_env(TURN_PASSWORD_ENV)?;
     let Some(endpoint) = endpoint else {
         if policy.is_some()
+            || stun_urls.is_some()
             || turn_urls.is_some()
             || turn_username.is_some()
             || turn_password.is_some()
@@ -718,26 +733,38 @@ pub(crate) fn with_remote_config_from_env(
         "relay" => IceTransportPolicy::Relay,
         _ => return Err(RuntimeError::RemoteConfiguration),
     };
-    let ice_servers = if let Some(value) = turn_urls {
-        let urls = value
-            .split(',')
-            .map(str::trim)
-            .map(ToOwned::to_owned)
-            .collect::<Vec<_>>();
+    let mut ice_servers = Vec::new();
+    if let Some(value) = stun_urls {
+        let urls = split_ice_urls(&value);
+        ice_servers.push(RemoteIceServerConfig::new(
+            urls,
+            String::new(),
+            String::new(),
+        )?);
+    }
+    if let Some(value) = turn_urls {
+        let urls = split_ice_urls(&value);
         let username = turn_username.ok_or(RuntimeError::RemoteConfiguration)?;
         let password = turn_password.ok_or(RuntimeError::RemoteConfiguration)?;
-        vec![RemoteIceServerConfig::new(urls, username, password)?]
+        ice_servers.push(RemoteIceServerConfig::new(urls, username, password)?);
     } else {
         if turn_username.is_some() || turn_password.is_some() {
             return Err(RuntimeError::RemoteConfiguration);
         }
-        Vec::new()
-    };
+    }
     Ok(config.with_remote(RemoteRuntimeConfig::new(
         endpoint,
         ice_transport_policy,
         ice_servers,
     )?))
+}
+
+fn split_ice_urls(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(str::trim)
+        .map(ToOwned::to_owned)
+        .collect()
 }
 
 fn optional_unicode_env(name: &str) -> Result<Option<String>, RuntimeError> {
@@ -749,6 +776,14 @@ fn optional_unicode_env(name: &str) -> Result<Option<String>, RuntimeError> {
 }
 
 fn valid_turn_url(value: &str) -> bool {
+    valid_ice_url(value, &["turn", "turns"])
+}
+
+fn valid_stun_url(value: &str) -> bool {
+    valid_ice_url(value, &["stun", "stuns"])
+}
+
+fn valid_ice_url(value: &str, schemes: &[&str]) -> bool {
     if value.is_empty()
         || value.len() > MAX_ICE_URL_UTF8_BYTES
         || value.contains('@')
@@ -759,7 +794,5 @@ fn valid_turn_url(value: &str) -> bool {
     let Ok(parsed) = Url::parse(value) else {
         return false;
     };
-    matches!(parsed.scheme(), "turn" | "turns")
-        && !parsed.path().is_empty()
-        && parsed.fragment().is_none()
+    schemes.contains(&parsed.scheme()) && !parsed.path().is_empty() && parsed.fragment().is_none()
 }

@@ -11,6 +11,7 @@ import 'package:roammand/mobile/identity/mobile_device_identity.dart';
 import 'package:roammand/mobile/pairing/mobile_pairing_page.dart';
 import 'package:roammand/mobile/pairing/qr_scanner.dart';
 import 'package:roammand/mobile/widgets/mobile_page_header.dart';
+import 'package:roammand/network/network_service_controller.dart';
 import 'package:roammand/pairing/controller_pairing_models.dart';
 import 'package:roammand/pairing/qr_pairing_uri.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
@@ -58,6 +59,59 @@ void main() {
     session.complete();
     await tester.pump();
     await tester.pumpWidget(const SizedBox.shrink());
+    await scanner.close();
+    await repository.close();
+  });
+
+  testWidgets('confirms an unfamiliar signaling service before pairing', (
+    tester,
+  ) async {
+    const now = 1_000_000;
+    final scanner = _FakeScanner();
+    final session = _FakeSession();
+    final identity = await MobileDeviceIdentity.fromSeed(
+      seed: List<int>.filled(32, 21),
+      displayName: 'Phone',
+      platform: DevicePlatform.DEVICE_PLATFORM_IOS,
+    );
+    final repository = TrustedHostRepository(persistence: _MemoryHosts());
+    await repository.initialize();
+    final networkServices = NetworkServiceController.transient();
+
+    await tester.pumpWidget(
+      _app(
+        MobilePairingPage(
+          identity: identity,
+          trustedHosts: repository,
+          networkServices: networkServices,
+          scanner: scanner,
+          sessionFactory: () async => session,
+          nowUnixMs: () => now,
+        ),
+      ),
+    );
+    await tester.pump();
+    scanner.emit(QrScannerCode(encodeQrPairingUri(_invitation(now))));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Connect to a different signaling service?'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('signal.example.test'), findsOneWidget);
+    expect(scanner.pauseCalls, 1);
+    expect(session.pairCalls, 0);
+
+    await tester.tap(find.text('Trust and continue'));
+    await tester.pump();
+    await tester.pump();
+    expect(scanner.stopCalls, 1);
+    expect(session.pairCalls, 1);
+
+    session.complete();
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    networkServices.dispose();
     await scanner.close();
     await repository.close();
   });

@@ -23,7 +23,7 @@ Continue desktop work from mobile, supervise long-running tasks, and keep your p
 - Use touch gestures, text, modifiers, and special keys from mobile.
 - Recover from temporary interruptions with bounded, authenticated reconnect.
 - See who is connected, stop control locally, and revoke any Controller from the Host.
-- Export privacy-safe diagnostics and run your own signaling and TURN services.
+- Export privacy-safe diagnostics and run your own signaling and STUN services.
 
 ## How it works
 
@@ -67,14 +67,20 @@ ROAMMAND_SIGNALING_ENDPOINT='ws://127.0.0.1:8080/v1/connect' \
 cargo run -p roammand-host-agent --features native-webrtc -- serve
 ```
 
-Run the macOS app with the same endpoint:
+Run the macOS app with the guarded Debug opt-in, then choose **Network
+services → Custom service** and enter the same endpoint:
 
 ```bash
 make app-run-macos \
-  FLUTTER_ARGS='--dart-define=ROAMMAND_SIGNALING_ENDPOINT=ws://127.0.0.1:8080/v1/connect'
+  FLUTTER_ARGS='--dart-define=ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true'
 ```
 
-Release builds and normal network use require WSS with a certificate trusted by every device. Source Debug builds can explicitly opt into plaintext `ws://` on a private LAN address for physical-device development; see [Building Roammand from source](docs/BUILDING.md) for the guarded commands, platform prerequisites, TURN configuration, release builds, and Host packaging.
+Release builds and normal network use require WSS with a certificate trusted by every device. Source Debug builds can explicitly opt into plaintext `ws://` on a private LAN address for physical-device development; see [Building Roammand from source](docs/BUILDING.md) for the guarded commands, platform prerequisites, STUN configuration, release builds, and Host packaging.
+
+Desktop and mobile apps expose the same Network services settings for signaling
+and STUN. The official profile can always be restored. This release attempts
+direct ICE connections and has no TURN relay fallback, so restrictive networks
+may still fail to connect.
 
 ## Security by design
 
@@ -90,7 +96,10 @@ Read the [pairing model](docs/architecture/account-free-pairing-v1.md), [privile
 
 ## Self-hosting
 
-Roammand includes a pinned Docker Compose deployment for signaling and coturn. It runs non-root services with file-backed secrets, health checks, explicit relay ports, and bounded logs. See [Docker Compose self-hosting](docs/self-hosting/docker-compose.md).
+Roammand includes a pinned Docker Compose deployment for signaling and
+STUN-only coturn. It runs non-root services with file-backed TLS secrets,
+health checks, a single UDP STUN port, and bounded logs. See
+[Docker Compose self-hosting](docs/self-hosting/docker-compose.md).
 
 ## Project guides
 

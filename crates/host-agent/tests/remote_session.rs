@@ -37,6 +37,12 @@ const ANSWER_SDP: &str = "v=0\r\na=fingerprint:sha-256 CC:DD\r\n";
 
 #[test]
 fn remote_runtime_configuration_is_explicit_and_redacted() {
+    let stun = RemoteIceServerConfig::new(
+        vec!["stun:stun.example.test:3478".to_owned()],
+        String::new(),
+        String::new(),
+    )
+    .expect("STUN server must validate without credentials");
     let server = RemoteIceServerConfig::new(
         vec!["turns:turn.example.test:5349".to_owned()],
         "turn-user".to_owned(),
@@ -46,7 +52,7 @@ fn remote_runtime_configuration_is_explicit_and_redacted() {
     let config = RemoteRuntimeConfig::new(
         "wss://signal.example.test/ws?access_token=secret".to_owned(),
         IceTransportPolicy::Relay,
-        vec![server],
+        vec![stun.clone(), server],
     )
     .expect("remote runtime config must validate");
 
@@ -58,7 +64,7 @@ fn remote_runtime_configuration_is_explicit_and_redacted() {
         RemoteRuntimeConfig::new(
             "wss://signal.example.test/ws".to_owned(),
             IceTransportPolicy::Relay,
-            Vec::new(),
+            vec![stun],
         )
         .is_err()
     );
@@ -67,6 +73,25 @@ fn remote_runtime_configuration_is_explicit_and_redacted() {
             "ws://signal.example.test/ws".to_owned(),
             IceTransportPolicy::All,
             Vec::new(),
+        )
+        .is_err()
+    );
+    assert!(
+        RemoteIceServerConfig::new(
+            vec!["stun:stun.example.test:3478".to_owned()],
+            "unexpected-user".to_owned(),
+            "unexpected-password".to_owned(),
+        )
+        .is_err()
+    );
+    assert!(
+        RemoteIceServerConfig::new(
+            vec![
+                "stun:stun.example.test:3478".to_owned(),
+                "turn:turn.example.test:3478".to_owned(),
+            ],
+            "turn-user".to_owned(),
+            "turn-password".to_owned(),
         )
         .is_err()
     );

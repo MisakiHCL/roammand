@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
+import 'package:roammand/network/network_service_configuration.dart';
 
 const hostAgentAutoStartEnvironment = 'ROAMMAND_HOST_AGENT_AUTOSTART';
 const hostAgentExecutableEnvironment = 'ROAMMAND_HOST_AGENT_EXECUTABLE';
@@ -17,16 +18,18 @@ const _forcedProcessShutdownTimeout = Duration(seconds: 1);
 
 const _signalingEndpointEnvironment = 'ROAMMAND_SIGNALING_ENDPOINT';
 const _iceTransportPolicyEnvironment = 'ROAMMAND_ICE_TRANSPORT_POLICY';
+const _stunUrlsEnvironment = 'ROAMMAND_STUN_URLS';
 const _turnUrlsEnvironment = 'ROAMMAND_TURN_URLS';
 const _turnUsernameEnvironment = 'ROAMMAND_TURN_USERNAME';
 const _turnPasswordEnvironment = 'ROAMMAND_TURN_PASSWORD';
-
-const _compiledIceTransportPolicy = String.fromEnvironment(
+const _managedNetworkEnvironmentKeys = <String>{
+  _signalingEndpointEnvironment,
   _iceTransportPolicyEnvironment,
-);
-const _compiledTurnUrls = String.fromEnvironment(_turnUrlsEnvironment);
-const _compiledTurnUsername = String.fromEnvironment(_turnUsernameEnvironment);
-const _compiledTurnPassword = String.fromEnvironment(_turnPasswordEnvironment);
+  _stunUrlsEnvironment,
+  _turnUrlsEnvironment,
+  _turnUsernameEnvironment,
+  _turnPasswordEnvironment,
+};
 
 abstract interface class HostAgentProcessLifecycle {
   /// Starts or preserves a Host Agent owned by this lifecycle.
@@ -35,28 +38,37 @@ abstract interface class HostAgentProcessLifecycle {
   /// executable is available. An independently running Agent is never owned.
   Future<bool> start();
 
+  /// Restarts only an Agent previously started by this lifecycle.
+  ///
+  /// Returns false when the connected Agent is independently managed.
+  Future<bool> restart(NetworkServiceConfiguration configuration);
+
   /// Stops only the process that was started by this lifecycle.
   Future<void> stop();
 }
 
 final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
   DesktopHostAgentProcess({
-    required String signalingEndpoint,
+    required NetworkServiceConfiguration configuration,
     Map<String, String>? parentEnvironment,
     String? Function()? executableResolver,
   }) : _parentEnvironment = parentEnvironment ?? Platform.environment,
        // Public constructor labels keep dependency injection readable.
        // ignore: prefer_initializing_formals
        _executableResolver = executableResolver,
-       _launchEnvironment = _compiledLaunchEnvironment(signalingEndpoint);
+       // Public constructor labels keep dependency injection readable.
+       // ignore: prefer_initializing_formals
+       _configuration = configuration;
 
   final Map<String, String> _parentEnvironment;
   final String? Function()? _executableResolver;
-  final Map<String, String> _launchEnvironment;
+  NetworkServiceConfiguration _configuration;
 
   Process? _process;
   Future<bool>? _startOperation;
+  Future<bool>? _restartOperation;
   Future<void>? _stopOperation;
+  bool _managedProcessStarted = false;
   bool _closed = false;
 
   @override
@@ -101,8 +113,11 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
       process = await Process.start(
         executable,
         const <String>[_hostAgentCommand],
-        environment: _launchEnvironment,
-        includeParentEnvironment: true,
+        environment: hostAgentProcessEnvironment(
+          configuration: _configuration,
+          parentEnvironment: _parentEnvironment,
+        ),
+        includeParentEnvironment: false,
         mode: ProcessStartMode.normal,
       );
     } on ProcessException {
@@ -113,6 +128,7 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
       return false;
     }
     _process = process;
+    _managedProcessStarted = true;
     unawaited(_drain(process.stdout));
     unawaited(_drain(process.stderr));
     unawaited(
@@ -123,6 +139,31 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
       }),
     );
     return true;
+  }
+
+  @override
+  Future<bool> restart(NetworkServiceConfiguration configuration) {
+    final pending = _restartOperation;
+    if (pending != null) return pending;
+    final operation = _restart(configuration);
+    _restartOperation = operation;
+    return operation.whenComplete(() {
+      if (identical(_restartOperation, operation)) {
+        _restartOperation = null;
+      }
+    });
+  }
+
+  Future<bool> _restart(NetworkServiceConfiguration configuration) async {
+    configuration.validate();
+    await _startOperation;
+    if (_closed || !_managedProcessStarted) {
+      return false;
+    }
+    await _stopOwnedProcess();
+    if (_closed) return false;
+    _configuration = configuration;
+    return _start();
   }
 
   @override
@@ -181,16 +222,28 @@ bool _automaticStartupEnabled(Map<String, String> environment) {
   return configured != '0' && configured != 'false' && configured != 'no';
 }
 
-Map<String, String> _compiledLaunchEnvironment(String signalingEndpoint) {
-  final values = <String, String>{
-    _signalingEndpointEnvironment: signalingEndpoint,
-    _iceTransportPolicyEnvironment: _compiledIceTransportPolicy,
-    _turnUrlsEnvironment: _compiledTurnUrls,
-    _turnUsernameEnvironment: _compiledTurnUsername,
-    _turnPasswordEnvironment: _compiledTurnPassword,
+Map<String, String> hostAgentLaunchEnvironment(
+  NetworkServiceConfiguration configuration,
+) {
+  configuration.validate();
+  return <String, String>{
+    _signalingEndpointEnvironment: configuration.signalingEndpoint.toString(),
+    _iceTransportPolicyEnvironment: 'all',
+    if (configuration.stunUrls.isNotEmpty)
+      _stunUrlsEnvironment: configuration.stunUrls.join(','),
   };
-  values.removeWhere((_, value) => value.trim().isEmpty);
-  return values;
+}
+
+Map<String, String> hostAgentProcessEnvironment({
+  required NetworkServiceConfiguration configuration,
+  required Map<String, String> parentEnvironment,
+}) {
+  final environment = Map<String, String>.of(parentEnvironment);
+  for (final key in _managedNetworkEnvironmentKeys) {
+    environment.remove(key);
+  }
+  environment.addAll(hostAgentLaunchEnvironment(configuration));
+  return environment;
 }
 
 Future<void> _drain(Stream<List<int>> stream) async {

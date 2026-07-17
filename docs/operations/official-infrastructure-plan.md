@@ -1,66 +1,72 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Official signaling and relay plan
+# Official signaling and STUN plan
 
 **English** · [简体中文](official-infrastructure-plan.zh-CN.md)
 
-Status: **deferred**. The client lifecycle is being completed first. This plan
-does not authorize or record a production deployment, server address, SSH
-configuration, certificate path, or secret.
-
-## Intended public endpoints
+The first-release service profile uses account-free signaling plus public STUN:
 
 - Signaling: `wss://signal.hcl.life/v1/connect`
-- TURN over UDP: `turn:turn.hcl.life:3478?transport=udp`
-- TURN over TCP: `turn:turn.hcl.life:3478?transport=tcp`
-- TURN over TLS/TCP: `turns:turn.hcl.life:5349?transport=tcp`
-- Short-lived TURN credentials: an HTTPS control-plane endpoint, preferably
-  under `https://signal.hcl.life/v1/`.
+- STUN: `stun:stun.hcl.life:3478`
+- ICE policy: `all`
+- TURN relay: not provided
 
-Signaling is WebSocket traffic and may be routed by an HTTP reverse proxy.
-TURN is not HTTP and must be exposed through direct DNS or a compatible layer-4
-load balancer. A URL path such as `https://hcl.life/turn/` can issue temporary
-credentials, but it cannot relay TURN traffic.
+Signaling is WebSocket traffic and may be routed through an HTTP reverse proxy.
+STUN is UDP traffic and must be exposed through direct DNS or a compatible
+layer-4 load balancer. A URL path such as `https://hcl.life/stun/` cannot carry
+STUN, and an ordinary website CDN does not replace UDP 3478.
 
 ## Deployment boundary
 
-The official client may contain public endpoint names. It must not contain a
-long-lived TURN password, infrastructure credential, private key, server
-address, or operator-specific path.
+The public client may contain official domain names and ports. It must not
+contain an infrastructure credential, private key, origin address, SSH alias,
+certificate path, or operator-specific local path. STUN has no password and
+does not relay session traffic.
 
-The first controlled preview may colocate signaling and coturn, but an official
-public service should isolate TURN because it is directly reachable and carries
-high-bandwidth relay traffic. If TURN shares the website origin address, its DNS
-record also makes that origin discoverable even when the website uses a CDN.
+The signaling process listens on a private interface behind the reverse proxy.
+The proxy overwrites `X-Real-IP`, and the service trusts that header only when
+the direct peer belongs to `SIGNALING_TRUSTED_PROXY_CIDRS`. Never configure the
+whole Internet as a trusted proxy.
 
-## Required work before public use
+## Release readiness
 
-1. Add trusted-proxy handling to signaling before placing its IP rate limiter
-   behind Nginx, a CDN, or a load balancer.
-2. Replace the fixed coturn user with time-limited HMAC credentials and keep the
-   shared authentication secret on the server only.
-3. Add allocation, bandwidth, port-range, and abuse limits sized for a public
-   preview rather than the current personal Compose profile.
-4. Configure WebSocket upgrade forwarding, no caching, connection timeouts,
-   certificates, health checks, firewall rules, and secret rotation.
-5. Test direct ICE and forced relay from independent networks before embedding
-   the official defaults in a release build.
-6. Add monitoring for active signaling connections, TURN allocations,
-   bandwidth, authentication failures, container restarts, and certificate
-   expiry without logging private session payloads.
+Before presenting the profile as generally reliable:
 
-The current signaling presence and rendezvous state is process-local. A single
-instance is acceptable for a preview with reconnect behavior; horizontal
-scaling requires shared routing/state or a message bus and is not achieved by
-starting multiple replicas behind a load balancer.
+1. Verify WebSocket Upgrade, the required Protobuf subprotocol, disabled proxy
+   buffering, bounded timeouts, and no CDN caching.
+2. Verify UDP 3478 from an independent public network; a local STUN health check
+   is insufficient evidence for cloud firewall rules.
+3. Monitor signaling health, process restarts, rejected pairings, certificate
+   expiry, and STUN availability without logging session payloads or network
+   mappings.
+4. Automate certificate renewal and deploy only a recorded signaling source
+   revision or verified artifact.
+5. Test installed macOS and Windows Hosts with physical iOS and Android
+   Controllers across separate public networks.
+6. Present a clear failure when direct ICE cannot connect. Do not imply that
+   STUN can traverse every NAT.
 
-## Client integration after deployment
+Presence, pairing rendezvous, rate-limit windows, and active routes live in one
+signaling process and are cleared on restart. A single instance is acceptable
+for the initial service; horizontal scaling requires shared routing/state or a
+message bus rather than independent replicas behind a load balancer.
 
-Release builds will provide the public signaling endpoint and TURN credential
-endpoint to both the GUI and its managed Host Agent. Development builds keep
-the existing environment overrides and may continue to run signaling, coturn,
-Host Agent, and Flutter independently.
+## Client integration
 
-Do not mark this plan complete until the endpoints pass installed macOS and
-Windows Host tests plus physical iOS and Android Controller tests across
-separate public networks.
+Release builds include a restorable official profile and a runtime custom
+profile for signaling and STUN. The selected profile is passed to the GUI-owned
+Host Agent. Developers may continue to run signaling, the Host Agent, and
+Flutter independently with explicit environment or Dart definitions.
+
+Changing a Host signaling endpoint restarts its GUI-owned Agent. Previously
+paired Controllers continue to hold the old endpoint until an authenticated
+re-pairing replaces the binding for the same Host identity. STUN settings are
+local ICE inputs and are not embedded in pairing QR codes.
+
+## Future TURN relay
+
+TURN is deliberately outside the first-release profile because it relays
+high-bandwidth encrypted traffic and needs abuse controls, allocation limits,
+capacity monitoring, and short-lived credentials. A future deployment should
+use a separate direct DNS name or layer-4 load balancer and must never embed a
+long-lived TURN password in the client.

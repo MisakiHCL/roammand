@@ -55,6 +55,12 @@ Unknown internal failures map to `SERVER_UNAVAILABLE`. Logs and simulator output
 
 ## Runtime and cleanup
 
-`GET /healthz` returns `ok` when the process is serving. Runtime configuration is described in [Building from source](../BUILDING.md). A TLS certificate and key must be configured together. `SIGINT` and `SIGTERM` stop new HTTP work, close active WebSocket connections, remove presence and rendezvous state, and finish within the configured shutdown deadline.
+`GET /healthz` returns `ok` when the process is serving. Runtime configuration
+is described in [Building from source](../BUILDING.md). A TLS certificate and
+key must be configured together. When a reverse proxy overwrites `X-Real-IP`,
+`SIGNALING_TRUSTED_PROXY_CIDRS` must contain only that direct proxy network;
+forwarding headers from untrusted peers are ignored. `SIGINT` and `SIGTERM`
+stop new HTTP work, close active WebSocket connections, remove presence and
+rendezvous state, and finish within the configured shutdown deadline.
 
 All presence, rate-limit, rendezvous, and connection state is local memory and is cleared on restart. Signaling does not provide multi-instance coordination, durable queues, TURN, WebRTC media, device key storage, pairing presentation, screen capture, or input control.

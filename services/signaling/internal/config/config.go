@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -25,12 +26,14 @@ const (
 	OutboundQueueCapacity       = 64
 	PairingAttemptsPerIP        = 30
 	PairingAttemptsPerLookupKey = 5
+	MaxTrustedProxyCIDRs        = 16
 )
 
 type Config struct {
 	ListenAddress      string
 	TLSCertificateFile string
 	TLSPrivateKeyFile  string
+	TrustedProxyCIDRs  []netip.Prefix
 	ShutdownTimeout    time.Duration
 }
 
@@ -52,6 +55,11 @@ func Load(getenv func(string) string) (Config, error) {
 			"SIGNALING_TLS_CERT_FILE and SIGNALING_TLS_KEY_FILE must be configured together",
 		)
 	}
+	trustedProxyCIDRs, err := parseTrustedProxyCIDRs(getenv("SIGNALING_TRUSTED_PROXY_CIDRS"))
+	if err != nil {
+		return Config{}, err
+	}
+	config.TrustedProxyCIDRs = trustedProxyCIDRs
 
 	if encoded := strings.TrimSpace(getenv("SIGNALING_SHUTDOWN_TIMEOUT")); encoded != "" {
 		parsed, err := time.ParseDuration(encoded)
@@ -67,6 +75,26 @@ func Load(getenv func(string) string) (Config, error) {
 		config.ShutdownTimeout = parsed
 	}
 	return config, nil
+}
+
+func parseTrustedProxyCIDRs(encoded string) ([]netip.Prefix, error) {
+	encoded = strings.TrimSpace(encoded)
+	if encoded == "" {
+		return nil, nil
+	}
+	values := strings.Split(encoded, ",")
+	if len(values) > MaxTrustedProxyCIDRs {
+		return nil, fmt.Errorf("SIGNALING_TRUSTED_PROXY_CIDRS has too many entries")
+	}
+	prefixes := make([]netip.Prefix, 0, len(values))
+	for _, value := range values {
+		prefix, err := netip.ParsePrefix(strings.TrimSpace(value))
+		if err != nil {
+			return nil, fmt.Errorf("parse SIGNALING_TRUSTED_PROXY_CIDRS: %w", err)
+		}
+		prefixes = append(prefixes, prefix.Masked())
+	}
+	return prefixes, nil
 }
 
 func (config Config) TLSConfigured() bool {

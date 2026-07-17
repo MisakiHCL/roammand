@@ -391,7 +391,7 @@ final class ControllerPairingEngine {
           _authenticationFailure();
         }
         try {
-          await _trustedHosts.add(
+          await _trustedHosts.savePairing(
             TrustedHostBinding(
               hostIdentity: invitation.hostIdentity,
               signalingEndpoint: invitation.signalingEndpoint,

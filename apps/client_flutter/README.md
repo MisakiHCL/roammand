@@ -13,14 +13,16 @@ Run the supported workflow from the repository root:
 ```bash
 make bootstrap
 make app-check
-make app-run-macos FLUTTER_ARGS='--dart-define=ROAMMAND_SIGNALING_ENDPOINT=wss://signal.example.com:8443/v1/connect'
+make app-run-macos
 make app-build-ios-simulator
 make app-build-macos
 make package-macos
 make test-product
 ```
 
-Use `make help` for all product targets. `FLUTTER_ARGS` also accepts TURN definitions and other supported Flutter build or run options.
+Use `make help` for all product targets. Signaling and STUN are configured at
+runtime from **Network services**. Build definitions remain available as
+development and automation defaults.
 
 ## App-only verification
 
@@ -36,7 +38,9 @@ User-visible copy belongs in `lib/l10n/app_en.arb` and `lib/l10n/app_zh.arb`; ge
 
 ## Desktop Host and Controller
 
-The separately running Rust Agent owns the desktop private key and Host grants. Flutter connects through authenticated current-user IPC and never starts or supervises the Agent.
+The Rust Agent owns the desktop private key and Host grants. An installed GUI
+starts and stops its own Agent; an independently started development Agent
+remains separate and is never stopped by the GUI.
 
 Start a Host Agent from the repository root:
 
@@ -45,11 +49,12 @@ ROAMMAND_SIGNALING_ENDPOINT='wss://signal.example.com:8443/v1/connect' \
 cargo run -p roammand-host-agent --features native-webrtc -- serve
 ```
 
-After `Host Agent ready`, start Flutter with the signaling endpoint compiled into the app:
+After `Host Agent ready`, start Flutter and select the matching custom service
+from **Network services**:
 
 ```bash
 cd apps/client_flutter
-flutter run -d macos --dart-define=ROAMMAND_SIGNALING_ENDPOINT=wss://signal.example.com:8443/v1/connect
+flutter run -d macos
 ```
 
 Use `flutter run -d windows` on Windows. **This computer** creates a two-minute QR or code invitation, displays the pending Controller, and is the only place that can approve or revoke its one-way grant.
@@ -60,7 +65,10 @@ A desktop acting only as Controller runs its local Agent without `ROAMMAND_SIGNA
 cargo run -p roammand-host-agent -- serve
 ```
 
-Start its Flutter app with the same `--dart-define` endpoint, enter the Host code, compare the fixed four-word SAS, and wait for Host approval. **My computers** then shows a persistent Host card and can launch remote control. `Ctrl+Alt+Shift+Esc` is a local-only close shortcut.
+Start its Flutter app, select the same service profile, enter the Host code,
+compare the fixed four-word SAS, and wait for Host approval. **My computers**
+then shows a persistent Host card and can launch remote control.
+`Ctrl+Alt+Shift+Esc` is a local-only close shortcut.
 
 For physical-device development on a trusted LAN, source Debug builds may explicitly accept a private-address `ws://` endpoint. Pass `ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true` to the Agent environment and as a Dart definition to every participating app. This opt-in is ignored by Profile and Release builds; the complete commands and address restrictions are in [Building Roammand from source](../../docs/BUILDING.md).
 
@@ -75,15 +83,11 @@ flutter run -d ios
 
 Use the command for the connected platform. The first launch confirms a best-effort system device name and creates an Ed25519 identity in protected local storage. Pairing accepts QR data only from the camera. After Host-local approval, choose **Connect** on the saved Host card to render video and use tap, double-tap, long-press drag, two-finger right-click, scroll, pinch zoom, text, modifiers, and special keys.
 
-The signaling endpoint is read from the validated Host binding. Optional mobile TURN values must be supplied as Dart compile-time definitions:
-
-```bash
-flutter run -d ios \
-  --dart-define=ROAMMAND_ICE_TRANSPORT_POLICY=relay \
-  --dart-define=ROAMMAND_TURN_URLS=turns:turn.example.com:5349 \
-  --dart-define=ROAMMAND_TURN_USERNAME='<short-lived-username>' \
-  --dart-define=ROAMMAND_TURN_PASSWORD='<short-lived-password>'
-```
+The signaling endpoint is read from the validated per-Host binding. The STUN
+service and the default signaling address for future manual pairing flows are
+edited in **Network services**. Re-pairing an authenticated Host updates its
+saved signaling address after that Host changes service. This release has no
+TURN fallback, so restrictive networks may not establish a direct connection.
 
 Backgrounding releases remote input and closes the session. Resuming never reconnects automatically.
 
@@ -95,4 +99,8 @@ Desktop and mobile remote pages expose **Diagnostics**. The dialog lists the all
 
 ## Dependencies and cleanup
 
-Optional TURN values come from `ROAMMAND_ICE_TRANSPORT_POLICY`, `ROAMMAND_TURN_URLS`, `ROAMMAND_TURN_USERNAME`, and `ROAMMAND_TURN_PASSWORD`; the complete group must match on both session peers. Scanner controllers, timers, signaling subscriptions, and pairing/session resources are released on pause, cancellation, terminal state, or disposal.
+Runtime Network services settings provide signaling and STUN endpoints. The
+lower-level TURN environment remains available for isolated developer tests but
+is not part of the release profile. Scanner controllers, timers, signaling
+subscriptions, and pairing/session resources are released on pause,
+cancellation, terminal state, or disposal.

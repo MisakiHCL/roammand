@@ -77,7 +77,13 @@ Video codec preference is:
 
 The actual selected codec is the first mutually supported codec. DTLS-SRTP protects media and SCTP data channels end to end between peers.
 
-ICE policy defaults to `all`, allowing direct host/server-reflexive paths and configured relay candidates. TURN is optional unless policy is set to `relay`. TURN URL, username, and password must be supplied together, are bounded, and must be configured consistently on the Host Agent and Controller app. Credentials must be short-lived where the TURN deployment supports it and are never printed by the smoke tooling.
+ICE policy defaults to `all`. The release profile configures public STUN URLs
+to gather server-reflexive candidates and does not provide a TURN fallback.
+The lower-level developer configuration can add relay candidates; TURN URL,
+username, and password must be supplied together, are bounded, and must be
+configured consistently on the Host Agent and Controller app. Credentials must
+be short-lived where the TURN deployment supports it and are never printed by
+the smoke tooling.
 
 ## Data channels
 
@@ -128,11 +134,19 @@ The Host Agent reads:
 | `ROAMMAND_SIGNALING_ENDPOINT` | `wss://` signaling endpoint, loopback `ws://`, or an explicitly enabled private-address `ws://` in source Debug builds |
 | `ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING` | exact value `true` opts a Debug Host Agent into private-address plaintext WS; ignored outside builds with debug assertions |
 | `ROAMMAND_ICE_TRANSPORT_POLICY` | `all` (default) or `relay` |
+| `ROAMMAND_STUN_URLS` | comma-separated `stun:` or `stuns:` URLs; no credentials |
 | `ROAMMAND_TURN_URLS` | comma-separated `turn:` or `turns:` URLs |
 | `ROAMMAND_TURN_USERNAME` | TURN username; required with URLs |
 | `ROAMMAND_TURN_PASSWORD` | TURN password; required with URLs |
 
-The Flutter Controller reads the same ICE/TURN variables. Its signaling endpoint comes from the validated Host descriptor. A Flutter Debug Controller must receive the matching `--dart-define=ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true` before it accepts a private-address plaintext binding. Profile and Release always retain the production endpoint policy. Partial TURN configuration or relay-only mode without TURN fails at startup rather than silently falling back.
+The Flutter Controller reads the same STUN and optional developer TURN
+variables. Its signaling endpoint comes from the validated Host descriptor. A
+Flutter Debug Controller must receive the matching
+`--dart-define=ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true` before it accepts a
+private-address plaintext binding. Profile and Release always retain the
+production endpoint policy. STUN rejects credentials; partial TURN
+configuration or relay-only mode without TURN fails at startup rather than
+silently falling back.
 
 ## Verification
 

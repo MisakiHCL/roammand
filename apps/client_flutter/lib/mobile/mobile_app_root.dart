@@ -11,6 +11,7 @@ import 'package:roammand/mobile/identity/device_name_provider.dart';
 import 'package:roammand/mobile/identity/mobile_device_identity.dart';
 import 'package:roammand/mobile/identity/mobile_identity_onboarding.dart';
 import 'package:roammand/mobile/identity/mobile_identity_store.dart';
+import 'package:roammand/network/network_service_controller.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
 import 'package:roammand/pairing/trusted_host_store.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
@@ -18,12 +19,14 @@ import 'package:roammand_protocol/roammand_protocol.dart';
 final class MobileAppRoot extends StatefulWidget {
   const MobileAppRoot({
     required this.platform,
+    this.networkServices,
     this.localePreference = AppLocalePreference.system,
     this.onLocalePreferenceChanged,
     super.key,
   });
 
   final DevicePlatform platform;
+  final NetworkServiceController? networkServices;
   final AppLocalePreference localePreference;
   final Future<void> Function(AppLocalePreference preference)?
   onLocalePreferenceChanged;
@@ -34,6 +37,8 @@ final class MobileAppRoot extends StatefulWidget {
 
 final class _MobileAppRootState extends State<MobileAppRoot> {
   late final MobileIdentityStore _identityStore;
+  late final NetworkServiceController _networkServices;
+  late final bool _ownsNetworkServices;
   MobileDeviceIdentity? _identity;
   TrustedHostRepository? _trustedHosts;
   bool _loadingHosts = false;
@@ -43,6 +48,9 @@ final class _MobileAppRootState extends State<MobileAppRoot> {
   void initState() {
     super.initState();
     _identityStore = MobileIdentityStore(platform: widget.platform);
+    _ownsNetworkServices = widget.networkServices == null;
+    _networkServices =
+        widget.networkServices ?? NetworkServiceController.transient();
   }
 
   Future<void> _identityReady(MobileDeviceIdentity identity) async {
@@ -79,6 +87,9 @@ final class _MobileAppRootState extends State<MobileAppRoot> {
   @override
   void dispose() {
     unawaited(_trustedHosts?.close());
+    if (_ownsNetworkServices) {
+      _networkServices.dispose();
+    }
     super.dispose();
   }
 
@@ -90,6 +101,7 @@ final class _MobileAppRootState extends State<MobileAppRoot> {
       return MobileHomePage(
         identity: identity,
         trustedHosts: trustedHosts,
+        networkServices: _networkServices,
         localePreference: widget.localePreference,
         onLocalePreferenceChanged: widget.onLocalePreferenceChanged,
       );

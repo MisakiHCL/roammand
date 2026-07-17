@@ -10,6 +10,7 @@ import 'package:roammand/desktop/desktop_app_root.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/mobile_app_root.dart';
+import 'package:roammand/network/network_service_controller.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 Future<void> main() async {
@@ -24,7 +25,13 @@ Future<void> main() async {
     await prepareDesktopWindow();
   }
   final localeController = await AppLocaleController.load();
-  runApp(RoammandApp(localeController: localeController));
+  final networkServiceController = await NetworkServiceController.load();
+  runApp(
+    RoammandApp(
+      localeController: localeController,
+      networkServiceController: networkServiceController,
+    ),
+  );
 }
 
 class RoammandApp extends StatefulWidget {
@@ -33,11 +40,13 @@ class RoammandApp extends StatefulWidget {
     this.desktopHostEnabled,
     this.mobileHome,
     this.localeController,
+    this.networkServiceController,
   });
 
   final bool? desktopHostEnabled;
   final Widget? mobileHome;
   final AppLocaleController? localeController;
+  final NetworkServiceController? networkServiceController;
 
   @override
   State<RoammandApp> createState() => _RoammandAppState();
@@ -46,12 +55,17 @@ class RoammandApp extends StatefulWidget {
 final class _RoammandAppState extends State<RoammandApp> {
   late final AppLocaleController _localeController;
   late final bool _ownsLocaleController;
+  late final NetworkServiceController _networkServiceController;
+  late final bool _ownsNetworkServiceController;
 
   @override
   void initState() {
     super.initState();
     _ownsLocaleController = widget.localeController == null;
     _localeController = widget.localeController ?? AppLocaleController();
+    _ownsNetworkServiceController = widget.networkServiceController == null;
+    _networkServiceController =
+        widget.networkServiceController ?? NetworkServiceController.transient();
     _localeController.addListener(_onLocaleChanged);
   }
 
@@ -81,6 +95,7 @@ final class _RoammandAppState extends State<RoammandApp> {
   Widget _home() {
     if (widget.desktopHostEnabled ?? (Platform.isMacOS || Platform.isWindows)) {
       return DesktopAppRoot(
+        networkServices: _networkServiceController,
         localePreference: _localeController.preference,
         onLocalePreferenceChanged: _localeController.setPreference,
       );
@@ -89,6 +104,7 @@ final class _RoammandAppState extends State<RoammandApp> {
     if (Platform.isIOS) {
       return MobileAppRoot(
         platform: DevicePlatform.DEVICE_PLATFORM_IOS,
+        networkServices: _networkServiceController,
         localePreference: _localeController.preference,
         onLocalePreferenceChanged: _localeController.setPreference,
       );
@@ -96,6 +112,7 @@ final class _RoammandAppState extends State<RoammandApp> {
     if (Platform.isAndroid) {
       return MobileAppRoot(
         platform: DevicePlatform.DEVICE_PLATFORM_ANDROID,
+        networkServices: _networkServiceController,
         localePreference: _localeController.preference,
         onLocalePreferenceChanged: _localeController.setPreference,
       );
@@ -108,6 +125,9 @@ final class _RoammandAppState extends State<RoammandApp> {
     _localeController.removeListener(_onLocaleChanged);
     if (_ownsLocaleController) {
       _localeController.dispose();
+    }
+    if (_ownsNetworkServiceController) {
+      _networkServiceController.dispose();
     }
     super.dispose();
   }

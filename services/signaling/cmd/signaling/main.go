@@ -58,7 +58,9 @@ func run(
 	}
 
 	logger := safelog.New(stderr)
-	signalingServer := service.New(ctx, logger, service.DefaultOptions())
+	options := service.DefaultOptions()
+	options.TrustedProxyCIDRs = loaded.TrustedProxyCIDRs
+	signalingServer := service.New(ctx, logger, options)
 	httpServer := &http.Server{
 		Handler:           signalingServer.Handler(),
 		ReadHeaderTimeout: readHeaderTimeout,

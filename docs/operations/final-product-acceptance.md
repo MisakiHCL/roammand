@@ -14,7 +14,7 @@ that reports Ready on the target operating system.
 ## Before you start
 
 Prepare two supported desktop computers, one physical iOS or Android device,
-an administrator account on each Host, and a WSS signaling/TURN deployment
+an administrator account on each Host, and a WSS signaling/UDP STUN deployment
 reachable by every device. The macOS Host must be 14.4 or newer and needs Screen
 Recording and Accessibility approval. The Windows 11 Host must allow the
 installed service; software Ctrl+Alt+Del additionally depends on SendSAS group
@@ -95,10 +95,10 @@ simulation, unit test, cross-compile, or package dry-run is not a substitute.
 
 ## Network recovery and safety
 
-18. Run once with direct ICE and once with
-    `ROAMMAND_ICE_TRANSPORT_POLICY=relay` plus valid short-lived TURN values.
-    Expected: both routes authenticate; relay-only fails configuration if any
-    TURN value is missing.
+18. Run once on the same LAN and once across independent public networks with
+    the configured STUN service. Expected: both routes authenticate when direct
+    ICE succeeds, and diagnostics identify a stable connection failure on a
+    restrictive path instead of claiming that a TURN relay was attempted.
 19. Interrupt signaling or the Controller network, then restore it within 30
     seconds. Expected: input is released and blocked during the 1/2/4/8/15
     second recovery schedule, and reconnect uses fresh authentication.

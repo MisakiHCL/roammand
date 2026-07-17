@@ -24,11 +24,13 @@ Run `make help` at the repository root to see the common commands.
 
 `make bootstrap`, `make app-check`, and `make test-product` hide successful tool output and print one final `[PASS]` line. Failures include the last 40 log lines, the retained full-log path, and a command for enabling complete output. Add `VERBOSE=1` when you need to stream every command, for example `make test-product VERBOSE=1`.
 
-Pass supported Flutter options through `FLUTTER_ARGS`:
+Normal app use selects signaling and STUN from **Network services** and can
+restore the built-in official profile. Build definitions remain useful as
+development and CI defaults; pass them through `FLUTTER_ARGS`:
 
 ```bash
 make app-run-macos \
-  FLUTTER_ARGS='--dart-define=ROAMMAND_SIGNALING_ENDPOINT=wss://signal.example.com:8443/v1/connect'
+  FLUTTER_ARGS='--dart-define=ROAMMAND_SIGNALING_ENDPOINT=wss://signal.example.com:8443/v1/connect --dart-define=ROAMMAND_STUN_URLS=stun:stun.example.com:3478'
 ```
 
 ## Required tools
@@ -156,9 +158,31 @@ The Flutter app and Host Agent must run as the same operating-system user. The a
 
 After approval, the saved computer card can start future sessions without pairing again. Deleting the card on a Controller is local-only; revoking on the Host blocks future sessions.
 
-## TURN configuration
+## STUN configuration
 
-Direct ICE is the default. For a relay-only test, configure the same short-lived TURN values on the Host and Controller:
+The release profile uses direct ICE with STUN and no TURN fallback. Configure
+the same public STUN service on the Host and Controller. An independently run
+Host Agent reads both endpoints from its environment:
+
+```bash
+ROAMMAND_SIGNALING_ENDPOINT='wss://signal.example.com:8443/v1/connect' \
+ROAMMAND_STUN_URLS='stun:stun.example.com:3478' \
+cargo run -p roammand-host-agent --features native-webrtc -- serve
+```
+
+The installed GUI passes its selected **Network services** profile to the Agent
+it owns. Flutter development builds can override the default STUN service with
+`--dart-define=ROAMMAND_STUN_URLS=stun:stun.example.com:3478`.
+
+Follow [Docker Compose self-hosting](self-hosting/docker-compose.md) to deploy
+matching WSS signaling and UDP STUN services. Without TURN, some symmetric NAT,
+enterprise, and cellular paths are expected to fail rather than relay traffic.
+
+### Optional low-level TURN test
+
+The peer layer retains TURN environment inputs for isolated developer tests,
+but TURN is not exposed by the release profile or the default Compose stack.
+For a relay-only test, configure the same short-lived values on both peers:
 
 ```bash
 ROAMMAND_ICE_TRANSPORT_POLICY=relay \
@@ -178,7 +202,10 @@ flutter run -d ios \
   --dart-define=ROAMMAND_TURN_PASSWORD='<short-lived-password>'
 ```
 
-TURN URL, username, and password are an all-or-nothing group. Do not commit or log credentials. For a complete deployment, follow [Docker Compose self-hosting](self-hosting/docker-compose.md).
+TURN URL, username, and password are an all-or-nothing group. Do not commit or
+log credentials. This advanced path requires a separately operated TURN
+service and is not a fallback provided by Roammand's official first-release
+profile.
 
 ## Build platform apps
 

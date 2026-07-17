@@ -106,6 +106,33 @@ void main() {
       expect(await repository.deleteLocal(hostId), isFalse);
     },
   );
+
+  test(
+    'authenticated re-pairing updates the saved signaling address',
+    () async {
+      final original = _binding(1)
+        ..lastSuccessfulConnectionAtUnixMs = Int64(1700000005000);
+      final persistence = FakeTrustedHostPersistence(<TrustedHostBinding>[
+        original,
+      ]);
+      final repository = TrustedHostRepository(persistence: persistence);
+      addTearDown(repository.close);
+      await repository.initialize();
+
+      final replacement = _binding(1)
+        ..signalingEndpoint = 'wss://new-signal.example.test/v1/connect'
+        ..pairedAtUnixMs = Int64(1700000010000);
+      await repository.savePairing(replacement);
+
+      expect(repository.hosts, hasLength(1));
+      expect(
+        repository.hosts.single.signalingEndpoint,
+        Uri.parse('wss://new-signal.example.test/v1/connect'),
+      );
+      expect(repository.hosts.single.lastSuccessfulConnectionAtUnixMs, 0);
+      expect(repository.hosts.single.displayOrder, 0);
+    },
+  );
 }
 
 final class FakeTrustedHostPersistence implements TrustedHostPersistence {

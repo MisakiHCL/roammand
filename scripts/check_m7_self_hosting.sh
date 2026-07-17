@@ -33,7 +33,7 @@ rg -q '^FROM golang:1\.26\.5-alpine3\.24 AS build$' "$dockerfile" || fail "Go bu
 rg -q '^FROM alpine:3\.24\.1$' "$dockerfile" || fail "signaling runtime is not pinned"
 rg -q '^USER 65532:65532$' "$dockerfile" || fail "signaling image is not non-root"
 rg -q 'image: coturn/coturn:4\.14\.0-r0' "$compose_file" || fail "coturn immutable revision is not pinned"
-rg -q 'user: "65534:65532"' "$compose_file" || fail "coturn does not use the read-only secret group"
+rg -q 'user: "65534:65534"' "$compose_file" || fail "coturn is not running as nobody"
 
 [[ "$(rg -c 'restart: unless-stopped' "$compose_file")" -eq 2 ]] || fail "both services need restart policy"
 [[ "$(rg -c 'read_only: true' "$compose_file")" -ge 2 ]] || fail "both services need read-only roots"
@@ -43,25 +43,28 @@ rg -q 'user: "65534:65532"' "$compose_file" || fail "coturn does not use the rea
 [[ "$(rg -c '^    healthcheck:' "$compose_file")" -eq 2 ]] || fail "both services need health checks"
 
 for required in \
-  '"3478:3478/tcp"' \
   '"3478:3478/udp"' \
-  '"5349:5349/tcp"' \
-  '"5349:5349/udp"' \
-  '"49160-49200:49160-49200/udp"' \
   'TLS_CERT_FILE' \
-  'TLS_KEY_FILE' \
-  'TURN_USERNAME_FILE' \
-  'TURN_PASSWORD_FILE'; do
+  'TLS_KEY_FILE'; do
   rg -q "$required" "$compose_file" "$env_file" || fail "missing contract: $required"
 done
 
-if rg -n 'TURN_(USERNAME|PASSWORD):|SIGNALING_TLS_(CERT|KEY):|password[[:space:]]*[:=][[:space:]]*[^$/{]' "$compose_file" "$env_file"; then
+for required in stun-only no-tcp no-tls no-dtls no-software-attribute; do
+  rg -q "'$required'" "$entrypoint" || fail "coturn is missing $required"
+done
+
+if rg -n '5349|49160|49200|turn_username|turn_password|lt-cred-mech|user=' \
+  "$compose_file" "$env_file" "$entrypoint"; then
+  fail "STUN-only deployment exposes TURN credentials or relay ports"
+fi
+
+if rg -n 'SIGNALING_TLS_(CERT|KEY):|password[[:space:]]*[:=][[:space:]]*[^$/{]' "$compose_file" "$env_file"; then
   fail "inline credentials or key material are forbidden"
 fi
 
 rg -q 'name: Validate self-hosted Compose' .github/workflows/ci.yml || fail "CI self-hosting job is missing"
 rg -q 'make test-m7-config' .github/workflows/ci.yml || fail "CI does not run the self-hosting gate"
-rg -q 'openssl rand -hex' .github/workflows/ci.yml || fail "CI does not create ephemeral fixture secrets"
+rg -q 'openssl req -x509' .github/workflows/ci.yml || fail "CI does not create ephemeral TLS fixtures"
 
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
   docker compose --env-file "$env_file" -f "$compose_file" config >/dev/null

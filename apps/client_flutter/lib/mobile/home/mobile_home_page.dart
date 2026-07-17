@@ -14,6 +14,8 @@ import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/identity/mobile_device_identity.dart';
 import 'package:roammand/mobile/pairing/mobile_pairing_page.dart';
 import 'package:roammand/mobile/remote/mobile_remote_launcher.dart';
+import 'package:roammand/network/network_service_controller.dart';
+import 'package:roammand/network/network_service_settings_page.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
 
 const _pagePadding = 24.0;
@@ -30,6 +32,7 @@ typedef MobilePairingPageBuilder = Widget Function(BuildContext context);
 final class MobileHomePage extends StatefulWidget {
   const MobileHomePage({
     required this.trustedHosts,
+    this.networkServices,
     this.identity,
     this.pairingPageBuilder,
     this.launchRemote,
@@ -40,6 +43,7 @@ final class MobileHomePage extends StatefulWidget {
   });
 
   final TrustedHostRepository trustedHosts;
+  final NetworkServiceController? networkServices;
   final MobileDeviceIdentity? identity;
   final MobilePairingPageBuilder? pairingPageBuilder;
   final MobileRemoteLauncher? launchRemote;
@@ -78,6 +82,7 @@ final class _MobileHomePageState extends State<MobileHomePage> {
         MobilePairingPage(
           identity: widget.identity!,
           trustedHosts: widget.trustedHosts,
+          networkServices: widget.networkServices,
         );
     await Navigator.of(
       context,
@@ -96,6 +101,7 @@ final class _MobileHomePageState extends State<MobileHomePage> {
                     context,
                     identity: identity,
                     target: target,
+                    networkConfiguration: widget.networkServices?.configuration,
                   ));
     if (launcher == null) return;
     final hostKey = _hostKey(host);
@@ -201,6 +207,13 @@ final class _MobileHomePageState extends State<MobileHomePage> {
               preference: widget.localePreference,
               onPreferenceChanged: onChanged,
             ),
+          if (widget.networkServices != null)
+            IconButton.filledTonal(
+              key: const Key('mobile-network-settings'),
+              onPressed: _openNetworkSettings,
+              tooltip: strings.networkSettingsTooltip,
+              icon: const Icon(Icons.settings_ethernet, size: 20),
+            ),
         ],
       ),
     ),
@@ -225,6 +238,27 @@ final class _MobileHomePageState extends State<MobileHomePage> {
         ],
     ],
   );
+
+  Future<void> _openNetworkSettings() async {
+    final controller = widget.networkServices;
+    if (controller == null) return;
+    final result = await Navigator.of(context)
+        .push<NetworkServiceSettingsResult>(
+          MaterialPageRoute<NetworkServiceSettingsResult>(
+            builder: (_) => NetworkServiceSettingsPage(
+              controller: controller,
+              warnAboutHostRestart: false,
+              mobileContext: true,
+            ),
+          ),
+        );
+    if (!mounted || result == null || !result.changed) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(AppLocalizations.of(context).networkConfigurationSaved),
+      ),
+    );
+  }
 }
 
 final class _MobileTrustedHostCard extends StatelessWidget {

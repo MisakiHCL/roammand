@@ -1537,6 +1537,192 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to save the diagnostics report.'**
   String get diagnosticsSaveFailed;
+
+  /// No description provided for @networkSettingsTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Network service settings'**
+  String get networkSettingsTooltip;
+
+  /// No description provided for @networkSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Network services'**
+  String get networkSettingsTitle;
+
+  /// No description provided for @networkSettingsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the signaling and STUN services used to find devices and establish direct connections.'**
+  String get networkSettingsBody;
+
+  /// No description provided for @networkProfileLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Service profile'**
+  String get networkProfileLabel;
+
+  /// No description provided for @networkOfficialProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Official service'**
+  String get networkOfficialProfile;
+
+  /// No description provided for @networkOfficialProfileBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the built-in Roammand service defaults.'**
+  String get networkOfficialProfileBody;
+
+  /// No description provided for @networkCustomProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom service'**
+  String get networkCustomProfile;
+
+  /// No description provided for @networkCustomProfileBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a development or self-hosted signaling and STUN service.'**
+  String get networkCustomProfileBody;
+
+  /// No description provided for @networkSignalingEndpointLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Signaling WebSocket address'**
+  String get networkSignalingEndpointLabel;
+
+  /// No description provided for @networkSignalingEndpointHint.
+  ///
+  /// In en, this message translates to:
+  /// **'wss://signal.example.com/v1/connect'**
+  String get networkSignalingEndpointHint;
+
+  /// No description provided for @networkStunUrlsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'STUN addresses'**
+  String get networkStunUrlsLabel;
+
+  /// No description provided for @networkStunUrlsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'One stun: or stuns: address per line'**
+  String get networkStunUrlsHint;
+
+  /// No description provided for @networkStunOptionalNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'STUN is optional for local testing. This release has no TURN fallback, so some restrictive networks cannot connect.'**
+  String get networkStunOptionalNotice;
+
+  /// No description provided for @networkMobileHostBindingNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'A paired computer keeps its signaling address from the QR code. This profile supplies the STUN service used for direct connections and the default for new manual pairing flows.'**
+  String get networkMobileHostBindingNotice;
+
+  /// No description provided for @networkSaveAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Save configuration'**
+  String get networkSaveAction;
+
+  /// No description provided for @networkSavingAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get networkSavingAction;
+
+  /// No description provided for @networkRestoreAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore official defaults'**
+  String get networkRestoreAction;
+
+  /// No description provided for @networkInvalidSignaling.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid secure signaling WebSocket address. Private ws:// addresses are allowed only in an explicitly enabled debug build.'**
+  String get networkInvalidSignaling;
+
+  /// No description provided for @networkInvalidStun.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter only valid stun: or stuns: addresses, one per line.'**
+  String get networkInvalidStun;
+
+  /// No description provided for @networkInvalidConfiguration.
+  ///
+  /// In en, this message translates to:
+  /// **'The signaling or STUN configuration is invalid.'**
+  String get networkInvalidConfiguration;
+
+  /// No description provided for @networkSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The network configuration could not be saved.'**
+  String get networkSaveFailed;
+
+  /// No description provided for @networkChangeHostTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change this computer\'s network service?'**
+  String get networkChangeHostTitle;
+
+  /// No description provided for @networkChangeHostBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The managed Host Agent will restart and active remote sessions will end. If the signaling address changes, previously paired devices must scan a new QR code before they can find this computer again.'**
+  String get networkChangeHostBody;
+
+  /// No description provided for @networkConfirmChangeAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Save and restart'**
+  String get networkConfirmChangeAction;
+
+  /// No description provided for @networkConfigurationSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Network configuration saved.'**
+  String get networkConfigurationSaved;
+
+  /// No description provided for @networkHostMigrationSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Server changed. Show a new QR code to previously paired phones.'**
+  String get networkHostMigrationSaved;
+
+  /// No description provided for @networkExternalHostRestartRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration saved. The currently connected development Host Agent is independently managed; restart it with the same settings.'**
+  String get networkExternalHostRestartRequired;
+
+  /// No description provided for @networkHostRestartFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration saved, but the managed Host Agent could not restart. Exit and reopen Roammand, then verify the service settings.'**
+  String get networkHostRestartFailed;
+
+  /// No description provided for @mobileUnfamiliarServerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to a different signaling service?'**
+  String get mobileUnfamiliarServerTitle;
+
+  /// No description provided for @mobileUnfamiliarServerBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This QR code will connect to {endpoint}. The service can observe connection metadata and disrupt availability. Continue only if you trust the computer and service operator.'**
+  String mobileUnfamiliarServerBody(String endpoint);
+
+  /// No description provided for @mobileTrustServerAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Trust and continue'**
+  String get mobileTrustServerAction;
 }
 
 class _AppLocalizationsDelegate

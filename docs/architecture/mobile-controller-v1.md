@@ -62,11 +62,20 @@ Remote control is foreground-only:
 
 Android declares camera and network access, disables backup, uses keyboard resize, and declares no foreground-service permission. Its Debug manifest permits cleartext traffic for the guarded private-LAN development path while Release retains the platform default. iOS declares camera and local-network purposes, permits local resource loading through the narrow ATS local-network setting, supports portrait/landscape orientations, and declares no background mode. Flutter's endpoint policy still rejects private-address plaintext WS outside Debug even though local networking itself remains available to Release sessions.
 
-## ICE and TURN configuration
+## ICE, STUN, and optional TURN configuration
 
-Direct ICE with H.264 then VP8 preference is the default. Mobile TURN values are Dart compile-time definitions: `ROAMMAND_ICE_TRANSPORT_POLICY`, `ROAMMAND_TURN_URLS`, `ROAMMAND_TURN_USERNAME`, and `ROAMMAND_TURN_PASSWORD`. URLs, username, and password are an all-or-nothing group. `relay` requires at least one valid `turn:` or `turns:` URL. The Host must receive matching settings through its process environment.
+Direct ICE with H.264 then VP8 preference is the release default. The runtime
+Network services profile supplies public `stun:` or `stuns:` URLs to the mobile
+Controller and managed Host Agent. `ROAMMAND_STUN_URLS` remains available as a
+Dart definition and Host Agent environment override for development.
 
-Credentials are runtime/deployment inputs and must not be committed or printed by smoke tooling.
+The lower-level peer layer also accepts `ROAMMAND_ICE_TRANSPORT_POLICY`,
+`ROAMMAND_TURN_URLS`, `ROAMMAND_TURN_USERNAME`, and
+`ROAMMAND_TURN_PASSWORD` for isolated relay tests. TURN URL, username, and
+password are an all-or-nothing group, and `relay` requires at least one valid
+`turn:` or `turns:` URL. TURN is not part of the release Network services UI or
+official service profile. Credentials are runtime inputs and must not be
+committed or printed by smoke tooling.
 
 For trusted-LAN source development, a mobile Debug build may accept a literal private-address `ws://` binding when compiled with `--dart-define=ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING=true`. The Host Agent must opt in separately through the matching environment variable. Profile and Release ignore this setting and require WSS for non-loopback endpoints.
 

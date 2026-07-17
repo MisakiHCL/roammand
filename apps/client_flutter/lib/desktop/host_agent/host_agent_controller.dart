@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:roammand/network/network_service_configuration.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 import 'host_agent_client.dart';
@@ -23,6 +24,8 @@ const _managedStartupRetryDelays = <Duration>[
 enum HostAgentViewState { connecting, ready, offline, error }
 
 enum EmergencyStopOutcome { idle, succeeded, failed }
+
+enum ManagedHostAgentRestartOutcome { restarted, notOwned, unavailable }
 
 final class HostAgentController extends ChangeNotifier {
   HostAgentController({
@@ -76,6 +79,39 @@ final class HostAgentController extends ChangeNotifier {
   Future<void> start() => _connectWithManagedFallback();
 
   Future<void> retry() => _connectWithManagedFallback();
+
+  Future<ManagedHostAgentRestartOutcome> applyNetworkConfiguration(
+    NetworkServiceConfiguration configuration,
+  ) async {
+    configuration.validate();
+    final processLifecycle = _processLifecycle;
+    if (_disposed || processLifecycle == null) {
+      return ManagedHostAgentRestartOutcome.notOwned;
+    }
+    await _prepareForManagedRestart();
+    if (_disposed) return ManagedHostAgentRestartOutcome.unavailable;
+    bool restarted;
+    try {
+      restarted = await processLifecycle.restart(configuration);
+    } on Object {
+      restarted = false;
+    }
+    if (_disposed) return ManagedHostAgentRestartOutcome.unavailable;
+    if (!restarted) {
+      await _connect();
+      return ManagedHostAgentRestartOutcome.notOwned;
+    }
+    for (final delay in _managedStartupRetryDelays) {
+      await Future<void>.delayed(delay);
+      if (_disposed) return ManagedHostAgentRestartOutcome.unavailable;
+      await _connect();
+      if (_state == HostAgentViewState.ready) {
+        return ManagedHostAgentRestartOutcome.restarted;
+      }
+      if (_state != HostAgentViewState.offline) break;
+    }
+    return ManagedHostAgentRestartOutcome.unavailable;
+  }
 
   Future<void> _connectWithManagedFallback() async {
     await _connect();
@@ -319,6 +355,36 @@ final class HostAgentController extends ChangeNotifier {
     } catch (error) {
       _handleFailure(error, generation);
     }
+  }
+
+  Future<void> _prepareForManagedRestart() async {
+    _generation += 1;
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    final eventSubscription = _eventSubscription;
+    _eventSubscription = null;
+    final pairingSubscription = _pairingSubscription;
+    _pairingSubscription = null;
+    final bridgeSubscription = _bridgeSubscription;
+    _bridgeSubscription = null;
+    final client = _client;
+    _client = null;
+    await eventSubscription?.cancel();
+    await pairingSubscription?.cancel();
+    await bridgeSubscription?.cancel();
+    await client?.close();
+    if (_disposed) return;
+    _state = HostAgentViewState.connecting;
+    _status = null;
+    _grants = const <ControllerGrantView>[];
+    _pairingStatus = null;
+    _privilegedBridgeStatus = null;
+    _bridgeGeneration = 0;
+    _refreshing = false;
+    _pairingActionPending = false;
+    _emergencyStopPending = false;
+    _emergencyStopOutcome = EmergencyStopOutcome.idle;
+    _notify();
   }
 
   Future<void> _loadSnapshot(HostAgentApi client, int generation) async {

@@ -2,7 +2,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:roammand/design_system/roammand_brand_mark.dart';
@@ -10,6 +9,9 @@ import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/app_language_menu.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
+import 'package:roammand/network/network_service_configuration.dart';
+import 'package:roammand/network/network_service_controller.dart';
+import 'package:roammand/network/network_service_settings_page.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
 
 import '../host_agent/host_agent_client.dart';
@@ -34,10 +36,6 @@ const _sectionSpacing = 24.0;
 const _itemSpacing = 12.0;
 const _cardPadding = 24.0;
 const _maximumContentWidth = 760.0;
-const _icePolicyEnvironment = 'ROAMMAND_ICE_TRANSPORT_POLICY';
-const _turnUrlsEnvironment = 'ROAMMAND_TURN_URLS';
-const _turnUsernameEnvironment = 'ROAMMAND_TURN_USERNAME';
-const _turnPasswordEnvironment = 'ROAMMAND_TURN_PASSWORD';
 const _signalingEndpointEnvironment = 'ROAMMAND_SIGNALING_ENDPOINT';
 const _signalingEndpoint = String.fromEnvironment(
   _signalingEndpointEnvironment,
@@ -59,6 +57,7 @@ final class DesktopHomePage extends StatefulWidget {
     this.hostPage,
     this.launchRemote,
     this.signalingEndpoint = _signalingEndpoint,
+    this.networkServices,
     this.trustedComputersController,
     this.pairingSessionFactory,
     this.nowUnixMs,
@@ -69,6 +68,7 @@ final class DesktopHomePage extends StatefulWidget {
   final Widget? hostPage;
   final RemoteDesktopLauncher? launchRemote;
   final String signalingEndpoint;
+  final NetworkServiceController? networkServices;
   final TrustedComputersController? trustedComputersController;
   final DesktopPairingSessionFactory? pairingSessionFactory;
   final int Function()? nowUnixMs;
@@ -109,6 +109,10 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
     }
   }
 
+  String get _activeSignalingEndpoint =>
+      widget.networkServices?.configuration.signalingEndpoint.toString() ??
+      widget.signalingEndpoint;
+
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
@@ -116,7 +120,7 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
         widget.hostPage ??
         HostStatusPage(
           showAppBar: false,
-          signalingEndpoint: widget.signalingEndpoint,
+          signalingEndpoint: _activeSignalingEndpoint,
         );
     final controlPage = _buildControlPage(context, strings);
     final platform = Theme.of(context).platform;
@@ -221,21 +225,27 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
 
   List<Widget>? _appBarActions(AppLocalizations strings) {
     final onLocalePreferenceChanged = widget.onLocalePreferenceChanged;
-    if (onLocalePreferenceChanged == null) {
-      return null;
-    }
-    return <Widget>[
-      AppLanguageMenu(
-        key: const Key('language-menu'),
-        preference: widget.localePreference,
-        onPreferenceChanged: onLocalePreferenceChanged,
-      ),
+    final actions = <Widget>[
+      if (widget.networkServices != null)
+        IconButton(
+          key: const Key('desktop-network-settings'),
+          onPressed: _openNetworkSettings,
+          tooltip: strings.networkSettingsTooltip,
+          icon: const Icon(Icons.settings_ethernet, size: 20),
+        ),
+      if (onLocalePreferenceChanged != null)
+        AppLanguageMenu(
+          key: const Key('language-menu'),
+          preference: widget.localePreference,
+          onPreferenceChanged: onLocalePreferenceChanged,
+        ),
       const SizedBox(width: 8),
     ];
+    return actions.length == 1 ? null : actions;
   }
 
   Widget _buildControlPage(BuildContext context, AppLocalizations strings) {
-    final endpointReady = _validSignalingEndpoint(widget.signalingEndpoint);
+    final endpointReady = _validSignalingEndpoint(_activeSignalingEndpoint);
     return RoammandBackdrop(
       child: SafeArea(
         child: Align(
@@ -364,7 +374,7 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
     }
     await showDesktopPairingDialog(
       context,
-      signalingEndpoint: Uri.parse(widget.signalingEndpoint),
+      signalingEndpoint: Uri.parse(_activeSignalingEndpoint),
       trustedHosts: repository,
       sessionFactory: widget.pairingSessionFactory,
     );
@@ -377,10 +387,15 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
     }
     setState(() {});
     try {
-      final connected = await (widget.launchRemote ?? _launchRemote)(
-        context,
-        _trustedComputers.targetFor(host),
-      );
+      final target = _trustedComputers.targetFor(host);
+      final connected = widget.launchRemote == null
+          ? await _launchRemote(
+              context,
+              target,
+              widget.networkServices?.configuration ??
+                  NetworkServiceConfiguration.official(),
+            )
+          : await widget.launchRemote!(context, target);
       if (connected) {
         await _trustedComputers.markSuccessfulConnection(
           host,
@@ -420,13 +435,39 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
       await _trustedComputers.deleteLocal(host.hostIdentity.deviceId);
     }
   }
+
+  Future<void> _openNetworkSettings() async {
+    final controller = widget.networkServices;
+    if (controller == null) return;
+    final result = await Navigator.of(context)
+        .push<NetworkServiceSettingsResult>(
+          MaterialPageRoute<NetworkServiceSettingsResult>(
+            builder: (_) => NetworkServiceSettingsPage(
+              controller: controller,
+              warnAboutHostRestart: true,
+            ),
+          ),
+        );
+    if (!mounted || result == null || !result.changed) return;
+    final strings = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.signalingChanged
+              ? strings.networkHostMigrationSaved
+              : strings.networkConfigurationSaved,
+        ),
+      ),
+    );
+  }
 }
 
 Future<bool> _launchRemote(
   BuildContext context,
   RemoteDesktopTarget target,
+  NetworkServiceConfiguration networkConfiguration,
 ) async {
-  final peerConfiguration = _peerConfigurationFromEnvironment();
+  final peerConfiguration = networkConfiguration.toPeerConfiguration();
   final controller = RetryableRemoteDesktopController(
     createController: () => RemoteDesktopController(
       identity: HostAgentControllerSessionIdentity(HostAgentClient()),
@@ -452,44 +493,6 @@ Future<bool> _launchRemote(
   );
   controller.removeListener(observeConnection);
   return connected;
-}
-
-ControllerPeerConfiguration _peerConfigurationFromEnvironment() {
-  final values = Platform.environment;
-  final rawPolicy = values[_icePolicyEnvironment]?.trim().toLowerCase();
-  final policy = switch (rawPolicy) {
-    null || '' || 'all' => DesktopIceTransportPolicy.all,
-    'relay' => DesktopIceTransportPolicy.relay,
-    _ => throw const PeerSessionException(PeerSessionErrorCode.configuration),
-  };
-  final rawUrls = values[_turnUrlsEnvironment]?.trim() ?? '';
-  final username = values[_turnUsernameEnvironment]?.trim() ?? '';
-  final password = values[_turnPasswordEnvironment] ?? '';
-  final hasAnyTurnValue =
-      rawUrls.isNotEmpty || username.isNotEmpty || password.isNotEmpty;
-  final servers = <DesktopIceServer>[];
-  if (hasAnyTurnValue) {
-    if (rawUrls.isEmpty || username.isEmpty || password.isEmpty) {
-      throw const PeerSessionException(PeerSessionErrorCode.configuration);
-    }
-    servers.add(
-      DesktopIceServer(
-        urls: rawUrls
-            .split(',')
-            .map((value) => value.trim())
-            .where((value) => value.isNotEmpty)
-            .toList(growable: false),
-        username: username,
-        credential: password,
-      ),
-    );
-  }
-  final configuration = ControllerPeerConfiguration(
-    iceTransportPolicy: policy,
-    iceServers: servers,
-  );
-  configuration.validate();
-  return configuration;
 }
 
 String encodeHostConnectionDescriptor(RemoteDesktopTarget target) {

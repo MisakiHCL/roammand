@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"sync"
 	"testing"
@@ -65,6 +66,40 @@ func TestConnectAcceptsLegacyProtobufSubprotocol(t *testing.T) {
 	t.Cleanup(func() { _ = connection.CloseNow() })
 	if got := connection.Subprotocol(); got != LegacyWebSocketSubprotocol {
 		t.Fatalf("subprotocol = %q, want %q", got, LegacyWebSocketSubprotocol)
+	}
+}
+
+func TestRemoteIPTrustsOnlyConfiguredDirectProxy(t *testing.T) {
+	trusted := []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}
+	tests := map[string]struct {
+		remote   string
+		header   string
+		trusted  []netip.Prefix
+		expected string
+	}{
+		"trusted proxy": {
+			remote: "127.0.0.1:42000", header: "198.51.100.24", trusted: trusted,
+			expected: "198.51.100.24",
+		},
+		"untrusted sender": {
+			remote: "203.0.113.9:42000", header: "198.51.100.24", trusted: trusted,
+			expected: "203.0.113.9",
+		},
+		"multiple forwarded values": {
+			remote: "127.0.0.1:42000", header: "198.51.100.24, 203.0.113.4", trusted: trusted,
+			expected: "127.0.0.1",
+		},
+		"invalid forwarded value": {
+			remote: "127.0.0.1:42000", header: "not-an-ip", trusted: trusted,
+			expected: "127.0.0.1",
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if actual := remoteIP(test.remote, test.header, test.trusted); actual != test.expected {
+				t.Fatalf("remoteIP() = %q, want %q", actual, test.expected)
+			}
+		})
 	}
 }
 

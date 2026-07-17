@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -39,6 +40,7 @@ type Options struct {
 	PairingAttemptsPerLookupKey int
 	OutboundQueueCapacity       int
 	MaxFrameBytes               int
+	TrustedProxyCIDRs           []netip.Prefix
 }
 
 func DefaultOptions() Options {
@@ -213,8 +215,12 @@ func (server *Server) handleConnect(writer http.ResponseWriter, request *http.Re
 			server.options.OutboundQueueCapacity,
 			server.options.MaxFrameBytes,
 		),
-		token:    server.nextToken.Add(1),
-		remoteIP: remoteIP(request.RemoteAddr),
+		token: server.nextToken.Add(1),
+		remoteIP: remoteIP(
+			request.RemoteAddr,
+			request.Header.Get("X-Real-IP"),
+			server.options.TrustedProxyCIDRs,
+		),
 	}
 	server.activeMu.Lock()
 	server.active[connection] = struct{}{}
@@ -350,10 +356,36 @@ func requestOffersSubprotocol(request *http.Request, required string) bool {
 	return false
 }
 
-func remoteIP(remoteAddress string) string {
-	host, _, err := net.SplitHostPort(remoteAddress)
-	if err != nil {
+func remoteIP(remoteAddress, realIPHeader string, trustedProxies []netip.Prefix) string {
+	directIP, ok := parseRemoteIP(remoteAddress)
+	if !ok {
 		return remoteAddress
 	}
-	return host
+	trusted := false
+	for _, prefix := range trustedProxies {
+		if prefix.Contains(directIP) {
+			trusted = true
+			break
+		}
+	}
+	if !trusted || strings.Contains(realIPHeader, ",") {
+		return directIP.String()
+	}
+	forwardedIP, err := netip.ParseAddr(strings.TrimSpace(realIPHeader))
+	if err != nil {
+		return directIP.String()
+	}
+	return forwardedIP.Unmap().String()
+}
+
+func parseRemoteIP(remoteAddress string) (netip.Addr, bool) {
+	host, _, err := net.SplitHostPort(remoteAddress)
+	if err != nil {
+		host = remoteAddress
+	}
+	parsed, err := netip.ParseAddr(host)
+	if err != nil {
+		return netip.Addr{}, false
+	}
+	return parsed.Unmap(), true
 }

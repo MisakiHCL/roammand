@@ -19,6 +19,7 @@ readonly REQUIRED_PUBLIC_FILES=(
   "docs/security/privileged-helper-threat-model.md"
   "docs/operations/final-product-acceptance.md"
   "docs/self-hosting/docker-compose.md"
+  "docs/self-hosting/docker-compose.zh-CN.md"
   "docs/testing/pairing.md"
   "docs/testing/reliability-and-privacy.md"
   "docs/testing/platform-acceptance.md"

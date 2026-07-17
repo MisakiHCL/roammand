@@ -24,6 +24,6 @@ Pairing verification covers device identity, authenticated invitation exchange, 
 - Controller identity survives restart in platform-protected storage without cross-device restore.
 - A saved Host reconnects without pairing again.
 - Host revocation blocks later sessions; Controller-side deletion remains local.
-- WSS and TURN deployments preserve the authenticated pairing boundary.
+- WSS and STUN deployments preserve the authenticated pairing boundary.
 
 Use synthetic names and endpoints in retained evidence. Pairing codes, private keys, transcripts, and device identities must not be recorded.

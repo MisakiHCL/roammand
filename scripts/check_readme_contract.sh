@@ -120,12 +120,14 @@ for readme in "$ENGLISH_README" "$CHINESE_README"; do
     'make app-check' \
     'make app-run-macos' \
     'cargo run -p roammand-host-agent --features native-webrtc -- serve' \
-    'docs/self-hosting/docker-compose.md' \
     'docs/security/privacy-safe-diagnostics.md' \
     'LICENSES.md'; do
     require_text "$readme" "$expected"
   done
 done
+
+require_text "$ENGLISH_README" 'docs/self-hosting/docker-compose.md'
+require_text "$CHINESE_README" 'docs/self-hosting/docker-compose.zh-CN.md'
 
 for expected in \
   'Roammand Flutter app' \

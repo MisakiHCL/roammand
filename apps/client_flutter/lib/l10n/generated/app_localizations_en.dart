@@ -829,4 +829,115 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get diagnosticsSaveFailed => 'Unable to save the diagnostics report.';
+
+  @override
+  String get networkSettingsTooltip => 'Network service settings';
+
+  @override
+  String get networkSettingsTitle => 'Network services';
+
+  @override
+  String get networkSettingsBody =>
+      'Choose the signaling and STUN services used to find devices and establish direct connections.';
+
+  @override
+  String get networkProfileLabel => 'Service profile';
+
+  @override
+  String get networkOfficialProfile => 'Official service';
+
+  @override
+  String get networkOfficialProfileBody =>
+      'Use the built-in Roammand service defaults.';
+
+  @override
+  String get networkCustomProfile => 'Custom service';
+
+  @override
+  String get networkCustomProfileBody =>
+      'Use a development or self-hosted signaling and STUN service.';
+
+  @override
+  String get networkSignalingEndpointLabel => 'Signaling WebSocket address';
+
+  @override
+  String get networkSignalingEndpointHint =>
+      'wss://signal.example.com/v1/connect';
+
+  @override
+  String get networkStunUrlsLabel => 'STUN addresses';
+
+  @override
+  String get networkStunUrlsHint => 'One stun: or stuns: address per line';
+
+  @override
+  String get networkStunOptionalNotice =>
+      'STUN is optional for local testing. This release has no TURN fallback, so some restrictive networks cannot connect.';
+
+  @override
+  String get networkMobileHostBindingNotice =>
+      'A paired computer keeps its signaling address from the QR code. This profile supplies the STUN service used for direct connections and the default for new manual pairing flows.';
+
+  @override
+  String get networkSaveAction => 'Save configuration';
+
+  @override
+  String get networkSavingAction => 'Saving…';
+
+  @override
+  String get networkRestoreAction => 'Restore official defaults';
+
+  @override
+  String get networkInvalidSignaling =>
+      'Enter a valid secure signaling WebSocket address. Private ws:// addresses are allowed only in an explicitly enabled debug build.';
+
+  @override
+  String get networkInvalidStun =>
+      'Enter only valid stun: or stuns: addresses, one per line.';
+
+  @override
+  String get networkInvalidConfiguration =>
+      'The signaling or STUN configuration is invalid.';
+
+  @override
+  String get networkSaveFailed =>
+      'The network configuration could not be saved.';
+
+  @override
+  String get networkChangeHostTitle =>
+      'Change this computer\'s network service?';
+
+  @override
+  String get networkChangeHostBody =>
+      'The managed Host Agent will restart and active remote sessions will end. If the signaling address changes, previously paired devices must scan a new QR code before they can find this computer again.';
+
+  @override
+  String get networkConfirmChangeAction => 'Save and restart';
+
+  @override
+  String get networkConfigurationSaved => 'Network configuration saved.';
+
+  @override
+  String get networkHostMigrationSaved =>
+      'Server changed. Show a new QR code to previously paired phones.';
+
+  @override
+  String get networkExternalHostRestartRequired =>
+      'Configuration saved. The currently connected development Host Agent is independently managed; restart it with the same settings.';
+
+  @override
+  String get networkHostRestartFailed =>
+      'Configuration saved, but the managed Host Agent could not restart. Exit and reopen Roammand, then verify the service settings.';
+
+  @override
+  String get mobileUnfamiliarServerTitle =>
+      'Connect to a different signaling service?';
+
+  @override
+  String mobileUnfamiliarServerBody(String endpoint) {
+    return 'This QR code will connect to $endpoint. The service can observe connection metadata and disrupt availability. Continue only if you trust the computer and service operator.';
+  }
+
+  @override
+  String get mobileTrustServerAction => 'Trust and continue';
 }

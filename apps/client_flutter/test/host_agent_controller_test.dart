@@ -6,6 +6,7 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/desktop/host_agent/host_agent_controller.dart';
 import 'package:roammand/desktop/host_agent/host_agent_process.dart';
+import 'package:roammand/network/network_service_configuration.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 void main() {
@@ -84,6 +85,40 @@ void main() {
       await controller.shutdown();
       expect(process.stopCount, 1);
       expect(recovered.closeCount, 1);
+      controller.dispose();
+    },
+  );
+
+  test(
+    'restarts a GUI-owned Host Agent when network settings change',
+    () async {
+      final unavailable = FakeHostAgentApi()..connectError = true;
+      final initial = FakeHostAgentApi();
+      final restarted = FakeHostAgentApi();
+      final clients = <FakeHostAgentApi>[unavailable, initial, restarted];
+      var attempt = 0;
+      final process = FakeHostAgentProcessLifecycle();
+      final controller = HostAgentController(
+        clientFactory: () => clients[attempt++],
+        processLifecycle: process,
+        refreshInterval: const Duration(hours: 1),
+      );
+      await controller.start();
+
+      final configuration = NetworkServiceConfiguration(
+        kind: NetworkServiceProfileKind.custom,
+        signalingEndpoint: Uri.parse(
+          'wss://new-signal.example.test/v1/connect',
+        ),
+      );
+      final outcome = await controller.applyNetworkConfiguration(configuration);
+
+      expect(outcome, ManagedHostAgentRestartOutcome.restarted);
+      expect(process.restartCount, 1);
+      expect(process.lastConfiguration, configuration);
+      expect(initial.closeCount, 1);
+      expect(controller.state, HostAgentViewState.ready);
+      await controller.shutdown();
       controller.dispose();
     },
   );
@@ -198,11 +233,20 @@ void main() {
 
 final class FakeHostAgentProcessLifecycle implements HostAgentProcessLifecycle {
   int startCount = 0;
+  int restartCount = 0;
   int stopCount = 0;
+  NetworkServiceConfiguration? lastConfiguration;
 
   @override
   Future<bool> start() async {
     startCount += 1;
+    return true;
+  }
+
+  @override
+  Future<bool> restart(NetworkServiceConfiguration configuration) async {
+    restartCount += 1;
+    lastConfiguration = configuration;
     return true;
   }
 

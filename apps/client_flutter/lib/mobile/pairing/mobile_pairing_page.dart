@@ -10,6 +10,7 @@ import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/identity/mobile_device_identity.dart';
 import 'package:roammand/mobile/widgets/mobile_page_header.dart';
+import 'package:roammand/network/network_service_controller.dart';
 import 'package:roammand/pairing/controller_pairing_engine.dart';
 import 'package:roammand/pairing/controller_pairing_models.dart';
 import 'package:roammand/pairing/pairing_signaling_client.dart';
@@ -67,6 +68,7 @@ final class MobilePairingPage extends StatefulWidget {
   const MobilePairingPage({
     required this.identity,
     required this.trustedHosts,
+    this.networkServices,
     this.scanner,
     this.sessionFactory,
     this.nowUnixMs,
@@ -75,6 +77,7 @@ final class MobilePairingPage extends StatefulWidget {
 
   final MobileDeviceIdentity identity;
   final TrustedHostRepository trustedHosts;
+  final NetworkServiceController? networkServices;
   final QrScannerSession? scanner;
   final MobilePairingSessionFactory? sessionFactory;
   final int Function()? nowUnixMs;
@@ -96,6 +99,7 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
   QrScannerFailure? _scannerFailure;
   bool _invalidQr = false;
   bool _claimedCode = false;
+  bool _confirmingCode = false;
   bool _creatingSession = false;
   bool _scannerStarting = false;
   bool _successfulPairingCloseScheduled = false;
@@ -126,7 +130,7 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_disposed || _claimedCode) return;
+    if (_disposed || _claimedCode || _confirmingCode) return;
     if (state == AppLifecycleState.resumed) {
       if (!_scannerStarting) unawaited(_scanner.resume());
     } else if (state == AppLifecycleState.inactive ||
@@ -138,7 +142,7 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
   }
 
   void _onScannerEvent(QrScannerEvent event) {
-    if (_disposed || _claimedCode) return;
+    if (_disposed || _claimedCode || _confirmingCode) return;
     switch (event) {
       case QrScannerReady():
         if (mounted && _scannerFailure != null) {
@@ -152,7 +156,7 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
   }
 
   Future<void> _acceptCode(String encoded) async {
-    if (_claimedCode) return;
+    if (_claimedCode || _confirmingCode) return;
     late final HostPairingInvitation invitation;
     try {
       invitation = parseQrPairingUri(
@@ -163,6 +167,17 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
     } catch (_) {
       if (mounted) setState(() => _invalidQr = true);
       return;
+    }
+    if (_requiresServerConfirmation(invitation)) {
+      _confirmingCode = true;
+      await _scanner.pause();
+      if (_disposed) return;
+      final confirmed = await _confirmUnfamiliarServer(invitation);
+      _confirmingCode = false;
+      if (!confirmed) {
+        if (!_disposed) await _scanner.resume();
+        return;
+      }
     }
     _claimedCode = true;
     if (mounted) {
@@ -201,6 +216,50 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
         });
       }
     }
+  }
+
+  bool _requiresServerConfirmation(HostPairingInvitation invitation) {
+    final networkServices = widget.networkServices;
+    if (networkServices == null) return false;
+    final endpoint = Uri.parse(invitation.signalingEndpoint);
+    if (endpoint == networkServices.configuration.signalingEndpoint) {
+      return false;
+    }
+    return !widget.trustedHosts.hosts.any(
+      (host) =>
+          host.signalingEndpoint == endpoint &&
+          _bytesEqual(
+            host.hostIdentity.deviceId,
+            invitation.hostIdentity.deviceId,
+          ),
+    );
+  }
+
+  Future<bool> _confirmUnfamiliarServer(
+    HostPairingInvitation invitation,
+  ) async {
+    if (!mounted) return false;
+    final strings = AppLocalizations.of(context);
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(strings.mobileUnfamiliarServerTitle),
+            content: Text(
+              strings.mobileUnfamiliarServerBody(invitation.signalingEndpoint),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(strings.cancelAction),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(strings.mobileTrustServerAction),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   void _onSnapshot(ControllerPairingSnapshot snapshot) {
@@ -703,4 +762,13 @@ ThemeData _compactPairingTheme(ThemeData theme) {
       labelMedium: text.labelMedium?.copyWith(fontSize: _pairingBodyFontSize),
     ),
   );
+}
+
+bool _bytesEqual(List<int> left, List<int> right) {
+  if (left.length != right.length) return false;
+  var difference = 0;
+  for (var index = 0; index < left.length; index += 1) {
+    difference |= left[index] ^ right[index];
+  }
+  return difference == 0;
 }

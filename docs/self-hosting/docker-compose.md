@@ -1,19 +1,30 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Self-host signaling and TURN with Docker Compose
+# Self-host signaling and STUN with Docker Compose
 
-This deployment runs the account-free signaling relay and a coturn TURN relay. The signaling service routes opaque protocol envelopes and never grants remote-control permission. Device private keys and Controller-to-Host grants remain on the devices.
+**English** · [简体中文](docker-compose.zh-CN.md)
+
+This deployment runs Roammand's account-free signaling service and a
+STUN-only coturn service. Signaling routes bounded opaque protocol envelopes;
+STUN helps peers discover their public network mapping. Neither service can
+grant remote-control permission or access end-to-end encrypted WebRTC media.
+
+This release does not provide a TURN relay. Direct connections can therefore
+fail on symmetric NATs, enterprise networks, or other restrictive paths.
 
 ## Requirements
 
 - Docker Engine with the Compose v2 plugin
-- A public DNS name and a trusted TLS certificate whose private key is not password-encrypted
-- A public IPv4 or IPv6 address forwarded directly to this machine
-- Firewall access to TCP 8443, TCP/UDP 3478 and 5349, and UDP 49160–49200
+- A public DNS name for signaling
+- A trusted TLS certificate and unencrypted private key for that DNS name
+- A public address forwarded directly to the Docker host
+- Firewall access to TCP 8443 for WSS and UDP 3478 for STUN
 
-The bounded relay range supports a small personal deployment. Increase it deliberately if concurrent TURN allocations exhaust the range; keep the published range and coturn configuration identical.
+STUN is UDP traffic, not HTTP. A path such as
+`https://example.com/stun/` cannot replace UDP 3478, and an ordinary website
+CDN cannot proxy it.
 
-## Prepare configuration and secrets
+## Prepare configuration
 
 From the repository root:
 
@@ -21,23 +32,19 @@ From the repository root:
 cd infra/compose
 cp .env.example .env
 mkdir -m 700 secrets
-printf '%s\n' 'choose-a-username' > secrets/turn-username
-openssl rand -hex 32 > secrets/turn-password
-chmod 600 secrets/turn-username secrets/turn-password
 ```
 
-Copy the full certificate chain to `secrets/tls-cert.pem` and its private key to `secrets/tls-key.pem`. Compose file-backed secrets preserve host ownership, so grant only the dedicated container group read access while keeping the files owned by the account that runs Compose:
+Copy the full signaling certificate chain to `secrets/tls-cert.pem` and its
+private key to `secrets/tls-key.pem`. Grant the numeric signaling container
+group read access without making the private key public:
 
 ```bash
-sudo chown "$(id -un)":65532 secrets/tls-cert.pem secrets/tls-key.pem \
-  secrets/turn-username secrets/turn-password
-chmod 640 secrets/tls-cert.pem secrets/tls-key.pem \
-  secrets/turn-username secrets/turn-password
+sudo chown "$(id -un)":65532 secrets/tls-cert.pem secrets/tls-key.pem
+chmod 640 secrets/tls-cert.pem secrets/tls-key.pem
 ```
 
-Edit `.env` and replace the example realm and documentation-only IP address. Secret values are read from Docker secret files; do not put the TURN password or TLS private key in `.env` or `compose.yaml`.
-
-The TURN username and password accept only ASCII letters, digits, `_`, `.`, and `-`, with a maximum of 128 characters. The generated hexadecimal password satisfies this policy.
+If the files live elsewhere, edit `.env`. Do not commit `.env`, certificates,
+private keys, public addresses, or operator-specific paths.
 
 ## Validate and start
 
@@ -47,29 +54,65 @@ docker compose --env-file .env -f compose.yaml up -d --build
 docker compose --env-file .env -f compose.yaml ps
 ```
 
-Both containers run without Linux capabilities, with read-only root filesystems, `no-new-privileges`, bounded Docker logs, health checks, and non-root numeric users. coturn writes its generated credential file only to a private in-memory filesystem and does not emit connection logs.
+Both containers run as non-root users with read-only root filesystems, dropped
+Linux capabilities, `no-new-privileges`, bounded Docker logs, and health
+checks. Coturn enables `stun-only` and publishes only UDP 3478; it has no user
+database, relay allocation range, TLS listener, or TURN credential.
 
 The resulting endpoints are:
 
-- Signaling: `wss://your-domain.example:8443/v1/connect`
-- TURN over UDP: `turn:your-domain.example:3478?transport=udp`
-- TURN over TLS/TCP: `turns:your-domain.example:5349?transport=tcp`
+- Signaling: `wss://signal.example.com:8443/v1/connect`
+- STUN: `stun:stun.example.com:3478`
 
-Configure every participating Controller and Host with the same signaling endpoint and TURN URLs, username, and password. The Host Agent reads `ROAMMAND_SIGNALING_ENDPOINT`, `ROAMMAND_TURN_URLS`, `ROAMMAND_TURN_USERNAME`, and `ROAMMAND_TURN_PASSWORD`. Flutter builds use the corresponding `--dart-define` values. Treat the TURN credential as a secret in build and deployment systems.
+The two names may resolve to the same host. The STUN name does not need an HTTPS
+certificate because this profile uses standard STUN over UDP rather than
+STUNS/TLS.
 
-## Operations
-
-Check state without printing secret material:
+In each Roammand app, open **Network services**, select **Custom service**, and
+enter both endpoints. A developer who runs the Host Agent independently can use
+the same values without the GUI:
 
 ```bash
-docker compose --env-file .env -f compose.yaml ps
+ROAMMAND_SIGNALING_ENDPOINT='wss://signal.example.com:8443/v1/connect' \
+ROAMMAND_STUN_URLS='stun:stun.example.com:3478' \
+cargo run -p roammand-host-agent --features native-webrtc -- serve
+```
+
+If TLS terminates at Nginx or another reverse proxy, forward WebSocket Upgrade,
+preserve the `roammand-signaling.v1.protobuf` subprotocol, disable response
+buffering, and set `X-Real-IP` to the proxy-observed client address. Configure
+`SIGNALING_TRUSTED_PROXY_CIDRS` with only the proxy network; never trust client
+forwarding headers from the whole Internet.
+
+## Verify from another network
+
+Check signaling without printing private material:
+
+```bash
+curl --fail https://signal.example.com:8443/healthz
 docker compose --env-file .env -f compose.yaml logs signaling
 ```
 
-Rotate TURN credentials by replacing both TURN secret files and recreating coturn. Rotate TLS material by replacing the certificate files and recreating both services:
+Use `turnutils_stunclient` from a machine outside the Docker host's network:
 
 ```bash
-docker compose --env-file .env -f compose.yaml up -d --force-recreate
+turnutils_stunclient -p 3478 stun.example.com
 ```
 
-Stop the deployment with `docker compose --env-file .env -f compose.yaml down`. The signaling and rendezvous state is intentionally ephemeral; restarting it does not revoke on-device bindings.
+A local container health check is not proof that the cloud firewall allows
+public UDP 3478. Complete one installed Host-to-Controller test across two
+independent networks before publishing the endpoints.
+
+## Operations
+
+Rotate TLS material by replacing both certificate files and recreating the
+signaling container:
+
+```bash
+docker compose --env-file .env -f compose.yaml up -d --force-recreate signaling
+```
+
+Stop the deployment with
+`docker compose --env-file .env -f compose.yaml down`. Signaling presence,
+pairing rendezvous, and rate-limit windows are intentionally in memory and are
+cleared on restart; on-device identities and grants are not.
