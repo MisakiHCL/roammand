@@ -38,9 +38,26 @@ readonly PACKAGE_IDENTIFIER="dev.roammand.pkg"
 readonly PACKAGE_SCRIPTS="$ROOT_DIR/packaging/macos/scripts"
 
 install -d -m 0755 "$(dirname "$OUTPUT")"
+component_plist="$(mktemp -t roammand-pkg-components)"
+cleanup_component_plist() {
+  rm -f "$component_plist"
+}
+trap cleanup_component_plist EXIT
+
+if ! pkgbuild --analyze --root "$PACKAGE_DIR" "$component_plist" >/dev/null; then
+  printf 'macOS installer component analysis failed\n' >&2
+  exit 1
+fi
+plutil -replace '0.BundleIsRelocatable' -bool NO "$component_plist"
+if [[ "$(plutil -extract '0.BundleIsRelocatable' raw "$component_plist")" != "false" ]]; then
+  printf 'macOS app bundle must not be relocatable\n' >&2
+  exit 1
+fi
+
 rm -f "$OUTPUT"
 if ! pkgbuild_output="$(pkgbuild \
   --root "$PACKAGE_DIR" \
+  --component-plist "$component_plist" \
   --install-location / \
   --identifier "$PACKAGE_IDENTIFIER" \
   --version "$package_version" \

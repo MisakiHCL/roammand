@@ -27,6 +27,9 @@ rg -q -- '--options runtime' scripts/sign_macos_release.sh
 rg -q -- '--timestamp' scripts/sign_macos_release.sh
 rg -q 'Developer ID Application' scripts/sign_macos_release.sh
 rg -q 'Developer ID Installer' scripts/build_macos_pkg.sh
+rg -q 'pkgbuild --analyze' scripts/build_macos_pkg.sh
+rg -q 'BundleIsRelocatable' scripts/build_macos_pkg.sh
+rg -q -- '--component-plist' scripts/build_macos_pkg.sh
 rg -q 'notarytool submit' scripts/notarize_macos_pkg.sh
 rg -q -- '--timeout 2h' scripts/notarize_macos_pkg.sh
 rg -q 'stapler staple' scripts/notarize_macos_pkg.sh

@@ -24,6 +24,10 @@ if [[ ! "$console_uid" =~ ^[0-9]+$ || "$console_uid" == "0" ]]; then
   printf 'unable to determine the Roammand owner account\n' >&2
   exit 1
 fi
+if [[ ! -d "$APP_PATH" ]]; then
+  printf 'Roammand was not installed at the required application path\n' >&2
+  exit 1
+fi
 
 /usr/sbin/chown -R root:wheel "$APP_PATH"
 /usr/sbin/chown root:wheel \
