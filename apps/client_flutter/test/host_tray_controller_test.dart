@@ -17,30 +17,25 @@ void main() {
       beforeExit: () async {},
     );
     const ready = HostTraySnapshot(
-      statusLabel: 'Ready',
-      showLabel: 'Show',
-      emergencyStopLabel: 'Emergency stop',
+      tooltipLabel: 'Roammand',
       exitLabel: 'Exit',
       controlActive: false,
     );
     await controller.start(iconAssetPath: 'tray.png', snapshot: ready);
     expect(port.initializeCount, 1);
-    expect(port.menus.single.statusLabel, 'Ready');
-    expect(port.menus.single.emergencyStopEnabled, isFalse);
+    expect(port.menus.single.tooltipLabel, 'Roammand');
+    expect(port.menus.single.exitLabel, 'Exit');
 
     await controller.update(ready);
     expect(port.menus, hasLength(1));
     await controller.update(
       const HostTraySnapshot(
-        statusLabel: 'Controlled by My phone',
-        showLabel: 'Show',
-        emergencyStopLabel: 'Emergency stop',
+        tooltipLabel: 'Roammand',
         exitLabel: 'Exit',
         controlActive: true,
       ),
     );
-    expect(port.menus, hasLength(2));
-    expect(port.menus.last.emergencyStopEnabled, isTrue);
+    expect(port.menus, hasLength(1));
   });
 
   test(
@@ -59,9 +54,7 @@ void main() {
       await controller.start(
         iconAssetPath: 'tray.png',
         snapshot: const HostTraySnapshot(
-          statusLabel: 'Controlled',
-          showLabel: 'Show',
-          emergencyStopLabel: 'Emergency stop',
+          tooltipLabel: 'Roammand',
           exitLabel: 'Exit',
           controlActive: true,
         ),
@@ -69,17 +62,16 @@ void main() {
 
       await port.emit(HostTrayCommand.showWindow);
       await port.emit(HostTrayCommand.windowCloseRequested);
-      await port.emit(HostTrayCommand.emergencyStop);
       expect(port.showCount, 1);
       expect(port.hideCount, 1);
-      expect(emergencyStops, 1);
+      expect(emergencyStops, 0);
 
       await port.emit(HostTrayCommand.exitApplication);
       expect(port.exitCount, 0);
       expect(beforeExitCalls, 0);
       allowExit = true;
       await port.emit(HostTrayCommand.exitApplication);
-      expect(emergencyStops, 2);
+      expect(emergencyStops, 1);
       expect(beforeExitCalls, 1);
       expect(port.exitCount, 1);
 
@@ -99,16 +91,12 @@ void main() {
       beforeExit: () async {},
     );
     const english = HostTraySnapshot(
-      statusLabel: 'Ready',
-      showLabel: 'Show',
-      emergencyStopLabel: 'Emergency stop',
+      tooltipLabel: 'Roammand',
       exitLabel: 'Exit',
       controlActive: false,
     );
     const chinese = HostTraySnapshot(
-      statusLabel: '可以远程控制',
-      showLabel: '显示',
-      emergencyStopLabel: '紧急停止',
+      tooltipLabel: 'Roammand',
       exitLabel: '退出',
       controlActive: false,
     );
@@ -123,8 +111,8 @@ void main() {
     await Future.wait(<Future<void>>[starting, updating]);
 
     expect(port.menus, hasLength(1));
-    expect(port.menus.single.statusLabel, chinese.statusLabel);
-    expect(port.menus.single.showLabel, chinese.showLabel);
+    expect(port.menus.single.tooltipLabel, chinese.tooltipLabel);
+    expect(port.menus.single.exitLabel, chinese.exitLabel);
     await controller.dispose();
   });
 }

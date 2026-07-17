@@ -162,16 +162,8 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
 
   HostTraySnapshot _traySnapshot(AppLocalizations strings) {
     final bridge = presentPrivilegedBridge(_hostAgent.privilegedBridgeStatus);
-    final statusLabel = switch (_hostAgent.state) {
-      HostAgentViewState.connecting => strings.hostAgentConnectingTitle,
-      HostAgentViewState.offline => strings.hostAgentOfflineTitle,
-      HostAgentViewState.error => strings.hostAgentErrorTitle,
-      HostAgentViewState.ready => _bridgeStatusLabel(strings, bridge),
-    };
     return HostTraySnapshot(
-      statusLabel: statusLabel,
-      showLabel: strings.trayShowAction,
-      emergencyStopLabel: strings.emergencyStopAction,
+      tooltipLabel: strings.appTitle,
       exitLabel: strings.trayExitAction,
       controlActive: bridge.showEmergencyStop,
     );
@@ -267,39 +259,3 @@ NetworkServiceConfiguration _legacyNetworkConfiguration(String endpoint) {
 
 String get _trayIconAsset =>
     Platform.isWindows ? _windowsTrayIcon : _macosTrayIcon;
-
-String _bridgeStatusLabel(
-  AppLocalizations strings,
-  PrivilegedBridgePresentation presentation,
-) => switch (presentation.kind) {
-  PrivilegedBridgePresentationKind.notInstalled =>
-    strings.privilegedBridgeNotInstalledTitle,
-  PrivilegedBridgePresentationKind.approvalRequired =>
-    strings.privilegedBridgeApprovalRequiredTitle,
-  PrivilegedBridgePresentationKind.permissionRequired =>
-    strings.privilegedBridgePermissionRequiredTitle,
-  PrivilegedBridgePresentationKind.userSessionOnly =>
-    strings.privilegedBridgeUserSessionOnlyTitle,
-  PrivilegedBridgePresentationKind.readyNormal =>
-    strings.privilegedBridgeReadyNormalTitle,
-  PrivilegedBridgePresentationKind.readyLockedLogin =>
-    strings.privilegedBridgeReadyLockedTitle,
-  PrivilegedBridgePresentationKind.readySecure =>
-    strings.privilegedBridgeReadySecureTitle,
-  PrivilegedBridgePresentationKind.readyUnavailable =>
-    strings.privilegedBridgeReadyUnavailableTitle,
-  PrivilegedBridgePresentationKind.transitioning =>
-    strings.privilegedBridgeTransitioningTitle,
-  PrivilegedBridgePresentationKind.reconnecting =>
-    strings.privilegedBridgeReconnectingTitle,
-  PrivilegedBridgePresentationKind.controlled =>
-    presentation.controllerDisplayName == null
-        ? strings.privilegedBridgeControlledUnknownTitle
-        : strings.privilegedBridgeControlledTitle(
-            presentation.controllerDisplayName!,
-          ),
-  PrivilegedBridgePresentationKind.failed =>
-    strings.privilegedBridgeFailedTitle,
-  PrivilegedBridgePresentationKind.unknown =>
-    strings.privilegedBridgeUnknownTitle,
-};

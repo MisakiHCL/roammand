@@ -9,8 +9,6 @@ import 'package:window_manager/window_manager.dart';
 import 'host_tray_models.dart';
 import 'host_tray_port.dart';
 
-const _showMenuKey = 'show';
-const _emergencyStopMenuKey = 'emergency_stop';
 const _exitMenuKey = 'exit';
 
 Future<void> prepareDesktopWindow() async {
@@ -45,21 +43,10 @@ final class FlutterHostTrayPort
     if (!_initialized || _disposed) {
       return;
     }
-    await trayManager.setToolTip(menu.statusLabel);
+    await trayManager.setToolTip(menu.tooltipLabel);
     await trayManager.setContextMenu(
       Menu(
-        items: <MenuItem>[
-          MenuItem(label: menu.statusLabel, disabled: true),
-          MenuItem.separator(),
-          MenuItem(key: _showMenuKey, label: menu.showLabel),
-          MenuItem(
-            key: _emergencyStopMenuKey,
-            label: menu.emergencyStopLabel,
-            disabled: !menu.emergencyStopEnabled,
-          ),
-          MenuItem.separator(),
-          MenuItem(key: _exitMenuKey, label: menu.exitLabel),
-        ],
+        items: <MenuItem>[MenuItem(key: _exitMenuKey, label: menu.exitLabel)],
       ),
     );
   }
@@ -87,8 +74,6 @@ final class FlutterHostTrayPort
   @override
   void onTrayMenuItemClick(MenuItem menuItem) {
     final command = switch (menuItem.key) {
-      _showMenuKey => HostTrayCommand.showWindow,
-      _emergencyStopMenuKey => HostTrayCommand.emergencyStop,
       _exitMenuKey => HostTrayCommand.exitApplication,
       _ => null,
     };

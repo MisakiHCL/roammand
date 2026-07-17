@@ -64,12 +64,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tray.initializeCount, 1);
-    expect(tray.menus.last.statusLabel, 'Ready for remote control');
+    expect(tray.menus.single.tooltipLabel, 'Roammand');
+    expect(tray.menus.single.exitLabel, 'Exit');
 
     api.bridgeEvents.add(_bridgeStatus(controlled: true));
     await tester.pump();
-    expect(tray.menus.last.statusLabel, 'Controlled by My phone');
-    expect(tray.menus.last.emergencyStopEnabled, isTrue);
+    expect(tray.menus, hasLength(1));
     await tray.emit(HostTrayCommand.windowCloseRequested);
     expect(tray.hideCount, 1);
 

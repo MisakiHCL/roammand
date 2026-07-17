@@ -18,10 +18,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(exporter.count, 0);
-    expect(find.text('Privacy-safe diagnostics'), findsOneWidget);
+    expect(find.text('Privacy-protected diagnostics'), findsOneWidget);
     expect(find.text('Included'), findsOneWidget);
     expect(find.text('Excluded'), findsOneWidget);
-    expect(find.textContaining('Aggregate WebRTC metrics'), findsOneWidget);
+    expect(
+      find.textContaining('Overall connection-quality measurements'),
+      findsOneWidget,
+    );
     expect(
       find.textContaining('Input content and coordinates'),
       findsOneWidget,
@@ -47,7 +50,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('无法保存诊断报告。'), findsOneWidget);
-    expect(find.text('隐私安全诊断'), findsOneWidget);
+    expect(find.text('隐私保护的诊断报告'), findsOneWidget);
   });
 }
 

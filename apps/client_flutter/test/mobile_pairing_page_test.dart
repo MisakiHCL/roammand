@@ -94,10 +94,7 @@ void main() {
     scanner.emit(QrScannerCode(encodeQrPairingUri(_invitation(now))));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Connect to a different signaling service?'),
-      findsOneWidget,
-    );
+    expect(find.text('Use a different connection service?'), findsOneWidget);
     expect(find.textContaining('signal.example.test'), findsOneWidget);
     expect(scanner.pauseCalls, 1);
     expect(session.pairCalls, 0);
@@ -442,7 +439,7 @@ void main() {
     session.fail(ControllerPairingError.signaling);
     await tester.pump();
 
-    expect(find.textContaining('signaling service'), findsOneWidget);
+    expect(find.textContaining('pairing service'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await scanner.close();
     await repository.close();

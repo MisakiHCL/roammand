@@ -22,11 +22,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get desktopHomeSubtitle =>
-      'Continue work on your own computers from anywhere.';
+      'Choose a paired computer to connect securely.';
 
   @override
   String get mobileIdentitySecurityNote =>
-      'No account. This device identity stays protected on your phone.';
+      'No account required. Pairing information stays on this phone.';
 
   @override
   String get computerReadyLabel => 'Ready to connect';
@@ -35,73 +35,77 @@ class AppLocalizationsEn extends AppLocalizations {
   String get developmentStatus => 'Remote control is not available yet.';
 
   @override
-  String get desktopHostTitle => 'Desktop Host';
+  String get desktopHostTitle => 'This Mac';
 
   @override
-  String get hostAgentConnectingTitle => 'Connecting to Host Agent…';
+  String get hostAgentConnectingTitle => 'Getting this Mac ready…';
 
   @override
   String get hostAgentConnectingBody =>
-      'Reading this computer\'s local identity and authorizations.';
+      'Checking whether this Mac can receive remote connections.';
 
   @override
-  String get hostAgentOfflineTitle => 'Host Agent is not running';
+  String get hostAgentOfflineTitle =>
+      'Roammand\'s background service is not running';
 
   @override
   String get hostAgentOfflineBody =>
-      'Roammand could not reach the local Host Agent. Retry or reinstall Roammand if the problem continues.';
+      'Try again. If it still does not start, reinstall Roammand.';
 
   @override
   String get hostAgentProtectedSessionUnavailableTitle =>
-      'Protected-session Agent is not running';
+      'Lock-screen control is not available';
 
   @override
   String get hostAgentProtectedSessionUnavailableBody =>
-      'The component for the current macOS session is unavailable. Retry or reinstall Roammand if the problem continues.';
+      'Roammand could not start the service used on the lock and login screens. Try again or reinstall Roammand.';
 
   @override
   String get hostAgentPrivilegedBridgeUnavailableTitle =>
-      'Privileged bridge is unavailable';
+      'Remote control is unavailable';
 
   @override
   String get hostAgentPrivilegedBridgeUnavailableBody =>
-      'The installed privileged bridge could not be verified or reached. Reinstall Roammand, then retry.';
+      'Roammand could not connect to a required macOS background feature. Reinstall Roammand, then try again.';
 
   @override
-  String get hostAgentComponentMissingTitle => 'Host Agent is missing';
+  String get hostAgentComponentMissingTitle =>
+      'Roammand\'s installation is incomplete';
 
   @override
   String get hostAgentComponentMissingBody =>
-      'The installed Host Agent executable was not found. Reinstall Roammand, then retry.';
+      'Files needed for remote control are missing. Reinstall Roammand, then try again.';
 
   @override
-  String get hostAgentLaunchFailedTitle => 'Host Agent could not start';
+  String get hostAgentLaunchFailedTitle =>
+      'Roammand\'s background service could not start';
 
   @override
   String get hostAgentLaunchFailedBody =>
-      'macOS could not launch the installed Host Agent. Reinstall Roammand, then retry.';
+      'macOS could not open a background feature needed for remote control. Reinstall Roammand, then try again.';
 
   @override
   String get hostAgentConfigurationInvalidTitle =>
-      'Connection configuration is invalid';
+      'Connection settings need attention';
 
   @override
   String get hostAgentConfigurationInvalidBody =>
-      'Check the signaling and STUN settings, then retry.';
+      'Open Connection settings, check the service addresses, and try again.';
 
   @override
-  String get hostAgentUnexpectedExitTitle => 'Host Agent exited unexpectedly';
+  String get hostAgentUnexpectedExitTitle =>
+      'Roammand\'s background service stopped';
 
   @override
   String get hostAgentUnexpectedExitBody =>
-      'The Host Agent stopped during startup. Retry or reinstall Roammand if the problem continues.';
+      'Try again. If it keeps stopping, reinstall Roammand.';
 
   @override
-  String get hostAgentErrorTitle => 'Host status is unavailable';
+  String get hostAgentErrorTitle => 'This Mac\'s status is unavailable';
 
   @override
   String get hostAgentErrorBody =>
-      'The local Host Agent returned an invalid or temporary error.';
+      'Roammand could not read the current status. Wait a moment and try again.';
 
   @override
   String get retryAction => 'Retry';
@@ -110,83 +114,81 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refreshAction => 'Refresh';
 
   @override
-  String get privilegedBridgeSectionTitle => 'Privileged session bridge';
+  String get privilegedBridgeSectionTitle => 'Remote control readiness';
 
   @override
-  String get privilegedBridgeNotInstalledTitle => 'Not installed';
+  String get privilegedBridgeNotInstalledTitle => 'Setup is incomplete';
 
   @override
   String get privilegedBridgeNotInstalledBody =>
-      'Install the privileged Host components to keep remote control available at lock, login, and protected system screens.';
+      'Reinstall Roammand to enable remote control on the desktop, lock screen, and login screen.';
 
   @override
   String get privilegedBridgeApprovalRequiredTitle =>
-      'Administrator approval required';
+      'Administrator approval is needed';
 
   @override
   String get privilegedBridgeApprovalRequiredBody =>
-      'Complete the operating-system approval for the installed Host service.';
+      'Approve Roammand when macOS asks so its background service can run.';
 
   @override
   String get privilegedBridgePermissionRequiredTitle =>
-      'System permissions required';
+      'Turn on macOS permissions';
 
   @override
   String get privilegedBridgePermissionRequiredBody =>
-      'Allow the requested screen recording and accessibility permissions in system settings.';
+      'Allow Screen Recording and Accessibility for Roammand in System Settings.';
 
   @override
   String get privilegedBridgeUserSessionOnlyTitle =>
-      'Current user session only';
+      'Available only while this Mac is unlocked';
 
   @override
   String get privilegedBridgeUserSessionOnlyBody =>
-      'Normal desktop control is available, but lock, login, and protected system screens are not.';
+      'You can control the desktop now, but not the lock or login screen.';
 
   @override
-  String get privilegedBridgeReadyNormalTitle => 'Ready for remote control';
+  String get privilegedBridgeReadyNormalTitle => 'This Mac is ready';
 
   @override
   String get privilegedBridgeReadyNormalBody =>
-      'The privileged bridge is installed and the normal desktop is available.';
+      'Approved devices can connect to this Mac.';
 
   @override
-  String get privilegedBridgeReadyLockedTitle =>
-      'Ready on the lock or login screen';
+  String get privilegedBridgeReadyLockedTitle => 'Lock-screen control is ready';
 
   @override
   String get privilegedBridgeReadyLockedBody =>
-      'The protected session Helper is connected without moving device identity or permanent grants out of the Host Agent.';
+      'Approved devices can stay connected when this Mac is locked or showing the login screen.';
 
   @override
   String get privilegedBridgeReadySecureTitle =>
-      'Ready on a protected system screen';
+      'System screens can also be controlled';
 
   @override
   String get privilegedBridgeReadySecureBody =>
-      'The protected session Helper is connected with a short-lived local lease.';
+      'Remote control stays available on macOS screens such as the lock and login screens.';
 
   @override
-  String get privilegedBridgeReadyUnavailableTitle => 'No interactive desktop';
+  String get privilegedBridgeReadyUnavailableTitle => 'Waiting for the desktop';
 
   @override
   String get privilegedBridgeReadyUnavailableBody =>
-      'Remote input remains disabled until the operating system publishes an interactive session.';
+      'There is no desktop to control right now. Roammand will become available when macOS is ready.';
 
   @override
-  String get privilegedBridgeTransitioningTitle => 'Switching desktop session…';
+  String get privilegedBridgeTransitioningTitle => 'Switching screens…';
 
   @override
   String get privilegedBridgeTransitioningBody =>
-      'Input is released while the Host authenticates a Helper in the new desktop session.';
+      'Remote input is paused briefly while macOS changes screens.';
 
   @override
-  String get privilegedBridgeReconnectingTitle =>
-      'Reconnecting protected session…';
+  String get privilegedBridgeReconnectingTitle => 'Restoring remote control…';
 
   @override
   String get privilegedBridgeReconnectingBody =>
-      'Input remains disabled until the new protected session is authenticated.';
+      'Remote input stays paused until the connection to this Mac is safe again.';
 
   @override
   String privilegedBridgeControlledTitle(String controllerName) {
@@ -199,21 +201,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privilegedBridgeControlledBody =>
-      'Use Emergency stop below to end every active remote session immediately.';
+      'Select Emergency stop below to end every remote connection immediately.';
 
   @override
-  String get privilegedBridgeFailedTitle => 'Privileged bridge unavailable';
+  String get privilegedBridgeFailedTitle =>
+      'Remote control service is unavailable';
 
   @override
   String get privilegedBridgeFailedBody =>
-      'Remote input is disabled. Check the local Host installation and system permissions.';
+      'Check Roammand\'s macOS permissions. If they are already on, reinstall Roammand.';
 
   @override
-  String get privilegedBridgeUnknownTitle => 'Bridge status unavailable';
+  String get privilegedBridgeUnknownTitle =>
+      'Remote control status is unavailable';
 
   @override
   String get privilegedBridgeUnknownBody =>
-      'Remote input is not reported as protected. Refresh the Host status or check the installation.';
+      'Refresh the page. If the status does not return, reopen Roammand.';
 
   @override
   String get emergencyStopAction => 'Emergency stop';
@@ -226,7 +230,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emergencyStopDialogBody =>
-      'This immediately closes every active remote session and releases all remote input. Permanent device authorizations are preserved.';
+      'This immediately disconnects every device and stops its mouse and keyboard control. Your approved-device list is kept.';
 
   @override
   String get confirmEmergencyStopAction => 'Stop now';
@@ -236,10 +240,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emergencyStopFailed =>
-      'Remote control could not be stopped. Use the system tray or stop the Host service locally.';
-
-  @override
-  String get trayShowAction => 'Show Roammand';
+      'Remote control could not be stopped. Exit Roammand from the menu bar and reopen it.';
 
   @override
   String get trayExitAction => 'Exit';
@@ -249,7 +250,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trayExitControlledBody =>
-      'Exiting will first stop every remote session and release all remote input.';
+      'Roammand will first disconnect every device and stop its mouse and keyboard control.';
 
   @override
   String get trayConfirmExitAction => 'Stop and exit';
@@ -259,33 +260,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String hostShortFingerprint(String fingerprint) {
-    return 'Short fingerprint: $fingerprint';
+    return 'Safety code: $fingerprint';
   }
 
   @override
-  String get authorizedControllersSectionTitle => 'Authorized controllers';
+  String get authorizedControllersSectionTitle => 'Approved devices';
 
   @override
   String authorizedControllerCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count authorized controllers',
-      one: '1 authorized controller',
-      zero: 'No authorized controllers',
+      other: '$count approved devices',
+      one: '1 approved device',
+      zero: 'No approved devices',
     );
     return '$_temp0';
   }
 
   @override
-  String get noAuthorizedControllers => 'No controllers are authorized yet.';
+  String get noAuthorizedControllers =>
+      'No devices have permission to control this Mac.';
 
   @override
-  String get unknownControllerName => 'Unknown controller';
+  String get unknownControllerName => 'Unknown device';
 
   @override
   String grantCreatedLabel(String date) {
-    return 'Authorized: $date';
+    return 'Allowed: $date';
   }
 
   @override
@@ -300,36 +302,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unknownDate => 'Unknown';
 
   @override
-  String get revokeAction => 'Revoke';
+  String get revokeAction => 'Remove access';
 
   @override
   String revokeDialogTitle(String controllerName) {
-    return 'Revoke $controllerName?';
+    return 'Stop allowing $controllerName?';
   }
 
   @override
   String get revokeDialogBody =>
-      'This controller will immediately lose permanent access to this Host. Reconnecting requires a new pairing.';
+      'This device will immediately lose access to this Mac. Pair it again to reconnect later.';
 
   @override
   String get cancelAction => 'Cancel';
 
   @override
-  String get confirmRevokeAction => 'Revoke access';
+  String get confirmRevokeAction => 'Remove access';
 
   @override
-  String get revokingAction => 'Revoking…';
+  String get revokingAction => 'Removing…';
 
   @override
   String get hostPairingSectionTitle => 'Add a new device';
 
   @override
   String get hostPairingSectionBody =>
-      'Pair a phone with this QR code or a computer with a one-time code. Only this Host can approve permanent access.';
+      'Use a QR code for a phone or a one-time code for another computer. You will confirm the device before it gets access.';
 
   @override
   String get hostPairingEndpointMissing =>
-      'Configure a secure signaling endpoint before starting pairing.';
+      'Open Connection settings before pairing and choose a connection service.';
 
   @override
   String get hostPairingStartQrAction => 'Show mobile QR code';
@@ -363,20 +365,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get hostPairingCreating => 'Creating a private pairing invitation…';
+  String get hostPairingCreating => 'Preparing a secure pairing code…';
 
   @override
   String get hostPairingWaitingController => 'Waiting for the other device…';
 
   @override
-  String get hostPairingVerifyingController => 'Verifying the other device…';
+  String get hostPairingVerifyingController => 'Checking the other device…';
 
   @override
   String get hostPairingPendingControllerTitle => 'Device requesting access';
 
   @override
   String hostPairingControllerFingerprint(String fingerprint) {
-    return 'Short fingerprint: $fingerprint';
+    return 'Safety code: $fingerprint';
   }
 
   @override
@@ -388,7 +390,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get hostPairingOneWayGrant =>
-      'Allowing creates permanent, one-way permission for this device to view the screen and control input. Reverse control requires a separate pairing.';
+      'After you allow it, this device can view and control this Mac without asking again. This does not let this Mac control the other device.';
 
   @override
   String get hostPairingAllowAction => 'Allow control';
@@ -443,7 +445,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trustedComputersEmptyBody =>
-      'Pair a computer with its one-time code. Future connections use the saved public identity on this device.';
+      'Open Roammand on the computer you want to control, then enter its one-time pairing code here.';
 
   @override
   String get pairComputerAction => 'Pair a computer';
@@ -467,21 +469,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pairAction => 'Pair';
 
   @override
-  String get desktopPairingConnecting =>
-      'Joining the private pairing invitation…';
+  String get desktopPairingConnecting => 'Connecting to the computer…';
 
   @override
-  String get desktopPairingVerifying => 'Verifying the Host identity…';
+  String get desktopPairingVerifying =>
+      'Checking that this is the right computer…';
 
   @override
   String get desktopPairingWaitingApproval =>
-      'Waiting for approval on the Host…';
+      'Waiting for approval on the other computer…';
 
   @override
   String get desktopPairingSuccess => 'Computer paired';
 
   @override
-  String get desktopPairingRejected => 'The Host rejected pairing';
+  String get desktopPairingRejected => 'The other computer rejected pairing';
 
   @override
   String get desktopPairingExpired => 'Pairing expired';
@@ -512,7 +514,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deleteTrustedHostBody =>
-      'This only deletes the saved Host record on this Controller. It does not revoke the permanent grant on the Host.';
+      'This removes the computer from this device\'s list. To fully remove access, also revoke this device on the other computer.';
 
   @override
   String get confirmDeleteAction => 'Delete locally';
@@ -525,7 +527,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mobileOnboardingBody =>
-      'This name is shown only to computers you pair with. Your private identity stays on this device.';
+      'This name is shown only to computers you pair with. Pairing information stays on this device.';
 
   @override
   String get mobileDeviceNameLabel => 'Device name';
@@ -534,11 +536,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mobileConfirmIdentityAction => 'Continue';
 
   @override
-  String get mobileIdentityLoading => 'Loading this device identity…';
+  String get mobileIdentityLoading => 'Loading pairing information…';
 
   @override
   String get mobileIdentityFailed =>
-      'The protected device identity is unavailable.';
+      'Secure pairing information is unavailable.';
 
   @override
   String get mobileHomeTitle => 'My computers';
@@ -586,10 +588,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'This pairing QR code is invalid or expired. Scan a new code.';
 
   @override
-  String get mobilePairingJoining => 'Joining the private pairing invitation…';
+  String get mobilePairingJoining => 'Connecting to the computer…';
 
   @override
-  String get mobilePairingVerifying => 'Verifying the computer identity…';
+  String get mobilePairingVerifying =>
+      'Checking that this is the right computer…';
 
   @override
   String get mobilePairingWaitingApproval =>
@@ -612,11 +615,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mobilePairingSignalingFailed =>
-      'Could not communicate with the signaling service. Check the signaling address and local network access.';
+      'Could not reach the pairing service. Check the connection settings and local network access.';
 
   @override
   String get mobilePairingAuthenticationFailed =>
-      'Could not verify the computer\'s pairing identity. Generate a new QR code and try again.';
+      'Could not safely confirm this computer. Generate a new QR code and try again.';
 
   @override
   String get mobilePairingPersistenceFailed =>
@@ -633,7 +636,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mobileControlLaterNotice =>
-      'Paired and ready for a private remote session.';
+      'Paired and ready for a secure connection.';
 
   @override
   String get mobileGestureHint => 'Tap, double-tap, drag, scroll, or pinch';
@@ -732,21 +735,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get uninstallUnavailableBody =>
-      'The protected uninstaller is missing. Reinstall Roammand before uninstalling.';
+      'Uninstall is unavailable. Reinstall Roammand before trying again.';
 
   @override
-  String get uninstallCheckingBody => 'Checking the installed uninstaller…';
+  String get uninstallCheckingBody => 'Preparing to uninstall…';
 
   @override
   String get uninstallConfirmTitle => 'Uninstall Roammand?';
 
   @override
   String get uninstallConfirmBody =>
-      'Remote sessions will stop and the app, Host Agent, privileged bridge, and protected-session Agent will be removed.';
+      'Remote connections will stop. Roammand and all of its background services will be removed from this Mac.';
 
   @override
   String get uninstallPreserveDataNotice =>
-      'This keeps this Mac’s device identity, pairing records, and preferences so they can be restored after reinstalling.';
+      'This keeps this Mac’s pairing records and preferences so they can be restored after reinstalling.';
 
   @override
   String get uninstallConfirmAction => 'Uninstall';
@@ -760,21 +763,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get desktopControlBody =>
-      'Paste a connection descriptor from an authorized computer to start a private remote session.';
+      'Paste the connection information shown on the other computer to start controlling it.';
 
   @override
-  String get hostConnectionDescriptorLabel => 'Host connection descriptor';
+  String get hostConnectionDescriptorLabel => 'Computer connection information';
 
   @override
   String get hostConnectionDescriptorHint =>
-      'Paste the public Host descriptor here';
+      'Paste the other computer\'s connection information here';
 
   @override
   String get hostConnectionDescriptorPrivacy =>
-      'The descriptor contains only the Host public identity and signaling address. It never contains a private key.';
+      'This contains only public information needed to connect. It does not contain passwords or other secrets.';
 
   @override
-  String get invalidHostDescriptor => 'Connection descriptor is invalid.';
+  String get invalidHostDescriptor => 'Connection information is invalid.';
 
   @override
   String get connectAction => 'Connect';
@@ -801,7 +804,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteIdle => 'Ready';
 
   @override
-  String get remoteConnecting => 'Connecting to local identity and signaling…';
+  String get remoteConnecting => 'Connecting to the other computer…';
 
   @override
   String get remoteReconnectingPending =>
@@ -813,10 +816,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get remoteAuthenticating => 'Signing the session offer locally…';
+  String get remoteAuthenticating => 'Checking both devices…';
 
   @override
-  String get remoteNegotiating => 'Waiting for the Host to verify and answer…';
+  String get remoteNegotiating => 'Waiting for the other computer to respond…';
 
   @override
   String get remoteConnected => 'Connected';
@@ -825,24 +828,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteClosing => 'Closing and releasing input…';
 
   @override
-  String get remoteAuthenticationFailed => 'Host authentication failed.';
+  String get remoteAuthenticationFailed =>
+      'Roammand could not safely confirm this is your paired computer.';
 
   @override
-  String get remoteHostAgentFailed => 'The local Host Agent is unavailable.';
+  String get remoteHostAgentFailed =>
+      'The other computer\'s remote-control service is unavailable.';
 
   @override
   String get remoteLocalIdentityFailed =>
-      'This Controller identity is unavailable.';
+      'Roammand could not read this device\'s secure pairing information.';
 
   @override
-  String get remoteSignalingFailed => 'The signaling connection failed.';
+  String get remoteSignalingFailed =>
+      'Roammand could not reach the connection service.';
 
   @override
   String get remoteConfigurationFailed =>
       'Remote connection settings are invalid.';
 
   @override
-  String get remoteConnectionFailed => 'The remote session failed.';
+  String get remoteConnectionFailed => 'The remote connection failed.';
 
   @override
   String get retryRemoteAction => 'Try again';
@@ -851,11 +857,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get diagnosticsAction => 'Diagnostics';
 
   @override
-  String get diagnosticsTitle => 'Privacy-safe diagnostics';
+  String get diagnosticsTitle => 'Privacy-protected diagnostics';
 
   @override
   String get diagnosticsPreviewBody =>
-      'When a connection or reconnect fails, save this local report to troubleshoot session state, timing, and aggregate WebRTC health. Review exactly what it includes and excludes before saving. Nothing is uploaded or copied to the clipboard.';
+      'If a connection fails, save this local report to review connection steps, timing, and overall network quality. You can see what is included before saving. Nothing is uploaded or copied to the clipboard.';
 
   @override
   String get diagnosticsIncludedTitle => 'Included';
@@ -864,20 +870,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get diagnosticsExcludedTitle => 'Excluded';
 
   @override
-  String get diagnosticsIncludedVersions => 'App, protocol, and OS versions';
+  String get diagnosticsIncludedVersions =>
+      'Roammand and operating system versions';
 
   @override
   String get diagnosticsIncludedSession =>
-      'Session states and stable error codes';
+      'Connection steps and safe error codes';
 
   @override
   String get diagnosticsIncludedReconnect => 'Reconnect attempts and timing';
 
   @override
-  String get diagnosticsIncludedWebRtc => 'Aggregate WebRTC metrics';
+  String get diagnosticsIncludedWebRtc =>
+      'Overall connection-quality measurements';
 
   @override
-  String get diagnosticsExcludedDeviceIdentifiers => 'Device identifiers';
+  String get diagnosticsExcludedDeviceIdentifiers =>
+      'Information that can identify a device';
 
   @override
   String get diagnosticsExcludedDeviceNames => 'Device names';
@@ -886,10 +895,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get diagnosticsExcludedKeys => 'Keys and signatures';
 
   @override
-  String get diagnosticsExcludedTokens => 'Nonces, tokens, and passwords';
+  String get diagnosticsExcludedTokens =>
+      'Login details, passwords, and other secrets';
 
   @override
-  String get diagnosticsExcludedSdpIce => 'SDP and ICE candidates';
+  String get diagnosticsExcludedSdpIce => 'Detailed networking information';
 
   @override
   String get diagnosticsExcludedNetworkAddresses => 'IP addresses and ports';
@@ -902,10 +912,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get diagnosticsExcludedRawPayloads =>
-      'Raw signaling and data-channel payloads';
+      'Unprocessed communication content';
 
   @override
-  String get diagnosticsExcludedRawStats => 'Raw WebRTC statistics';
+  String get diagnosticsExcludedRawStats => 'Unprocessed connection data';
 
   @override
   String diagnosticsEventSummary(int count, String truncated) {
@@ -933,31 +943,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get diagnosticsSaveFailed => 'Unable to save the diagnostics report.';
 
   @override
-  String get networkSettingsTooltip => 'Network service settings';
+  String get networkSettingsTooltip => 'Connection settings';
 
   @override
-  String get networkSettingsTitle => 'Network services';
+  String get networkSettingsTitle => 'Connection service';
 
   @override
   String get networkSettingsBody =>
-      'Choose the signaling and STUN services used to find devices and establish direct connections.';
+      'Roammand\'s official service is recommended. Custom addresses are intended for advanced users and self-hosted setups.';
 
   @override
-  String get networkProfileLabel => 'Service profile';
+  String get networkProfileLabel => 'Choose a service';
 
   @override
   String get networkOfficialProfile => 'Official service';
 
   @override
   String get networkOfficialProfileBody =>
-      'Use the built-in Roammand service defaults.';
+      'Recommended. Roammand configures the required addresses for you.';
 
   @override
   String get networkCustomProfile => 'Custom service';
 
   @override
   String get networkCustomProfileBody =>
-      'Use a development or self-hosted signaling and STUN service.';
+      'For advanced users who run their own signaling and STUN services.';
 
   @override
   String get networkSignalingEndpointLabel => 'Signaling WebSocket address';
@@ -978,16 +988,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkMobileHostBindingNotice =>
-      'A paired computer keeps its signaling address from the QR code. This profile supplies the STUN service used for direct connections and the default for new manual pairing flows.';
+      'A phone keeps using the service address from its pairing QR code. These settings apply to computer-to-computer connections and become the default for future pairing.';
 
   @override
-  String get networkSaveAction => 'Save configuration';
+  String get networkSaveAction => 'Save settings';
 
   @override
   String get networkSavingAction => 'Saving…';
 
   @override
-  String get networkRestoreAction => 'Restore official defaults';
+  String get networkRestoreAction => 'Restore official settings';
 
   @override
   String get networkInvalidSignaling =>
@@ -1002,8 +1012,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The signaling or STUN configuration is invalid.';
 
   @override
-  String get networkSaveFailed =>
-      'The network configuration could not be saved.';
+  String get networkSaveFailed => 'The connection settings could not be saved.';
 
   @override
   String get networkChangeHostTitle =>
@@ -1011,13 +1020,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkChangeHostBody =>
-      'The managed Host Agent will restart and active remote sessions will end. If the signaling address changes, previously paired devices must scan a new QR code before they can find this computer again.';
+      'Roammand\'s background service will restart and current remote connections will close. If the service address changes, previously paired devices must pair again.';
 
   @override
   String get networkConfirmChangeAction => 'Save and restart';
 
   @override
-  String get networkConfigurationSaved => 'Network configuration saved.';
+  String get networkConfigurationSaved => 'Connection settings saved.';
 
   @override
   String get networkHostMigrationSaved =>
@@ -1025,19 +1034,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkExternalHostRestartRequired =>
-      'Configuration saved. The currently connected development Host Agent is independently managed; restart it with the same settings.';
+      'Settings saved. A separately started developer service is running; restart it manually with the same settings.';
 
   @override
   String get networkHostRestartFailed =>
-      'Configuration saved, but the managed Host Agent could not restart. Exit and reopen Roammand, then verify the service settings.';
+      'Settings saved, but Roammand\'s background service could not restart. Exit and reopen Roammand, then check Connection settings.';
 
   @override
   String get mobileUnfamiliarServerTitle =>
-      'Connect to a different signaling service?';
+      'Use a different connection service?';
 
   @override
   String mobileUnfamiliarServerBody(String endpoint) {
-    return 'This QR code will connect to $endpoint. The service can observe connection metadata and disrupt availability. Continue only if you trust the computer and service operator.';
+    return 'This QR code uses $endpoint. The service may see basic connection information or interrupt connections. Continue only if you trust the computer and the service provider.';
   }
 
   @override

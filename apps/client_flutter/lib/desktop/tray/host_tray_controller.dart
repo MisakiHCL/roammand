@@ -26,6 +26,7 @@ final class HostTrayController {
 
   HostTraySnapshot? _snapshot;
   HostTraySnapshot? _desiredSnapshot;
+  HostTrayMenu? _menu;
   Future<void> _previousOperation = Future<void>.value();
   bool _started = false;
   bool _commandPending = false;
@@ -65,7 +66,11 @@ final class HostTrayController {
     if (_disposed || desiredSnapshot == null || desiredSnapshot == _snapshot) {
       return;
     }
-    await _port.updateMenu(HostTrayMenu.fromSnapshot(desiredSnapshot));
+    final desiredMenu = HostTrayMenu.fromSnapshot(desiredSnapshot);
+    if (desiredMenu != _menu) {
+      await _port.updateMenu(desiredMenu);
+      _menu = desiredMenu;
+    }
     _snapshot = desiredSnapshot;
   }
 
@@ -86,10 +91,6 @@ final class HostTrayController {
           await _port.showWindow();
         case HostTrayCommand.windowCloseRequested:
           await _port.hideWindow();
-        case HostTrayCommand.emergencyStop:
-          if (_snapshot?.controlActive ?? false) {
-            await _emergencyStop();
-          }
         case HostTrayCommand.exitApplication:
           if ((_snapshot?.controlActive ?? false) &&
               !await _confirmControlledExit()) {

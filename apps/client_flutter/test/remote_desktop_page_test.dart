@@ -101,7 +101,7 @@ void main() {
       ..setState(RemoteDesktopState.failed);
     await tester.pump();
 
-    expect(find.text('主机身份验证失败。'), findsOneWidget);
+    expect(find.text('无法安全确认这是你配对的电脑。'), findsOneWidget);
     expect(find.text('关闭连接'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -162,7 +162,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Privacy-safe diagnostics'), findsOneWidget);
+    expect(find.text('Privacy-protected diagnostics'), findsOneWidget);
     expect(find.text('Included'), findsOneWidget);
     expect(find.text('Excluded'), findsOneWidget);
   });

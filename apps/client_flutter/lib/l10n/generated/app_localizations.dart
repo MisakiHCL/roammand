@@ -125,13 +125,13 @@ abstract class AppLocalizations {
   /// No description provided for @desktopHomeSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Continue work on your own computers from anywhere.'**
+  /// **'Choose a paired computer to connect securely.'**
   String get desktopHomeSubtitle;
 
   /// No description provided for @mobileIdentitySecurityNote.
   ///
   /// In en, this message translates to:
-  /// **'No account. This device identity stays protected on your phone.'**
+  /// **'No account required. Pairing information stays on this phone.'**
   String get mobileIdentitySecurityNote;
 
   /// No description provided for @computerReadyLabel.
@@ -149,115 +149,115 @@ abstract class AppLocalizations {
   /// No description provided for @desktopHostTitle.
   ///
   /// In en, this message translates to:
-  /// **'Desktop Host'**
+  /// **'This Mac'**
   String get desktopHostTitle;
 
   /// No description provided for @hostAgentConnectingTitle.
   ///
   /// In en, this message translates to:
-  /// **'Connecting to Host Agent…'**
+  /// **'Getting this Mac ready…'**
   String get hostAgentConnectingTitle;
 
   /// No description provided for @hostAgentConnectingBody.
   ///
   /// In en, this message translates to:
-  /// **'Reading this computer\'s local identity and authorizations.'**
+  /// **'Checking whether this Mac can receive remote connections.'**
   String get hostAgentConnectingBody;
 
   /// No description provided for @hostAgentOfflineTitle.
   ///
   /// In en, this message translates to:
-  /// **'Host Agent is not running'**
+  /// **'Roammand\'s background service is not running'**
   String get hostAgentOfflineTitle;
 
   /// No description provided for @hostAgentOfflineBody.
   ///
   /// In en, this message translates to:
-  /// **'Roammand could not reach the local Host Agent. Retry or reinstall Roammand if the problem continues.'**
+  /// **'Try again. If it still does not start, reinstall Roammand.'**
   String get hostAgentOfflineBody;
 
   /// No description provided for @hostAgentProtectedSessionUnavailableTitle.
   ///
   /// In en, this message translates to:
-  /// **'Protected-session Agent is not running'**
+  /// **'Lock-screen control is not available'**
   String get hostAgentProtectedSessionUnavailableTitle;
 
   /// No description provided for @hostAgentProtectedSessionUnavailableBody.
   ///
   /// In en, this message translates to:
-  /// **'The component for the current macOS session is unavailable. Retry or reinstall Roammand if the problem continues.'**
+  /// **'Roammand could not start the service used on the lock and login screens. Try again or reinstall Roammand.'**
   String get hostAgentProtectedSessionUnavailableBody;
 
   /// No description provided for @hostAgentPrivilegedBridgeUnavailableTitle.
   ///
   /// In en, this message translates to:
-  /// **'Privileged bridge is unavailable'**
+  /// **'Remote control is unavailable'**
   String get hostAgentPrivilegedBridgeUnavailableTitle;
 
   /// No description provided for @hostAgentPrivilegedBridgeUnavailableBody.
   ///
   /// In en, this message translates to:
-  /// **'The installed privileged bridge could not be verified or reached. Reinstall Roammand, then retry.'**
+  /// **'Roammand could not connect to a required macOS background feature. Reinstall Roammand, then try again.'**
   String get hostAgentPrivilegedBridgeUnavailableBody;
 
   /// No description provided for @hostAgentComponentMissingTitle.
   ///
   /// In en, this message translates to:
-  /// **'Host Agent is missing'**
+  /// **'Roammand\'s installation is incomplete'**
   String get hostAgentComponentMissingTitle;
 
   /// No description provided for @hostAgentComponentMissingBody.
   ///
   /// In en, this message translates to:
-  /// **'The installed Host Agent executable was not found. Reinstall Roammand, then retry.'**
+  /// **'Files needed for remote control are missing. Reinstall Roammand, then try again.'**
   String get hostAgentComponentMissingBody;
 
   /// No description provided for @hostAgentLaunchFailedTitle.
   ///
   /// In en, this message translates to:
-  /// **'Host Agent could not start'**
+  /// **'Roammand\'s background service could not start'**
   String get hostAgentLaunchFailedTitle;
 
   /// No description provided for @hostAgentLaunchFailedBody.
   ///
   /// In en, this message translates to:
-  /// **'macOS could not launch the installed Host Agent. Reinstall Roammand, then retry.'**
+  /// **'macOS could not open a background feature needed for remote control. Reinstall Roammand, then try again.'**
   String get hostAgentLaunchFailedBody;
 
   /// No description provided for @hostAgentConfigurationInvalidTitle.
   ///
   /// In en, this message translates to:
-  /// **'Connection configuration is invalid'**
+  /// **'Connection settings need attention'**
   String get hostAgentConfigurationInvalidTitle;
 
   /// No description provided for @hostAgentConfigurationInvalidBody.
   ///
   /// In en, this message translates to:
-  /// **'Check the signaling and STUN settings, then retry.'**
+  /// **'Open Connection settings, check the service addresses, and try again.'**
   String get hostAgentConfigurationInvalidBody;
 
   /// No description provided for @hostAgentUnexpectedExitTitle.
   ///
   /// In en, this message translates to:
-  /// **'Host Agent exited unexpectedly'**
+  /// **'Roammand\'s background service stopped'**
   String get hostAgentUnexpectedExitTitle;
 
   /// No description provided for @hostAgentUnexpectedExitBody.
   ///
   /// In en, this message translates to:
-  /// **'The Host Agent stopped during startup. Retry or reinstall Roammand if the problem continues.'**
+  /// **'Try again. If it keeps stopping, reinstall Roammand.'**
   String get hostAgentUnexpectedExitBody;
 
   /// No description provided for @hostAgentErrorTitle.
   ///
   /// In en, this message translates to:
-  /// **'Host status is unavailable'**
+  /// **'This Mac\'s status is unavailable'**
   String get hostAgentErrorTitle;
 
   /// No description provided for @hostAgentErrorBody.
   ///
   /// In en, this message translates to:
-  /// **'The local Host Agent returned an invalid or temporary error.'**
+  /// **'Roammand could not read the current status. Wait a moment and try again.'**
   String get hostAgentErrorBody;
 
   /// No description provided for @retryAction.
@@ -275,127 +275,127 @@ abstract class AppLocalizations {
   /// No description provided for @privilegedBridgeSectionTitle.
   ///
   /// In en, this message translates to:
-  /// **'Privileged session bridge'**
+  /// **'Remote control readiness'**
   String get privilegedBridgeSectionTitle;
 
   /// No description provided for @privilegedBridgeNotInstalledTitle.
   ///
   /// In en, this message translates to:
-  /// **'Not installed'**
+  /// **'Setup is incomplete'**
   String get privilegedBridgeNotInstalledTitle;
 
   /// No description provided for @privilegedBridgeNotInstalledBody.
   ///
   /// In en, this message translates to:
-  /// **'Install the privileged Host components to keep remote control available at lock, login, and protected system screens.'**
+  /// **'Reinstall Roammand to enable remote control on the desktop, lock screen, and login screen.'**
   String get privilegedBridgeNotInstalledBody;
 
   /// No description provided for @privilegedBridgeApprovalRequiredTitle.
   ///
   /// In en, this message translates to:
-  /// **'Administrator approval required'**
+  /// **'Administrator approval is needed'**
   String get privilegedBridgeApprovalRequiredTitle;
 
   /// No description provided for @privilegedBridgeApprovalRequiredBody.
   ///
   /// In en, this message translates to:
-  /// **'Complete the operating-system approval for the installed Host service.'**
+  /// **'Approve Roammand when macOS asks so its background service can run.'**
   String get privilegedBridgeApprovalRequiredBody;
 
   /// No description provided for @privilegedBridgePermissionRequiredTitle.
   ///
   /// In en, this message translates to:
-  /// **'System permissions required'**
+  /// **'Turn on macOS permissions'**
   String get privilegedBridgePermissionRequiredTitle;
 
   /// No description provided for @privilegedBridgePermissionRequiredBody.
   ///
   /// In en, this message translates to:
-  /// **'Allow the requested screen recording and accessibility permissions in system settings.'**
+  /// **'Allow Screen Recording and Accessibility for Roammand in System Settings.'**
   String get privilegedBridgePermissionRequiredBody;
 
   /// No description provided for @privilegedBridgeUserSessionOnlyTitle.
   ///
   /// In en, this message translates to:
-  /// **'Current user session only'**
+  /// **'Available only while this Mac is unlocked'**
   String get privilegedBridgeUserSessionOnlyTitle;
 
   /// No description provided for @privilegedBridgeUserSessionOnlyBody.
   ///
   /// In en, this message translates to:
-  /// **'Normal desktop control is available, but lock, login, and protected system screens are not.'**
+  /// **'You can control the desktop now, but not the lock or login screen.'**
   String get privilegedBridgeUserSessionOnlyBody;
 
   /// No description provided for @privilegedBridgeReadyNormalTitle.
   ///
   /// In en, this message translates to:
-  /// **'Ready for remote control'**
+  /// **'This Mac is ready'**
   String get privilegedBridgeReadyNormalTitle;
 
   /// No description provided for @privilegedBridgeReadyNormalBody.
   ///
   /// In en, this message translates to:
-  /// **'The privileged bridge is installed and the normal desktop is available.'**
+  /// **'Approved devices can connect to this Mac.'**
   String get privilegedBridgeReadyNormalBody;
 
   /// No description provided for @privilegedBridgeReadyLockedTitle.
   ///
   /// In en, this message translates to:
-  /// **'Ready on the lock or login screen'**
+  /// **'Lock-screen control is ready'**
   String get privilegedBridgeReadyLockedTitle;
 
   /// No description provided for @privilegedBridgeReadyLockedBody.
   ///
   /// In en, this message translates to:
-  /// **'The protected session Helper is connected without moving device identity or permanent grants out of the Host Agent.'**
+  /// **'Approved devices can stay connected when this Mac is locked or showing the login screen.'**
   String get privilegedBridgeReadyLockedBody;
 
   /// No description provided for @privilegedBridgeReadySecureTitle.
   ///
   /// In en, this message translates to:
-  /// **'Ready on a protected system screen'**
+  /// **'System screens can also be controlled'**
   String get privilegedBridgeReadySecureTitle;
 
   /// No description provided for @privilegedBridgeReadySecureBody.
   ///
   /// In en, this message translates to:
-  /// **'The protected session Helper is connected with a short-lived local lease.'**
+  /// **'Remote control stays available on macOS screens such as the lock and login screens.'**
   String get privilegedBridgeReadySecureBody;
 
   /// No description provided for @privilegedBridgeReadyUnavailableTitle.
   ///
   /// In en, this message translates to:
-  /// **'No interactive desktop'**
+  /// **'Waiting for the desktop'**
   String get privilegedBridgeReadyUnavailableTitle;
 
   /// No description provided for @privilegedBridgeReadyUnavailableBody.
   ///
   /// In en, this message translates to:
-  /// **'Remote input remains disabled until the operating system publishes an interactive session.'**
+  /// **'There is no desktop to control right now. Roammand will become available when macOS is ready.'**
   String get privilegedBridgeReadyUnavailableBody;
 
   /// No description provided for @privilegedBridgeTransitioningTitle.
   ///
   /// In en, this message translates to:
-  /// **'Switching desktop session…'**
+  /// **'Switching screens…'**
   String get privilegedBridgeTransitioningTitle;
 
   /// No description provided for @privilegedBridgeTransitioningBody.
   ///
   /// In en, this message translates to:
-  /// **'Input is released while the Host authenticates a Helper in the new desktop session.'**
+  /// **'Remote input is paused briefly while macOS changes screens.'**
   String get privilegedBridgeTransitioningBody;
 
   /// No description provided for @privilegedBridgeReconnectingTitle.
   ///
   /// In en, this message translates to:
-  /// **'Reconnecting protected session…'**
+  /// **'Restoring remote control…'**
   String get privilegedBridgeReconnectingTitle;
 
   /// No description provided for @privilegedBridgeReconnectingBody.
   ///
   /// In en, this message translates to:
-  /// **'Input remains disabled until the new protected session is authenticated.'**
+  /// **'Remote input stays paused until the connection to this Mac is safe again.'**
   String get privilegedBridgeReconnectingBody;
 
   /// No description provided for @privilegedBridgeControlledTitle.
@@ -413,31 +413,31 @@ abstract class AppLocalizations {
   /// No description provided for @privilegedBridgeControlledBody.
   ///
   /// In en, this message translates to:
-  /// **'Use Emergency stop below to end every active remote session immediately.'**
+  /// **'Select Emergency stop below to end every remote connection immediately.'**
   String get privilegedBridgeControlledBody;
 
   /// No description provided for @privilegedBridgeFailedTitle.
   ///
   /// In en, this message translates to:
-  /// **'Privileged bridge unavailable'**
+  /// **'Remote control service is unavailable'**
   String get privilegedBridgeFailedTitle;
 
   /// No description provided for @privilegedBridgeFailedBody.
   ///
   /// In en, this message translates to:
-  /// **'Remote input is disabled. Check the local Host installation and system permissions.'**
+  /// **'Check Roammand\'s macOS permissions. If they are already on, reinstall Roammand.'**
   String get privilegedBridgeFailedBody;
 
   /// No description provided for @privilegedBridgeUnknownTitle.
   ///
   /// In en, this message translates to:
-  /// **'Bridge status unavailable'**
+  /// **'Remote control status is unavailable'**
   String get privilegedBridgeUnknownTitle;
 
   /// No description provided for @privilegedBridgeUnknownBody.
   ///
   /// In en, this message translates to:
-  /// **'Remote input is not reported as protected. Refresh the Host status or check the installation.'**
+  /// **'Refresh the page. If the status does not return, reopen Roammand.'**
   String get privilegedBridgeUnknownBody;
 
   /// No description provided for @emergencyStopAction.
@@ -461,7 +461,7 @@ abstract class AppLocalizations {
   /// No description provided for @emergencyStopDialogBody.
   ///
   /// In en, this message translates to:
-  /// **'This immediately closes every active remote session and releases all remote input. Permanent device authorizations are preserved.'**
+  /// **'This immediately disconnects every device and stops its mouse and keyboard control. Your approved-device list is kept.'**
   String get emergencyStopDialogBody;
 
   /// No description provided for @confirmEmergencyStopAction.
@@ -479,14 +479,8 @@ abstract class AppLocalizations {
   /// No description provided for @emergencyStopFailed.
   ///
   /// In en, this message translates to:
-  /// **'Remote control could not be stopped. Use the system tray or stop the Host service locally.'**
+  /// **'Remote control could not be stopped. Exit Roammand from the menu bar and reopen it.'**
   String get emergencyStopFailed;
-
-  /// No description provided for @trayShowAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Show Roammand'**
-  String get trayShowAction;
 
   /// No description provided for @trayExitAction.
   ///
@@ -503,7 +497,7 @@ abstract class AppLocalizations {
   /// No description provided for @trayExitControlledBody.
   ///
   /// In en, this message translates to:
-  /// **'Exiting will first stop every remote session and release all remote input.'**
+  /// **'Roammand will first disconnect every device and stop its mouse and keyboard control.'**
   String get trayExitControlledBody;
 
   /// No description provided for @trayConfirmExitAction.
@@ -521,37 +515,37 @@ abstract class AppLocalizations {
   /// No description provided for @hostShortFingerprint.
   ///
   /// In en, this message translates to:
-  /// **'Short fingerprint: {fingerprint}'**
+  /// **'Safety code: {fingerprint}'**
   String hostShortFingerprint(String fingerprint);
 
   /// No description provided for @authorizedControllersSectionTitle.
   ///
   /// In en, this message translates to:
-  /// **'Authorized controllers'**
+  /// **'Approved devices'**
   String get authorizedControllersSectionTitle;
 
   /// No description provided for @authorizedControllerCount.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =0{No authorized controllers} =1{1 authorized controller} other{{count} authorized controllers}}'**
+  /// **'{count, plural, =0{No approved devices} =1{1 approved device} other{{count} approved devices}}'**
   String authorizedControllerCount(int count);
 
   /// No description provided for @noAuthorizedControllers.
   ///
   /// In en, this message translates to:
-  /// **'No controllers are authorized yet.'**
+  /// **'No devices have permission to control this Mac.'**
   String get noAuthorizedControllers;
 
   /// No description provided for @unknownControllerName.
   ///
   /// In en, this message translates to:
-  /// **'Unknown controller'**
+  /// **'Unknown device'**
   String get unknownControllerName;
 
   /// No description provided for @grantCreatedLabel.
   ///
   /// In en, this message translates to:
-  /// **'Authorized: {date}'**
+  /// **'Allowed: {date}'**
   String grantCreatedLabel(String date);
 
   /// No description provided for @grantLastConnectedLabel.
@@ -575,19 +569,19 @@ abstract class AppLocalizations {
   /// No description provided for @revokeAction.
   ///
   /// In en, this message translates to:
-  /// **'Revoke'**
+  /// **'Remove access'**
   String get revokeAction;
 
   /// No description provided for @revokeDialogTitle.
   ///
   /// In en, this message translates to:
-  /// **'Revoke {controllerName}?'**
+  /// **'Stop allowing {controllerName}?'**
   String revokeDialogTitle(String controllerName);
 
   /// No description provided for @revokeDialogBody.
   ///
   /// In en, this message translates to:
-  /// **'This controller will immediately lose permanent access to this Host. Reconnecting requires a new pairing.'**
+  /// **'This device will immediately lose access to this Mac. Pair it again to reconnect later.'**
   String get revokeDialogBody;
 
   /// No description provided for @cancelAction.
@@ -599,13 +593,13 @@ abstract class AppLocalizations {
   /// No description provided for @confirmRevokeAction.
   ///
   /// In en, this message translates to:
-  /// **'Revoke access'**
+  /// **'Remove access'**
   String get confirmRevokeAction;
 
   /// No description provided for @revokingAction.
   ///
   /// In en, this message translates to:
-  /// **'Revoking…'**
+  /// **'Removing…'**
   String get revokingAction;
 
   /// Heading for starting device pairing; authorization is confirmed later.
@@ -617,13 +611,13 @@ abstract class AppLocalizations {
   /// No description provided for @hostPairingSectionBody.
   ///
   /// In en, this message translates to:
-  /// **'Pair a phone with this QR code or a computer with a one-time code. Only this Host can approve permanent access.'**
+  /// **'Use a QR code for a phone or a one-time code for another computer. You will confirm the device before it gets access.'**
   String get hostPairingSectionBody;
 
   /// No description provided for @hostPairingEndpointMissing.
   ///
   /// In en, this message translates to:
-  /// **'Configure a secure signaling endpoint before starting pairing.'**
+  /// **'Open Connection settings before pairing and choose a connection service.'**
   String get hostPairingEndpointMissing;
 
   /// No description provided for @hostPairingStartQrAction.
@@ -683,7 +677,7 @@ abstract class AppLocalizations {
   /// No description provided for @hostPairingCreating.
   ///
   /// In en, this message translates to:
-  /// **'Creating a private pairing invitation…'**
+  /// **'Preparing a secure pairing code…'**
   String get hostPairingCreating;
 
   /// No description provided for @hostPairingWaitingController.
@@ -695,7 +689,7 @@ abstract class AppLocalizations {
   /// No description provided for @hostPairingVerifyingController.
   ///
   /// In en, this message translates to:
-  /// **'Verifying the other device…'**
+  /// **'Checking the other device…'**
   String get hostPairingVerifyingController;
 
   /// No description provided for @hostPairingPendingControllerTitle.
@@ -707,7 +701,7 @@ abstract class AppLocalizations {
   /// No description provided for @hostPairingControllerFingerprint.
   ///
   /// In en, this message translates to:
-  /// **'Short fingerprint: {fingerprint}'**
+  /// **'Safety code: {fingerprint}'**
   String hostPairingControllerFingerprint(String fingerprint);
 
   /// No description provided for @hostPairingCompareSas.
@@ -725,7 +719,7 @@ abstract class AppLocalizations {
   /// No description provided for @hostPairingOneWayGrant.
   ///
   /// In en, this message translates to:
-  /// **'Allowing creates permanent, one-way permission for this device to view the screen and control input. Reverse control requires a separate pairing.'**
+  /// **'After you allow it, this device can view and control this Mac without asking again. This does not let this Mac control the other device.'**
   String get hostPairingOneWayGrant;
 
   /// No description provided for @hostPairingAllowAction.
@@ -833,7 +827,7 @@ abstract class AppLocalizations {
   /// No description provided for @trustedComputersEmptyBody.
   ///
   /// In en, this message translates to:
-  /// **'Pair a computer with its one-time code. Future connections use the saved public identity on this device.'**
+  /// **'Open Roammand on the computer you want to control, then enter its one-time pairing code here.'**
   String get trustedComputersEmptyBody;
 
   /// No description provided for @pairComputerAction.
@@ -881,19 +875,19 @@ abstract class AppLocalizations {
   /// No description provided for @desktopPairingConnecting.
   ///
   /// In en, this message translates to:
-  /// **'Joining the private pairing invitation…'**
+  /// **'Connecting to the computer…'**
   String get desktopPairingConnecting;
 
   /// No description provided for @desktopPairingVerifying.
   ///
   /// In en, this message translates to:
-  /// **'Verifying the Host identity…'**
+  /// **'Checking that this is the right computer…'**
   String get desktopPairingVerifying;
 
   /// No description provided for @desktopPairingWaitingApproval.
   ///
   /// In en, this message translates to:
-  /// **'Waiting for approval on the Host…'**
+  /// **'Waiting for approval on the other computer…'**
   String get desktopPairingWaitingApproval;
 
   /// No description provided for @desktopPairingSuccess.
@@ -905,7 +899,7 @@ abstract class AppLocalizations {
   /// No description provided for @desktopPairingRejected.
   ///
   /// In en, this message translates to:
-  /// **'The Host rejected pairing'**
+  /// **'The other computer rejected pairing'**
   String get desktopPairingRejected;
 
   /// No description provided for @desktopPairingExpired.
@@ -953,7 +947,7 @@ abstract class AppLocalizations {
   /// No description provided for @deleteTrustedHostBody.
   ///
   /// In en, this message translates to:
-  /// **'This only deletes the saved Host record on this Controller. It does not revoke the permanent grant on the Host.'**
+  /// **'This removes the computer from this device\'s list. To fully remove access, also revoke this device on the other computer.'**
   String get deleteTrustedHostBody;
 
   /// No description provided for @confirmDeleteAction.
@@ -977,7 +971,7 @@ abstract class AppLocalizations {
   /// No description provided for @mobileOnboardingBody.
   ///
   /// In en, this message translates to:
-  /// **'This name is shown only to computers you pair with. Your private identity stays on this device.'**
+  /// **'This name is shown only to computers you pair with. Pairing information stays on this device.'**
   String get mobileOnboardingBody;
 
   /// No description provided for @mobileDeviceNameLabel.
@@ -995,13 +989,13 @@ abstract class AppLocalizations {
   /// No description provided for @mobileIdentityLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading this device identity…'**
+  /// **'Loading pairing information…'**
   String get mobileIdentityLoading;
 
   /// No description provided for @mobileIdentityFailed.
   ///
   /// In en, this message translates to:
-  /// **'The protected device identity is unavailable.'**
+  /// **'Secure pairing information is unavailable.'**
   String get mobileIdentityFailed;
 
   /// No description provided for @mobileHomeTitle.
@@ -1085,13 +1079,13 @@ abstract class AppLocalizations {
   /// No description provided for @mobilePairingJoining.
   ///
   /// In en, this message translates to:
-  /// **'Joining the private pairing invitation…'**
+  /// **'Connecting to the computer…'**
   String get mobilePairingJoining;
 
   /// No description provided for @mobilePairingVerifying.
   ///
   /// In en, this message translates to:
-  /// **'Verifying the computer identity…'**
+  /// **'Checking that this is the right computer…'**
   String get mobilePairingVerifying;
 
   /// No description provided for @mobilePairingWaitingApproval.
@@ -1133,13 +1127,13 @@ abstract class AppLocalizations {
   /// No description provided for @mobilePairingSignalingFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not communicate with the signaling service. Check the signaling address and local network access.'**
+  /// **'Could not reach the pairing service. Check the connection settings and local network access.'**
   String get mobilePairingSignalingFailed;
 
   /// No description provided for @mobilePairingAuthenticationFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not verify the computer\'s pairing identity. Generate a new QR code and try again.'**
+  /// **'Could not safely confirm this computer. Generate a new QR code and try again.'**
   String get mobilePairingAuthenticationFailed;
 
   /// No description provided for @mobilePairingPersistenceFailed.
@@ -1163,7 +1157,7 @@ abstract class AppLocalizations {
   /// No description provided for @mobileControlLaterNotice.
   ///
   /// In en, this message translates to:
-  /// **'Paired and ready for a private remote session.'**
+  /// **'Paired and ready for a secure connection.'**
   String get mobileControlLaterNotice;
 
   /// No description provided for @mobileGestureHint.
@@ -1355,13 +1349,13 @@ abstract class AppLocalizations {
   /// No description provided for @uninstallUnavailableBody.
   ///
   /// In en, this message translates to:
-  /// **'The protected uninstaller is missing. Reinstall Roammand before uninstalling.'**
+  /// **'Uninstall is unavailable. Reinstall Roammand before trying again.'**
   String get uninstallUnavailableBody;
 
   /// No description provided for @uninstallCheckingBody.
   ///
   /// In en, this message translates to:
-  /// **'Checking the installed uninstaller…'**
+  /// **'Preparing to uninstall…'**
   String get uninstallCheckingBody;
 
   /// No description provided for @uninstallConfirmTitle.
@@ -1373,13 +1367,13 @@ abstract class AppLocalizations {
   /// No description provided for @uninstallConfirmBody.
   ///
   /// In en, this message translates to:
-  /// **'Remote sessions will stop and the app, Host Agent, privileged bridge, and protected-session Agent will be removed.'**
+  /// **'Remote connections will stop. Roammand and all of its background services will be removed from this Mac.'**
   String get uninstallConfirmBody;
 
   /// No description provided for @uninstallPreserveDataNotice.
   ///
   /// In en, this message translates to:
-  /// **'This keeps this Mac’s device identity, pairing records, and preferences so they can be restored after reinstalling.'**
+  /// **'This keeps this Mac’s pairing records and preferences so they can be restored after reinstalling.'**
   String get uninstallPreserveDataNotice;
 
   /// No description provided for @uninstallConfirmAction.
@@ -1403,31 +1397,31 @@ abstract class AppLocalizations {
   /// No description provided for @desktopControlBody.
   ///
   /// In en, this message translates to:
-  /// **'Paste a connection descriptor from an authorized computer to start a private remote session.'**
+  /// **'Paste the connection information shown on the other computer to start controlling it.'**
   String get desktopControlBody;
 
   /// No description provided for @hostConnectionDescriptorLabel.
   ///
   /// In en, this message translates to:
-  /// **'Host connection descriptor'**
+  /// **'Computer connection information'**
   String get hostConnectionDescriptorLabel;
 
   /// No description provided for @hostConnectionDescriptorHint.
   ///
   /// In en, this message translates to:
-  /// **'Paste the public Host descriptor here'**
+  /// **'Paste the other computer\'s connection information here'**
   String get hostConnectionDescriptorHint;
 
   /// No description provided for @hostConnectionDescriptorPrivacy.
   ///
   /// In en, this message translates to:
-  /// **'The descriptor contains only the Host public identity and signaling address. It never contains a private key.'**
+  /// **'This contains only public information needed to connect. It does not contain passwords or other secrets.'**
   String get hostConnectionDescriptorPrivacy;
 
   /// No description provided for @invalidHostDescriptor.
   ///
   /// In en, this message translates to:
-  /// **'Connection descriptor is invalid.'**
+  /// **'Connection information is invalid.'**
   String get invalidHostDescriptor;
 
   /// No description provided for @connectAction.
@@ -1475,7 +1469,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteConnecting.
   ///
   /// In en, this message translates to:
-  /// **'Connecting to local identity and signaling…'**
+  /// **'Connecting to the other computer…'**
   String get remoteConnecting;
 
   /// No description provided for @remoteReconnectingPending.
@@ -1493,13 +1487,13 @@ abstract class AppLocalizations {
   /// No description provided for @remoteAuthenticating.
   ///
   /// In en, this message translates to:
-  /// **'Signing the session offer locally…'**
+  /// **'Checking both devices…'**
   String get remoteAuthenticating;
 
   /// No description provided for @remoteNegotiating.
   ///
   /// In en, this message translates to:
-  /// **'Waiting for the Host to verify and answer…'**
+  /// **'Waiting for the other computer to respond…'**
   String get remoteNegotiating;
 
   /// No description provided for @remoteConnected.
@@ -1517,25 +1511,25 @@ abstract class AppLocalizations {
   /// No description provided for @remoteAuthenticationFailed.
   ///
   /// In en, this message translates to:
-  /// **'Host authentication failed.'**
+  /// **'Roammand could not safely confirm this is your paired computer.'**
   String get remoteAuthenticationFailed;
 
   /// No description provided for @remoteHostAgentFailed.
   ///
   /// In en, this message translates to:
-  /// **'The local Host Agent is unavailable.'**
+  /// **'The other computer\'s remote-control service is unavailable.'**
   String get remoteHostAgentFailed;
 
   /// No description provided for @remoteLocalIdentityFailed.
   ///
   /// In en, this message translates to:
-  /// **'This Controller identity is unavailable.'**
+  /// **'Roammand could not read this device\'s secure pairing information.'**
   String get remoteLocalIdentityFailed;
 
   /// No description provided for @remoteSignalingFailed.
   ///
   /// In en, this message translates to:
-  /// **'The signaling connection failed.'**
+  /// **'Roammand could not reach the connection service.'**
   String get remoteSignalingFailed;
 
   /// No description provided for @remoteConfigurationFailed.
@@ -1547,7 +1541,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteConnectionFailed.
   ///
   /// In en, this message translates to:
-  /// **'The remote session failed.'**
+  /// **'The remote connection failed.'**
   String get remoteConnectionFailed;
 
   /// No description provided for @retryRemoteAction.
@@ -1565,13 +1559,13 @@ abstract class AppLocalizations {
   /// No description provided for @diagnosticsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Privacy-safe diagnostics'**
+  /// **'Privacy-protected diagnostics'**
   String get diagnosticsTitle;
 
   /// No description provided for @diagnosticsPreviewBody.
   ///
   /// In en, this message translates to:
-  /// **'When a connection or reconnect fails, save this local report to troubleshoot session state, timing, and aggregate WebRTC health. Review exactly what it includes and excludes before saving. Nothing is uploaded or copied to the clipboard.'**
+  /// **'If a connection fails, save this local report to review connection steps, timing, and overall network quality. You can see what is included before saving. Nothing is uploaded or copied to the clipboard.'**
   String get diagnosticsPreviewBody;
 
   /// No description provided for @diagnosticsIncludedTitle.
@@ -1589,13 +1583,13 @@ abstract class AppLocalizations {
   /// No description provided for @diagnosticsIncludedVersions.
   ///
   /// In en, this message translates to:
-  /// **'App, protocol, and OS versions'**
+  /// **'Roammand and operating system versions'**
   String get diagnosticsIncludedVersions;
 
   /// No description provided for @diagnosticsIncludedSession.
   ///
   /// In en, this message translates to:
-  /// **'Session states and stable error codes'**
+  /// **'Connection steps and safe error codes'**
   String get diagnosticsIncludedSession;
 
   /// No description provided for @diagnosticsIncludedReconnect.
@@ -1607,13 +1601,13 @@ abstract class AppLocalizations {
   /// No description provided for @diagnosticsIncludedWebRtc.
   ///
   /// In en, this message translates to:
-  /// **'Aggregate WebRTC metrics'**
+  /// **'Overall connection-quality measurements'**
   String get diagnosticsIncludedWebRtc;
 
   /// No description provided for @diagnosticsExcludedDeviceIdentifiers.
   ///
   /// In en, this message translates to:
-  /// **'Device identifiers'**
+  /// **'Information that can identify a device'**
   String get diagnosticsExcludedDeviceIdentifiers;
 
   /// No description provided for @diagnosticsExcludedDeviceNames.
@@ -1631,13 +1625,13 @@ abstract class AppLocalizations {
   /// No description provided for @diagnosticsExcludedTokens.
   ///
   /// In en, this message translates to:
-  /// **'Nonces, tokens, and passwords'**
+  /// **'Login details, passwords, and other secrets'**
   String get diagnosticsExcludedTokens;
 
   /// No description provided for @diagnosticsExcludedSdpIce.
   ///
   /// In en, this message translates to:
-  /// **'SDP and ICE candidates'**
+  /// **'Detailed networking information'**
   String get diagnosticsExcludedSdpIce;
 
   /// No description provided for @diagnosticsExcludedNetworkAddresses.
@@ -1661,13 +1655,13 @@ abstract class AppLocalizations {
   /// No description provided for @diagnosticsExcludedRawPayloads.
   ///
   /// In en, this message translates to:
-  /// **'Raw signaling and data-channel payloads'**
+  /// **'Unprocessed communication content'**
   String get diagnosticsExcludedRawPayloads;
 
   /// No description provided for @diagnosticsExcludedRawStats.
   ///
   /// In en, this message translates to:
-  /// **'Raw WebRTC statistics'**
+  /// **'Unprocessed connection data'**
   String get diagnosticsExcludedRawStats;
 
   /// No description provided for @diagnosticsEventSummary.
@@ -1715,25 +1709,25 @@ abstract class AppLocalizations {
   /// No description provided for @networkSettingsTooltip.
   ///
   /// In en, this message translates to:
-  /// **'Network service settings'**
+  /// **'Connection settings'**
   String get networkSettingsTooltip;
 
   /// No description provided for @networkSettingsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Network services'**
+  /// **'Connection service'**
   String get networkSettingsTitle;
 
   /// No description provided for @networkSettingsBody.
   ///
   /// In en, this message translates to:
-  /// **'Choose the signaling and STUN services used to find devices and establish direct connections.'**
+  /// **'Roammand\'s official service is recommended. Custom addresses are intended for advanced users and self-hosted setups.'**
   String get networkSettingsBody;
 
   /// No description provided for @networkProfileLabel.
   ///
   /// In en, this message translates to:
-  /// **'Service profile'**
+  /// **'Choose a service'**
   String get networkProfileLabel;
 
   /// No description provided for @networkOfficialProfile.
@@ -1745,7 +1739,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkOfficialProfileBody.
   ///
   /// In en, this message translates to:
-  /// **'Use the built-in Roammand service defaults.'**
+  /// **'Recommended. Roammand configures the required addresses for you.'**
   String get networkOfficialProfileBody;
 
   /// No description provided for @networkCustomProfile.
@@ -1757,7 +1751,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkCustomProfileBody.
   ///
   /// In en, this message translates to:
-  /// **'Use a development or self-hosted signaling and STUN service.'**
+  /// **'For advanced users who run their own signaling and STUN services.'**
   String get networkCustomProfileBody;
 
   /// No description provided for @networkSignalingEndpointLabel.
@@ -1793,13 +1787,13 @@ abstract class AppLocalizations {
   /// No description provided for @networkMobileHostBindingNotice.
   ///
   /// In en, this message translates to:
-  /// **'A paired computer keeps its signaling address from the QR code. This profile supplies the STUN service used for direct connections and the default for new manual pairing flows.'**
+  /// **'A phone keeps using the service address from its pairing QR code. These settings apply to computer-to-computer connections and become the default for future pairing.'**
   String get networkMobileHostBindingNotice;
 
   /// No description provided for @networkSaveAction.
   ///
   /// In en, this message translates to:
-  /// **'Save configuration'**
+  /// **'Save settings'**
   String get networkSaveAction;
 
   /// No description provided for @networkSavingAction.
@@ -1811,7 +1805,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkRestoreAction.
   ///
   /// In en, this message translates to:
-  /// **'Restore official defaults'**
+  /// **'Restore official settings'**
   String get networkRestoreAction;
 
   /// No description provided for @networkInvalidSignaling.
@@ -1835,7 +1829,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkSaveFailed.
   ///
   /// In en, this message translates to:
-  /// **'The network configuration could not be saved.'**
+  /// **'The connection settings could not be saved.'**
   String get networkSaveFailed;
 
   /// No description provided for @networkChangeHostTitle.
@@ -1847,7 +1841,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkChangeHostBody.
   ///
   /// In en, this message translates to:
-  /// **'The managed Host Agent will restart and active remote sessions will end. If the signaling address changes, previously paired devices must scan a new QR code before they can find this computer again.'**
+  /// **'Roammand\'s background service will restart and current remote connections will close. If the service address changes, previously paired devices must pair again.'**
   String get networkChangeHostBody;
 
   /// No description provided for @networkConfirmChangeAction.
@@ -1859,7 +1853,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkConfigurationSaved.
   ///
   /// In en, this message translates to:
-  /// **'Network configuration saved.'**
+  /// **'Connection settings saved.'**
   String get networkConfigurationSaved;
 
   /// No description provided for @networkHostMigrationSaved.
@@ -1871,25 +1865,25 @@ abstract class AppLocalizations {
   /// No description provided for @networkExternalHostRestartRequired.
   ///
   /// In en, this message translates to:
-  /// **'Configuration saved. The currently connected development Host Agent is independently managed; restart it with the same settings.'**
+  /// **'Settings saved. A separately started developer service is running; restart it manually with the same settings.'**
   String get networkExternalHostRestartRequired;
 
   /// No description provided for @networkHostRestartFailed.
   ///
   /// In en, this message translates to:
-  /// **'Configuration saved, but the managed Host Agent could not restart. Exit and reopen Roammand, then verify the service settings.'**
+  /// **'Settings saved, but Roammand\'s background service could not restart. Exit and reopen Roammand, then check Connection settings.'**
   String get networkHostRestartFailed;
 
   /// No description provided for @mobileUnfamiliarServerTitle.
   ///
   /// In en, this message translates to:
-  /// **'Connect to a different signaling service?'**
+  /// **'Use a different connection service?'**
   String get mobileUnfamiliarServerTitle;
 
   /// No description provided for @mobileUnfamiliarServerBody.
   ///
   /// In en, this message translates to:
-  /// **'This QR code will connect to {endpoint}. The service can observe connection metadata and disrupt availability. Continue only if you trust the computer and service operator.'**
+  /// **'This QR code uses {endpoint}. The service may see basic connection information or interrupt connections. Continue only if you trust the computer and the service provider.'**
   String mobileUnfamiliarServerBody(String endpoint);
 
   /// No description provided for @mobileTrustServerAction.

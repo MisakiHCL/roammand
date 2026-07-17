@@ -16,6 +16,8 @@ void main() {
   testWidgets('shows ready Host identity and confirms revocation', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final api = WidgetFakeHostAgentApi();
     final controller = HostAgentController(
       clientFactory: () => api,
@@ -24,7 +26,7 @@ void main() {
     await tester.pumpWidget(_app(controller: controller));
     await tester.pumpAndSettle();
 
-    expect(find.text('Desktop Host'), findsOneWidget);
+    expect(find.text('This Mac'), findsOneWidget);
     expect(find.text('Test Host'), findsOneWidget);
     expect(find.textContaining('00010203'), findsOneWidget);
     expect(find.text('Add a new device'), findsOneWidget);
@@ -37,19 +39,27 @@ void main() {
     expect(find.textContaining('Never'), findsOneWidget);
     expect(find.textContaining('2024'), findsWidgets);
 
-    await tester.tap(find.text('Revoke').first);
+    await tester.scrollUntilVisible(
+      find.text('Remove access').first,
+      280,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Remove access').first);
     await tester.pumpAndSettle();
-    expect(find.text('Revoke My Phone?'), findsOneWidget);
+    expect(find.text('Stop allowing My Phone?'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(api.revokeCount, 0);
 
-    await tester.tap(find.text('Revoke').first);
+    await tester.tap(find.text('Remove access').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Revoke access'));
+    await tester.tap(find.text('Remove access').last);
     await tester.pumpAndSettle();
     expect(api.revokeCount, 1);
-    expect(find.text('No controllers are authorized yet.'), findsOneWidget);
+    expect(
+      find.text('No devices have permission to control this Mac.'),
+      findsOneWidget,
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -66,8 +76,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('桌面主机'), findsOneWidget);
-    expect(find.text('主机代理未运行'), findsOneWidget);
+    expect(find.text('这台 Mac'), findsOneWidget);
+    expect(find.text('Roammand 后台服务未运行'), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
 
     api.connectError = false;
@@ -95,8 +105,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('受保护会话 Agent 未运行'), findsOneWidget);
-    expect(find.textContaining('当前 macOS 会话'), findsOneWidget);
+    expect(find.text('锁屏控制暂不可用'), findsOneWidget);
+    expect(find.textContaining('锁屏和登录界面'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -113,7 +123,7 @@ void main() {
     await tester.pumpWidget(_app(controller: controller));
     await tester.pump();
 
-    expect(find.text('Connecting to Host Agent…'), findsOneWidget);
+    expect(find.text('Getting this Mac ready…'), findsOneWidget);
 
     api.connectGate!.complete();
     await tester.pumpAndSettle();
@@ -131,7 +141,7 @@ void main() {
     await tester.pumpWidget(_app(controller: controller));
     await tester.pumpAndSettle();
 
-    expect(find.text('Host status is unavailable'), findsOneWidget);
+    expect(find.text("This Mac's status is unavailable"), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -180,7 +190,7 @@ void main() {
       280,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('Privileged session bridge'), findsOneWidget);
+    expect(find.text('Remote control readiness'), findsOneWidget);
     expect(find.text('Controlled by My Phone'), findsOneWidget);
     final emergencyButton = find.widgetWithText(FilledButton, 'Emergency stop');
     await tester.ensureVisible(emergencyButton);
@@ -219,12 +229,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('特权会话桥接'),
+      find.text('远程控制状态'),
       280,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('特权会话桥接'), findsOneWidget);
-    expect(find.text('需要系统权限'), findsOneWidget);
+    expect(find.text('远程控制状态'), findsOneWidget);
+    expect(find.text('需要开启 macOS 权限'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

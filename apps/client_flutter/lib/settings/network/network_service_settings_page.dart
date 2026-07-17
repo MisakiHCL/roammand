@@ -27,12 +27,16 @@ final class NetworkServiceSettingsPage extends StatefulWidget {
     required this.controller,
     required this.warnAboutHostRestart,
     this.mobileContext = false,
+    this.showAppBar = true,
+    this.onComplete,
     super.key,
   });
 
   final NetworkServiceController controller;
   final bool warnAboutHostRestart;
   final bool mobileContext;
+  final bool showAppBar;
+  final ValueChanged<NetworkServiceSettingsResult>? onComplete;
 
   @override
   State<NetworkServiceSettingsPage> createState() =>
@@ -72,7 +76,9 @@ final class _NetworkServiceSettingsPageState
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(strings.networkSettingsTitle)),
+      appBar: widget.showAppBar
+          ? AppBar(title: Text(strings.networkSettingsTitle))
+          : null,
       body: RoammandBackdrop(
         child: SafeArea(
           child: Align(
@@ -269,8 +275,7 @@ final class _NetworkServiceSettingsPageState
     final previous = widget.controller.configuration;
     if (previous == candidate) {
       if (mounted) {
-        Navigator.pop(
-          context,
+        _complete(
           const NetworkServiceSettingsResult(
             changed: false,
             signalingChanged: false,
@@ -291,8 +296,7 @@ final class _NetworkServiceSettingsPageState
         await widget.controller.useCustom(candidate);
       }
       if (!mounted) return;
-      Navigator.pop(
-        context,
+      _complete(
         NetworkServiceSettingsResult(
           changed: true,
           signalingChanged:
@@ -307,6 +311,15 @@ final class _NetworkServiceSettingsPageState
         });
       }
     }
+  }
+
+  void _complete(NetworkServiceSettingsResult result) {
+    final onComplete = widget.onComplete;
+    if (onComplete != null) {
+      onComplete(result);
+      return;
+    }
+    Navigator.pop(context, result);
   }
 
   Future<bool> _confirmHostRestart() async {

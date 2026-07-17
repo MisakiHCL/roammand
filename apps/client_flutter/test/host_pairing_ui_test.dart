@@ -92,10 +92,7 @@ void main() {
     for (final word in api.sasWords) {
       expect(find.text(word), findsOneWidget);
     }
-    expect(
-      find.textContaining('permanent, one-way permission'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('without asking again'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('Allow control'));

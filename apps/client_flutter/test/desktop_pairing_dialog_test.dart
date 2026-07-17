@@ -35,7 +35,10 @@ void main() {
     for (final word in session.words) {
       expect(find.text(word), findsOneWidget);
     }
-    expect(find.text('Waiting for approval on the Host…'), findsOneWidget);
+    expect(
+      find.text('Waiting for approval on the other computer…'),
+      findsOneWidget,
+    );
     expect(find.text('Allow control'), findsNothing);
 
     session.finish(ControllerPairingState.accepted);

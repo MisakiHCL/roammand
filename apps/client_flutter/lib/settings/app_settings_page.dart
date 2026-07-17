@@ -21,6 +21,8 @@ final class AppSettingsPage extends StatefulWidget {
     required this.networkServices,
     required this.mobileContext,
     this.onLocalePreferenceChanged,
+    this.showAppBar = true,
+    this.onOpenNetworkSettings,
     this.uninstaller,
     this.beforeUninstall,
     super.key,
@@ -31,6 +33,8 @@ final class AppSettingsPage extends StatefulWidget {
   onLocalePreferenceChanged;
   final NetworkServiceController networkServices;
   final bool mobileContext;
+  final bool showAppBar;
+  final VoidCallback? onOpenNetworkSettings;
   final AppUninstaller? uninstaller;
   final Future<void> Function()? beforeUninstall;
 
@@ -54,7 +58,9 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(strings.settingsTitle)),
+      appBar: widget.showAppBar
+          ? AppBar(title: Text(strings.settingsTitle))
+          : null,
       body: RoammandBackdrop(
         child: SafeArea(
           child: Align(
@@ -197,6 +203,11 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
       );
 
   Future<void> _openNetworkSettings() async {
+    final openEmbedded = widget.onOpenNetworkSettings;
+    if (openEmbedded != null) {
+      openEmbedded();
+      return;
+    }
     final result = await Navigator.of(context)
         .push<NetworkServiceSettingsResult>(
           MaterialPageRoute<NetworkServiceSettingsResult>(

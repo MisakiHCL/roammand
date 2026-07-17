@@ -371,7 +371,7 @@ void main() {
     await tester.pumpWidget(_app(fixture.page(), locale: const Locale('zh')));
     await tester.pump();
 
-    expect(find.text('主机身份验证失败。'), findsOneWidget);
+    expect(find.text('无法安全确认这是你配对的电脑。'), findsOneWidget);
     expect(find.byKey(const Key('mobile-keyboard-toggle')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -446,7 +446,7 @@ void main() {
     await tester.tap(find.byKey(const Key('mobile-remote-diagnostics-action')));
     await tester.pumpAndSettle();
 
-    expect(find.text('隐私安全诊断'), findsOneWidget);
+    expect(find.text('隐私保护的诊断报告'), findsOneWidget);
     expect(find.text('包含'), findsOneWidget);
     expect(find.text('排除'), findsOneWidget);
   });

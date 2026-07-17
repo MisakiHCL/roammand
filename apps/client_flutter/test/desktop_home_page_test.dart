@@ -32,9 +32,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-    expect(rail.selectedIndex, 0);
-    expect((rail.destinations.first.label as Text).data, 'This computer');
+    expect(find.byKey(const Key('desktop-navigation-sidebar')), findsOneWidget);
+    expect(find.byKey(const Key('desktop-sidebar-brand')), findsOneWidget);
     expect(find.text('this-computer-content'), findsOneWidget);
     expect(find.text('My computers'), findsNothing);
 
@@ -141,7 +140,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(deleteAction);
     await tester.pumpAndSettle();
-    expect(find.textContaining('does not revoke'), findsOneWidget);
+    expect(find.textContaining('fully remove access'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(find.text('Office Mac'), findsOneWidget);
@@ -230,6 +229,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(selectedPreference, AppLocalePreference.english);
   });
+
+  testWidgets(
+    'keeps macOS navigation fixed while detail pages cover only the right pane',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(960, 720));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final persistence = HomeMemoryPersistence();
+      final networkServices = NetworkServiceController.transient();
+      addTearDown(networkServices.dispose);
+      await tester.pumpWidget(
+        _app(
+          DesktopHomePage(
+            hostPage: const Text('this-computer-content'),
+            trustedComputersController: _trustedController(persistence),
+            signalingEndpoint: _endpoint,
+            networkServices: networkServices,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final sidebar = find.byKey(const Key('desktop-navigation-sidebar'));
+      await tester.tap(find.byKey(const Key('desktop-settings')));
+      await tester.pumpAndSettle();
+
+      final detail = find.byKey(const Key('desktop-detail-panel'));
+      expect(sidebar, findsOneWidget);
+      expect(detail, findsOneWidget);
+      expect(
+        tester.getRect(detail).left,
+        greaterThanOrEqualTo(tester.getRect(sidebar).right),
+      );
+      expect(find.text('Settings'), findsWidgets);
+
+      await tester.tap(find.byKey(const Key('settings-network-services')));
+      await tester.pumpAndSettle();
+      expect(find.text('Connection service'), findsWidgets);
+      expect(detail, findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('desktop-detail-back')));
+      await tester.pumpAndSettle();
+      expect(find.text('General'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('desktop-detail-back')));
+      await tester.pumpAndSettle();
+      expect(detail, findsNothing);
+
+      await tester.tap(find.byKey(const Key('desktop-settings')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('settings-network-services')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('This computer').first);
+      await tester.pumpAndSettle();
+      expect(detail, findsNothing);
+      expect(find.text('this-computer-content'), findsOneWidget);
+    },
+  );
 
   test(
     'developer descriptor parser remains strict but absent from product UI',

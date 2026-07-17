@@ -21,10 +21,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mobileHomeSubtitle => '无论身在何处，你的电脑都触手可及。';
 
   @override
-  String get desktopHomeSubtitle => '随时继续操作只属于你的电脑。';
+  String get desktopHomeSubtitle => '选择一台已配对的电脑，安全地开始连接。';
 
   @override
-  String get mobileIdentitySecurityNote => '无需账号，设备身份只受保护地保存在这台手机上。';
+  String get mobileIdentitySecurityNote => '无需注册账号；配对信息只保存在这台手机上。';
 
   @override
   String get computerReadyLabel => '可以连接';
@@ -33,67 +33,65 @@ class AppLocalizationsZh extends AppLocalizations {
   String get developmentStatus => '远程控制功能尚未开放。';
 
   @override
-  String get desktopHostTitle => '桌面主机';
+  String get desktopHostTitle => '这台 Mac';
 
   @override
-  String get hostAgentConnectingTitle => '正在连接主机代理…';
+  String get hostAgentConnectingTitle => '正在准备这台 Mac…';
 
   @override
-  String get hostAgentConnectingBody => '正在读取此电脑的本地身份与授权记录。';
+  String get hostAgentConnectingBody => '正在检查这台 Mac 是否可以接收远程连接。';
 
   @override
-  String get hostAgentOfflineTitle => '主机代理未运行';
+  String get hostAgentOfflineTitle => 'Roammand 后台服务未运行';
 
   @override
-  String get hostAgentOfflineBody =>
-      'Roammand 无法连接本地主机代理。请重试；如果仍然失败，请重新安装 Roammand。';
+  String get hostAgentOfflineBody => '请重试。如果仍然无法启动，请重新安装 Roammand。';
 
   @override
-  String get hostAgentProtectedSessionUnavailableTitle => '受保护会话 Agent 未运行';
+  String get hostAgentProtectedSessionUnavailableTitle => '锁屏控制暂不可用';
 
   @override
   String get hostAgentProtectedSessionUnavailableBody =>
-      '当前 macOS 会话所需的组件不可用。请重试；如果仍然失败，请重新安装 Roammand。';
+      'Roammand 无法启动锁屏和登录界面所需的服务。请重试或重新安装 Roammand。';
 
   @override
-  String get hostAgentPrivilegedBridgeUnavailableTitle => '特权桥接不可用';
+  String get hostAgentPrivilegedBridgeUnavailableTitle => '远程控制暂不可用';
 
   @override
   String get hostAgentPrivilegedBridgeUnavailableBody =>
-      '无法验证或连接已安装的特权桥接。请重新安装 Roammand，然后重试。';
+      'Roammand 无法连接必要的 macOS 后台功能。请重新安装 Roammand，然后重试。';
 
   @override
-  String get hostAgentComponentMissingTitle => '缺少主机代理';
+  String get hostAgentComponentMissingTitle => 'Roammand 安装不完整';
 
   @override
   String get hostAgentComponentMissingBody =>
-      '未找到已安装的主机代理程序。请重新安装 Roammand，然后重试。';
+      '缺少远程控制需要的文件。请重新安装 Roammand，然后重试。';
 
   @override
-  String get hostAgentLaunchFailedTitle => '无法启动主机代理';
+  String get hostAgentLaunchFailedTitle => 'Roammand 后台服务无法启动';
 
   @override
   String get hostAgentLaunchFailedBody =>
-      'macOS 无法启动已安装的主机代理。请重新安装 Roammand，然后重试。';
+      'macOS 无法打开远程控制需要的后台功能。请重新安装 Roammand，然后重试。';
 
   @override
-  String get hostAgentConfigurationInvalidTitle => '连接配置无效';
+  String get hostAgentConfigurationInvalidTitle => '连接设置需要检查';
 
   @override
-  String get hostAgentConfigurationInvalidBody => '请检查信令与 STUN 设置，然后重试。';
+  String get hostAgentConfigurationInvalidBody => '请打开“连接”设置，检查服务地址后重试。';
 
   @override
-  String get hostAgentUnexpectedExitTitle => '主机代理意外退出';
+  String get hostAgentUnexpectedExitTitle => 'Roammand 后台服务已停止';
 
   @override
-  String get hostAgentUnexpectedExitBody =>
-      '主机代理在启动期间停止。请重试；如果仍然失败，请重新安装 Roammand。';
+  String get hostAgentUnexpectedExitBody => '请重试。如果后台服务反复停止，请重新安装 Roammand。';
 
   @override
-  String get hostAgentErrorTitle => '无法获取主机状态';
+  String get hostAgentErrorTitle => '暂时无法读取这台 Mac 的状态';
 
   @override
-  String get hostAgentErrorBody => '本地主机代理返回了无效响应或临时错误。';
+  String get hostAgentErrorBody => '请稍等片刻后重试。';
 
   @override
   String get retryAction => '重试';
@@ -102,71 +100,72 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refreshAction => '刷新';
 
   @override
-  String get privilegedBridgeSectionTitle => '特权会话桥接';
+  String get privilegedBridgeSectionTitle => '远程控制状态';
 
   @override
-  String get privilegedBridgeNotInstalledTitle => '尚未安装';
+  String get privilegedBridgeNotInstalledTitle => '安装尚未完成';
 
   @override
   String get privilegedBridgeNotInstalledBody =>
-      '请安装特权主机组件，以便在锁屏、登录和系统保护界面继续远程控制。';
+      '请重新安装 Roammand，以便在桌面、锁屏和登录界面使用远程控制。';
 
   @override
-  String get privilegedBridgeApprovalRequiredTitle => '需要管理员批准';
+  String get privilegedBridgeApprovalRequiredTitle => '需要管理员确认';
 
   @override
-  String get privilegedBridgeApprovalRequiredBody => '请完成操作系统对已安装主机服务的批准。';
+  String get privilegedBridgeApprovalRequiredBody =>
+      'macOS 弹出提示时，请允许 Roammand 运行后台服务。';
 
   @override
-  String get privilegedBridgePermissionRequiredTitle => '需要系统权限';
+  String get privilegedBridgePermissionRequiredTitle => '需要开启 macOS 权限';
 
   @override
   String get privilegedBridgePermissionRequiredBody =>
-      '请在系统设置中允许所需的屏幕录制与辅助功能权限。';
+      '请在“系统设置”中为 Roammand 开启“屏幕录制”和“辅助功能”。';
 
   @override
-  String get privilegedBridgeUserSessionOnlyTitle => '仅限当前用户会话';
+  String get privilegedBridgeUserSessionOnlyTitle => '仅在这台 Mac 解锁后可用';
 
   @override
-  String get privilegedBridgeUserSessionOnlyBody =>
-      '普通桌面可远程控制，但锁屏、登录和系统保护界面不可用。';
+  String get privilegedBridgeUserSessionOnlyBody => '现在可以控制桌面，但无法控制锁屏和登录界面。';
 
   @override
-  String get privilegedBridgeReadyNormalTitle => '可以远程控制';
+  String get privilegedBridgeReadyNormalTitle => '这台 Mac 已准备好';
 
   @override
-  String get privilegedBridgeReadyNormalBody => '特权桥接已安装，普通桌面可用。';
+  String get privilegedBridgeReadyNormalBody => '已允许的设备现在可以连接这台 Mac。';
 
   @override
-  String get privilegedBridgeReadyLockedTitle => '锁屏或登录界面已就绪';
+  String get privilegedBridgeReadyLockedTitle => '锁屏时也可以连接';
 
   @override
-  String get privilegedBridgeReadyLockedBody =>
-      '受保护会话助手已连接，设备身份和永久授权仍只保留在主机代理中。';
+  String get privilegedBridgeReadyLockedBody => '这台 Mac 锁屏或显示登录界面时，已允许的设备仍可连接。';
 
   @override
-  String get privilegedBridgeReadySecureTitle => '系统保护界面已就绪';
+  String get privilegedBridgeReadySecureTitle => '系统界面也可以控制';
 
   @override
-  String get privilegedBridgeReadySecureBody => '受保护会话助手已使用短期本地租约连接。';
+  String get privilegedBridgeReadySecureBody =>
+      '显示锁屏、登录界面等 macOS 系统画面时，远程控制仍可继续。';
 
   @override
-  String get privilegedBridgeReadyUnavailableTitle => '没有交互式桌面';
+  String get privilegedBridgeReadyUnavailableTitle => '正在等待桌面可用';
 
   @override
-  String get privilegedBridgeReadyUnavailableBody => '在操作系统发布交互式会话前，远程输入保持禁用。';
+  String get privilegedBridgeReadyUnavailableBody =>
+      '当前没有可以控制的桌面；macOS 准备好后会自动恢复。';
 
   @override
-  String get privilegedBridgeTransitioningTitle => '正在切换桌面会话…';
+  String get privilegedBridgeTransitioningTitle => '正在切换界面…';
 
   @override
-  String get privilegedBridgeTransitioningBody => '主机验证新桌面会话中的助手期间，所有输入均已释放。';
+  String get privilegedBridgeTransitioningBody => 'macOS 切换界面时，远程输入会短暂停止。';
 
   @override
-  String get privilegedBridgeReconnectingTitle => '正在重连受保护会话…';
+  String get privilegedBridgeReconnectingTitle => '正在恢复远程控制…';
 
   @override
-  String get privilegedBridgeReconnectingBody => '新受保护会话完成身份验证前，远程输入保持禁用。';
+  String get privilegedBridgeReconnectingBody => '重新确认连接安全之前，远程输入会保持暂停。';
 
   @override
   String privilegedBridgeControlledTitle(String controllerName) {
@@ -177,19 +176,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get privilegedBridgeControlledUnknownTitle => '远程控制正在进行';
 
   @override
-  String get privilegedBridgeControlledBody => '可使用下方的“紧急停止”立即结束所有远程会话。';
+  String get privilegedBridgeControlledBody => '点击下方的“紧急停止”，可立即结束所有远程连接。';
 
   @override
-  String get privilegedBridgeFailedTitle => '特权桥接不可用';
+  String get privilegedBridgeFailedTitle => '远程控制服务不可用';
 
   @override
-  String get privilegedBridgeFailedBody => '远程输入已禁用。请检查本地主机安装与系统权限。';
+  String get privilegedBridgeFailedBody =>
+      '请检查 Roammand 的 macOS 权限；如果权限已经开启，请重新安装 Roammand。';
 
   @override
-  String get privilegedBridgeUnknownTitle => '无法获取桥接状态';
+  String get privilegedBridgeUnknownTitle => '暂时无法确认远程控制状态';
 
   @override
-  String get privilegedBridgeUnknownBody => '当前未确认远程输入受到保护。请刷新主机状态或检查安装。';
+  String get privilegedBridgeUnknownBody => '请刷新页面；如果状态仍未恢复，请重新打开 Roammand。';
 
   @override
   String get emergencyStopAction => '紧急停止';
@@ -201,7 +201,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get emergencyStopDialogTitle => '停止远程控制？';
 
   @override
-  String get emergencyStopDialogBody => '这会立即关闭所有远程会话并释放全部远程输入；永久设备授权会保留。';
+  String get emergencyStopDialogBody =>
+      '这会立即断开所有远程连接，并停止对方的鼠标和键盘操作；已允许的设备列表会保留。';
 
   @override
   String get confirmEmergencyStopAction => '立即停止';
@@ -210,10 +211,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get emergencyStopSucceeded => '远程控制已停止。';
 
   @override
-  String get emergencyStopFailed => '无法停止远程控制。请使用系统托盘，或在本机停止主机服务。';
-
-  @override
-  String get trayShowAction => '显示 Roammand';
+  String get emergencyStopFailed => '无法停止远程控制。请从顶部菜单栏退出 Roammand，然后重新打开。';
 
   @override
   String get trayExitAction => '退出';
@@ -222,7 +220,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get trayExitControlledTitle => '远程控制进行中，仍要退出？';
 
   @override
-  String get trayExitControlledBody => '退出前会先停止所有远程会话并释放全部远程输入。';
+  String get trayExitControlledBody => '退出前会先断开所有远程连接，并停止对方的鼠标和键盘操作。';
 
   @override
   String get trayConfirmExitAction => '停止并退出';
@@ -232,32 +230,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String hostShortFingerprint(String fingerprint) {
-    return '短指纹：$fingerprint';
+    return '安全校验码：$fingerprint';
   }
 
   @override
-  String get authorizedControllersSectionTitle => '已授权控制设备';
+  String get authorizedControllersSectionTitle => '已允许的设备';
 
   @override
   String authorizedControllerCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '已授权 $count 台控制设备',
-      zero: '没有已授权控制设备',
+      other: '已允许 $count 台设备',
+      zero: '没有已允许的设备',
     );
     return '$_temp0';
   }
 
   @override
-  String get noAuthorizedControllers => '尚未授权任何控制设备。';
+  String get noAuthorizedControllers => '还没有设备可以控制这台 Mac。';
 
   @override
-  String get unknownControllerName => '未知控制设备';
+  String get unknownControllerName => '未知设备';
 
   @override
   String grantCreatedLabel(String date) {
-    return '授权时间：$date';
+    return '允许时间：$date';
   }
 
   @override
@@ -272,33 +270,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get unknownDate => '未知';
 
   @override
-  String get revokeAction => '撤销';
+  String get revokeAction => '移除权限';
 
   @override
   String revokeDialogTitle(String controllerName) {
-    return '撤销“$controllerName”的授权？';
+    return '不再允许“$controllerName”控制？';
   }
 
   @override
-  String get revokeDialogBody => '此控制设备将立即失去对本主机的永久访问权。若要重新连接，必须再次配对。';
+  String get revokeDialogBody => '此设备会立即失去对这台 Mac 的访问权限。以后如需连接，必须重新配对。';
 
   @override
   String get cancelAction => '取消';
 
   @override
-  String get confirmRevokeAction => '撤销授权';
+  String get confirmRevokeAction => '移除权限';
 
   @override
-  String get revokingAction => '正在撤销…';
+  String get revokingAction => '正在移除…';
 
   @override
   String get hostPairingSectionTitle => '添加新设备';
 
   @override
-  String get hostPairingSectionBody => '手机可扫描此二维码，电脑可使用一次性配对码。只有本主机能够批准永久访问。';
+  String get hostPairingSectionBody =>
+      '手机使用二维码，另一台电脑使用一次性配对码。设备获得访问权限前，需要你在这里确认。';
 
   @override
-  String get hostPairingEndpointMissing => '开始配对前，请先配置安全的信令地址。';
+  String get hostPairingEndpointMissing => '请先打开“连接”设置并选择连接服务，然后再配对。';
 
   @override
   String get hostPairingStartQrAction => '显示手机二维码';
@@ -330,20 +329,20 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get hostPairingCreating => '正在创建私密配对邀请…';
+  String get hostPairingCreating => '正在准备安全配对码…';
 
   @override
   String get hostPairingWaitingController => '正在等待另一台设备…';
 
   @override
-  String get hostPairingVerifyingController => '正在验证另一台设备…';
+  String get hostPairingVerifyingController => '正在检查另一台设备…';
 
   @override
   String get hostPairingPendingControllerTitle => '请求访问的设备';
 
   @override
   String hostPairingControllerFingerprint(String fingerprint) {
-    return '短指纹：$fingerprint';
+    return '安全校验码：$fingerprint';
   }
 
   @override
@@ -353,7 +352,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hostPairingSasInstructions => '请确认两台电脑显示的四个单词完全相同；任一单词不同都应拒绝请求。';
 
   @override
-  String get hostPairingOneWayGrant => '允许后，将永久、单向授权此设备查看屏幕并控制输入。反向控制需要另行配对。';
+  String get hostPairingOneWayGrant =>
+      '允许后，这台设备以后无需再次确认，就能查看和操作这台 Mac；这不会让这台 Mac 反过来控制对方。';
 
   @override
   String get hostPairingAllowAction => '允许控制';
@@ -408,7 +408,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get trustedComputersEmptyBody =>
-      '使用电脑上的一次性配对码完成配对。以后将使用保存在本机的公开身份直接连接。';
+      '在想要控制的电脑上打开 Roammand，然后在这里输入它的一次性配对码。';
 
   @override
   String get pairComputerAction => '配对电脑';
@@ -432,19 +432,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pairAction => '配对';
 
   @override
-  String get desktopPairingConnecting => '正在加入私密配对邀请…';
+  String get desktopPairingConnecting => '正在连接这台电脑…';
 
   @override
-  String get desktopPairingVerifying => '正在验证主机身份…';
+  String get desktopPairingVerifying => '正在确认是否为正确的电脑…';
 
   @override
-  String get desktopPairingWaitingApproval => '正在等待主机批准…';
+  String get desktopPairingWaitingApproval => '正在等待另一台电脑确认…';
 
   @override
   String get desktopPairingSuccess => '电脑已配对';
 
   @override
-  String get desktopPairingRejected => '主机已拒绝配对';
+  String get desktopPairingRejected => '另一台电脑已拒绝配对';
 
   @override
   String get desktopPairingExpired => '配对已过期';
@@ -474,7 +474,8 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get deleteTrustedHostBody => '这只会删除此控制端保存的主机记录，不会撤销主机上的永久授权。';
+  String get deleteTrustedHostBody =>
+      '这会从当前设备的列表中移除该电脑。若要彻底取消访问权限，还需要在对方电脑上撤销当前设备。';
 
   @override
   String get confirmDeleteAction => '仅在本机删除';
@@ -486,7 +487,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mobileOnboardingTitle => '为此手机命名';
 
   @override
-  String get mobileOnboardingBody => '此名称只会显示给你配对的电脑。私有身份始终保存在本机。';
+  String get mobileOnboardingBody => '此名称只会显示给你配对的电脑，配对信息始终保存在本机。';
 
   @override
   String get mobileDeviceNameLabel => '设备名称';
@@ -495,10 +496,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mobileConfirmIdentityAction => '继续';
 
   @override
-  String get mobileIdentityLoading => '正在加载本机身份…';
+  String get mobileIdentityLoading => '正在读取本机配对信息…';
 
   @override
-  String get mobileIdentityFailed => '无法使用受保护的设备身份。';
+  String get mobileIdentityFailed => '无法读取本机的安全配对信息。';
 
   @override
   String get mobileHomeTitle => '我的电脑';
@@ -540,10 +541,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mobileInvalidQr => '此配对二维码无效或已过期，请扫描新二维码。';
 
   @override
-  String get mobilePairingJoining => '正在加入私密配对邀请…';
+  String get mobilePairingJoining => '正在连接这台电脑…';
 
   @override
-  String get mobilePairingVerifying => '正在验证电脑身份…';
+  String get mobilePairingVerifying => '正在确认是否为正确的电脑…';
 
   @override
   String get mobilePairingWaitingApproval => '正在等待电脑批准…';
@@ -564,10 +565,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mobilePairingFailed => '配对失败';
 
   @override
-  String get mobilePairingSignalingFailed => '无法与信令服务通信。请检查信令地址和本地网络权限。';
+  String get mobilePairingSignalingFailed => '无法连接配对服务。请检查连接设置和本地网络权限。';
 
   @override
-  String get mobilePairingAuthenticationFailed => '无法验证电脑的配对身份。请重新生成二维码后再试。';
+  String get mobilePairingAuthenticationFailed => '无法安全确认这台电脑。请重新生成二维码后再试。';
 
   @override
   String get mobilePairingPersistenceFailed => '配对已获批准，但无法安全保存这台电脑。';
@@ -581,7 +582,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get mobileControlLaterNotice => '已配对，可以建立私密远程会话。';
+  String get mobileControlLaterNotice => '已配对，可以开始安全连接。';
 
   @override
   String get mobileGestureHint => '轻点、双击、拖动、滚动或双指缩放';
@@ -677,20 +678,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get uninstallDevelopmentBuildBody => '卸载仅可从已安装的 macOS 应用执行，开发构建不可使用。';
 
   @override
-  String get uninstallUnavailableBody => '受保护的卸载器缺失，请先重新安装 Roammand。';
+  String get uninstallUnavailableBody => '卸载功能不可用，请先重新安装 Roammand。';
 
   @override
-  String get uninstallCheckingBody => '正在检查已安装的卸载器…';
+  String get uninstallCheckingBody => '正在准备卸载…';
 
   @override
   String get uninstallConfirmTitle => '卸载 Roammand？';
 
   @override
-  String get uninstallConfirmBody => '远程会话将停止，应用、主机代理、特权桥接和受保护会话代理都会被移除。';
+  String get uninstallConfirmBody => '所有远程连接都会停止；Roammand 及其后台服务将从这台 Mac 移除。';
 
   @override
-  String get uninstallPreserveDataNotice =>
-      '将保留这台 Mac 的设备身份、配对记录和偏好设置，以便重新安装后继续使用。';
+  String get uninstallPreserveDataNotice => '将保留这台 Mac 的配对记录和偏好设置，以便重新安装后继续使用。';
 
   @override
   String get uninstallConfirmAction => '卸载';
@@ -702,19 +702,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get desktopControlTitle => '控制一台电脑';
 
   @override
-  String get desktopControlBody => '粘贴来自已授权电脑的连接描述符，以启动私密远程会话。';
+  String get desktopControlBody => '粘贴另一台电脑显示的连接信息，即可开始控制。';
 
   @override
-  String get hostConnectionDescriptorLabel => '主机连接描述符';
+  String get hostConnectionDescriptorLabel => '电脑连接信息';
 
   @override
-  String get hostConnectionDescriptorHint => '在此粘贴主机的公开描述符';
+  String get hostConnectionDescriptorHint => '在此粘贴另一台电脑的连接信息';
 
   @override
-  String get hostConnectionDescriptorPrivacy => '描述符只包含主机公开身份与信令地址，绝不包含私钥。';
+  String get hostConnectionDescriptorPrivacy =>
+      '这里只包含建立连接需要的公开信息，不包含密码或其他秘密信息。';
 
   @override
-  String get invalidHostDescriptor => '连接描述符无效。';
+  String get invalidHostDescriptor => '连接信息无效。';
 
   @override
   String get connectAction => '连接';
@@ -740,7 +741,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteIdle => '就绪';
 
   @override
-  String get remoteConnecting => '正在连接本地身份与信令服务…';
+  String get remoteConnecting => '正在连接另一台电脑…';
 
   @override
   String get remoteReconnectingPending => '连接已中断，正在准备安全重连…';
@@ -751,10 +752,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get remoteAuthenticating => '正在本地签署会话请求…';
+  String get remoteAuthenticating => '正在确认两台设备…';
 
   @override
-  String get remoteNegotiating => '正在等待主机验证并响应…';
+  String get remoteNegotiating => '正在等待另一台电脑响应…';
 
   @override
   String get remoteConnected => '已连接';
@@ -763,22 +764,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteClosing => '正在关闭并释放输入…';
 
   @override
-  String get remoteAuthenticationFailed => '主机身份验证失败。';
+  String get remoteAuthenticationFailed => '无法安全确认这是你配对的电脑。';
 
   @override
-  String get remoteHostAgentFailed => '本地主机代理不可用。';
+  String get remoteHostAgentFailed => '另一台电脑的远程控制服务不可用。';
 
   @override
-  String get remoteLocalIdentityFailed => '无法使用此控制端身份。';
+  String get remoteLocalIdentityFailed => 'Roammand 无法读取这台设备的安全配对信息。';
 
   @override
-  String get remoteSignalingFailed => '信令连接失败。';
+  String get remoteSignalingFailed => 'Roammand 无法连接到连接服务。';
 
   @override
   String get remoteConfigurationFailed => '远程连接设置无效。';
 
   @override
-  String get remoteConnectionFailed => '远程会话失败。';
+  String get remoteConnectionFailed => '远程连接失败。';
 
   @override
   String get retryRemoteAction => '重试';
@@ -787,11 +788,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diagnosticsAction => '诊断';
 
   @override
-  String get diagnosticsTitle => '隐私安全诊断';
+  String get diagnosticsTitle => '隐私保护的诊断报告';
 
   @override
   String get diagnosticsPreviewBody =>
-      '连接或重连失败时，可保存这份本地报告，用于排查会话状态、耗时和 WebRTC 聚合健康指标。保存前可明确查看包含与排除的数据；报告不会上传，也不会复制到剪贴板。';
+      '连接失败时，可以保存这份本地报告，查看连接步骤、耗时和整体网络质量。保存前可以确认包含哪些内容；报告不会上传，也不会复制到剪贴板。';
 
   @override
   String get diagnosticsIncludedTitle => '包含';
@@ -800,19 +801,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diagnosticsExcludedTitle => '排除';
 
   @override
-  String get diagnosticsIncludedVersions => '应用、协议和操作系统版本';
+  String get diagnosticsIncludedVersions => 'Roammand 和操作系统版本';
 
   @override
-  String get diagnosticsIncludedSession => '会话状态和稳定错误代码';
+  String get diagnosticsIncludedSession => '连接步骤和安全错误代码';
 
   @override
   String get diagnosticsIncludedReconnect => '重连次数和时间信息';
 
   @override
-  String get diagnosticsIncludedWebRtc => 'WebRTC 聚合指标';
+  String get diagnosticsIncludedWebRtc => '整体连接质量数据';
 
   @override
-  String get diagnosticsExcludedDeviceIdentifiers => '设备标识符';
+  String get diagnosticsExcludedDeviceIdentifiers => '可识别设备的信息';
 
   @override
   String get diagnosticsExcludedDeviceNames => '设备名称';
@@ -821,10 +822,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diagnosticsExcludedKeys => '密钥和签名';
 
   @override
-  String get diagnosticsExcludedTokens => 'Nonce、令牌和密码';
+  String get diagnosticsExcludedTokens => '登录信息、密码和其他秘密信息';
 
   @override
-  String get diagnosticsExcludedSdpIce => 'SDP 和 ICE candidate';
+  String get diagnosticsExcludedSdpIce => '详细的联网信息';
 
   @override
   String get diagnosticsExcludedNetworkAddresses => 'IP 地址和端口';
@@ -836,10 +837,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diagnosticsExcludedScreen => '屏幕内容';
 
   @override
-  String get diagnosticsExcludedRawPayloads => '原始信令和数据通道载荷';
+  String get diagnosticsExcludedRawPayloads => '未经处理的通信内容';
 
   @override
-  String get diagnosticsExcludedRawStats => '原始 WebRTC 统计数据';
+  String get diagnosticsExcludedRawStats => '未经处理的连接数据';
 
   @override
   String diagnosticsEventSummary(int count, String truncated) {
@@ -867,28 +868,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diagnosticsSaveFailed => '无法保存诊断报告。';
 
   @override
-  String get networkSettingsTooltip => '网络服务设置';
+  String get networkSettingsTooltip => '连接设置';
 
   @override
-  String get networkSettingsTitle => '网络服务';
+  String get networkSettingsTitle => '连接服务';
 
   @override
-  String get networkSettingsBody => '选择用于发现设备的信令服务，以及用于建立直连的 STUN 服务。';
+  String get networkSettingsBody => '推荐使用 Roammand 官方服务。自定义地址仅适合高级用户和自建服务。';
 
   @override
-  String get networkProfileLabel => '服务配置';
+  String get networkProfileLabel => '选择服务';
 
   @override
   String get networkOfficialProfile => '官方服务';
 
   @override
-  String get networkOfficialProfileBody => '使用 Roammand 内置的官方服务默认配置。';
+  String get networkOfficialProfileBody => '推荐。Roammand 会自动配置所需地址。';
 
   @override
   String get networkCustomProfile => '自定义服务';
 
   @override
-  String get networkCustomProfileBody => '使用开发测试或自行部署的信令与 STUN 服务。';
+  String get networkCustomProfileBody => '适合运行自建信令和 STUN 服务的高级用户。';
 
   @override
   String get networkSignalingEndpointLabel => '信令 WebSocket 地址';
@@ -909,16 +910,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get networkMobileHostBindingNotice =>
-      '已配对电脑会保留二维码中的信令地址。这里的配置提供直连使用的 STUN 服务，并作为以后手动配对流程的默认服务。';
+      '手机会继续使用配对二维码中的服务地址。这里的设置用于电脑之间的连接，也会作为以后新配对的默认值。';
 
   @override
-  String get networkSaveAction => '保存配置';
+  String get networkSaveAction => '保存设置';
 
   @override
   String get networkSavingAction => '正在保存…';
 
   @override
-  String get networkRestoreAction => '恢复官方默认配置';
+  String get networkRestoreAction => '恢复官方设置';
 
   @override
   String get networkInvalidSignaling =>
@@ -931,38 +932,38 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkInvalidConfiguration => '信令或 STUN 配置无效。';
 
   @override
-  String get networkSaveFailed => '无法将网络配置保存到本设备。';
+  String get networkSaveFailed => '无法保存连接设置。';
 
   @override
   String get networkChangeHostTitle => '修改此电脑的网络服务？';
 
   @override
   String get networkChangeHostBody =>
-      '应用会重启由 GUI 管理的主机代理，并结束当前远程会话。如果信令地址发生变化，已经配对的设备必须重新扫描二维码，才能再次找到这台电脑。';
+      'Roammand 后台服务会重新启动，当前远程连接也会关闭。如果服务地址发生变化，之前配对的设备需要重新配对。';
 
   @override
   String get networkConfirmChangeAction => '保存并重启';
 
   @override
-  String get networkConfigurationSaved => '网络配置已保存。';
+  String get networkConfigurationSaved => '连接设置已保存。';
 
   @override
   String get networkHostMigrationSaved => '服务器已更换，请向之前配对的手机显示新的二维码。';
 
   @override
   String get networkExternalHostRestartRequired =>
-      '配置已保存。当前连接的是独立运行的开发主机代理，请使用相同配置手动重启它。';
+      '设置已保存。当前有开发者单独启动的后台服务，请使用相同设置手动重启它。';
 
   @override
   String get networkHostRestartFailed =>
-      '配置已保存，但无法重启由 GUI 管理的主机代理。请退出并重新打开 Roammand，然后检查服务配置。';
+      '设置已保存，但 Roammand 后台服务无法重启。请退出并重新打开 Roammand，然后检查“连接”设置。';
 
   @override
-  String get mobileUnfamiliarServerTitle => '连接到不同的信令服务？';
+  String get mobileUnfamiliarServerTitle => '使用其他连接服务？';
 
   @override
   String mobileUnfamiliarServerBody(String endpoint) {
-    return '此二维码将连接到 $endpoint。该服务能够观察连接元数据并干扰可用性。请仅在信任这台电脑和服务运营者时继续。';
+    return '此二维码会使用 $endpoint。该服务可能看到基本连接信息，或中断连接。请仅在信任这台电脑和服务提供者时继续。';
   }
 
   @override

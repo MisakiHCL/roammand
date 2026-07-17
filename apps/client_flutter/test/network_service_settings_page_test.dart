@@ -122,7 +122,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('network-save')));
     await tester.pumpAndSettle();
 
-    expect(find.text('保存配置'), findsOneWidget);
+    expect(find.text('保存设置'), findsOneWidget);
     expect(tester.takeException(), isNull);
     controller.dispose();
   });

@@ -50,7 +50,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('settings-network-services')));
     await tester.pumpAndSettle();
-    expect(find.text('Network services'), findsWidgets);
+    expect(find.text('Connection service'), findsWidgets);
     await tester.pageBack();
     await tester.pumpAndSettle();
 
