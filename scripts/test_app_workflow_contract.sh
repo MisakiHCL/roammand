@@ -21,6 +21,7 @@ readonly TARGETS=(
 readonly STEP_TARGETS=(
   bootstrap-steps
   app-check-steps
+  release-macos-steps
   test-product-steps
 )
 
@@ -84,12 +85,36 @@ rg --quiet '^package-macos-signed: package-macos$' Makefile || {
   printf 'signed macOS package target does not reuse verified staging\n' >&2
   exit 1
 }
-rg --quiet '^release-macos: package-macos-signed$' Makefile || {
-  printf 'macOS release target does not require a signed installer\n' >&2
+rg --quiet '^release-macos:$' Makefile || {
+  printf 'macOS release target is not a quiet public workflow\n' >&2
+  exit 1
+}
+rg --quiet '^release-macos-steps: package-macos-signed$' Makefile || {
+  printf 'macOS release steps do not require a signed installer\n' >&2
   exit 1
 }
 rg --quiet 'notarize_macos_pkg\.sh' Makefile || {
   printf 'macOS release target does not notarize the installer\n' >&2
+  exit 1
+}
+rg --quiet 'Roammand\.pkg ready:' Makefile || {
+  printf 'macOS release target does not highlight the installer path\n' >&2
+  exit 1
+}
+
+rg --quiet 'applicationShouldHandleReopen' \
+  apps/client_flutter/macos/Runner/AppDelegate.swift || {
+  printf 'macOS app does not restore its window from the Dock\n' >&2
+  exit 1
+}
+rg --quiet 'onTrayIconRightMouseDown' \
+  apps/client_flutter/lib/desktop/tray/flutter_host_tray_port.dart || {
+  printf 'macOS tray does not handle a right click\n' >&2
+  exit 1
+}
+rg --quiet 'popUpContextMenu' \
+  apps/client_flutter/lib/desktop/tray/flutter_host_tray_port.dart || {
+  printf 'macOS tray right click does not open its menu\n' >&2
   exit 1
 }
 

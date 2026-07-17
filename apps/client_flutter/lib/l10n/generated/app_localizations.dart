@@ -485,7 +485,7 @@ abstract class AppLocalizations {
   /// No description provided for @trayExitAction.
   ///
   /// In en, this message translates to:
-  /// **'Exit'**
+  /// **'Quit Roammand'**
   String get trayExitAction;
 
   /// No description provided for @trayExitControlledTitle.

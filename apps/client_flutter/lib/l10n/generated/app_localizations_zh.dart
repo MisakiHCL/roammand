@@ -214,7 +214,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get emergencyStopFailed => '无法停止远程控制。请从顶部菜单栏退出 Roammand，然后重新打开。';
 
   @override
-  String get trayExitAction => '退出';
+  String get trayExitAction => '退出 Roammand';
 
   @override
   String get trayExitControlledTitle => '远程控制进行中，仍要退出？';

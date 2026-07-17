@@ -243,7 +243,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Remote control could not be stopped. Exit Roammand from the menu bar and reopen it.';
 
   @override
-  String get trayExitAction => 'Exit';
+  String get trayExitAction => 'Quit Roammand';
 
   @override
   String get trayExitControlledTitle => 'Exit while remote control is active?';

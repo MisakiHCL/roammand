@@ -65,7 +65,7 @@
   "confirmEmergencyStopAction": "Stop now",
   "emergencyStopSucceeded": "Remote control stopped.",
   "emergencyStopFailed": "Remote control could not be stopped. Exit Roammand from the menu bar and reopen it.",
-  "trayExitAction": "Exit",
+  "trayExitAction": "Quit Roammand",
   "trayExitControlledTitle": "Exit while remote control is active?",
   "trayExitControlledBody": "Roammand will first disconnect every device and stop its mouse and keyboard control.",
   "trayConfirmExitAction": "Stop and exit",

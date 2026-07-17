@@ -18,20 +18,20 @@ void main() {
     );
     const ready = HostTraySnapshot(
       tooltipLabel: 'Roammand',
-      exitLabel: 'Exit',
+      exitLabel: 'Quit Roammand',
       controlActive: false,
     );
     await controller.start(iconAssetPath: 'tray.png', snapshot: ready);
     expect(port.initializeCount, 1);
     expect(port.menus.single.tooltipLabel, 'Roammand');
-    expect(port.menus.single.exitLabel, 'Exit');
+    expect(port.menus.single.exitLabel, 'Quit Roammand');
 
     await controller.update(ready);
     expect(port.menus, hasLength(1));
     await controller.update(
       const HostTraySnapshot(
         tooltipLabel: 'Roammand',
-        exitLabel: 'Exit',
+        exitLabel: 'Quit Roammand',
         controlActive: true,
       ),
     );
@@ -55,7 +55,7 @@ void main() {
         iconAssetPath: 'tray.png',
         snapshot: const HostTraySnapshot(
           tooltipLabel: 'Roammand',
-          exitLabel: 'Exit',
+          exitLabel: 'Quit Roammand',
           controlActive: true,
         ),
       );
@@ -92,12 +92,12 @@ void main() {
     );
     const english = HostTraySnapshot(
       tooltipLabel: 'Roammand',
-      exitLabel: 'Exit',
+      exitLabel: 'Quit Roammand',
       controlActive: false,
     );
     const chinese = HostTraySnapshot(
       tooltipLabel: 'Roammand',
-      exitLabel: '退出',
+      exitLabel: '退出 Roammand',
       controlActive: false,
     );
 

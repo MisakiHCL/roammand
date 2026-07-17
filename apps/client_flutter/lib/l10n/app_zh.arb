@@ -65,7 +65,7 @@
   "confirmEmergencyStopAction": "立即停止",
   "emergencyStopSucceeded": "远程控制已停止。",
   "emergencyStopFailed": "无法停止远程控制。请从顶部菜单栏退出 Roammand，然后重新打开。",
-  "trayExitAction": "退出",
+  "trayExitAction": "退出 Roammand",
   "trayExitControlledTitle": "远程控制进行中，仍要退出？",
   "trayExitControlledBody": "退出前会先断开所有远程连接，并停止对方的鼠标和键盘操作。",
   "trayConfirmExitAction": "停止并退出",

@@ -72,6 +72,13 @@ final class FlutterHostTrayPort
   }
 
   @override
+  void onTrayIconRightMouseDown() {
+    if (Platform.isMacOS) {
+      unawaited(trayManager.popUpContextMenu());
+    }
+  }
+
+  @override
   void onTrayMenuItemClick(MenuItem menuItem) {
     final command = switch (menuItem.key) {
       _exitMenuKey => HostTrayCommand.exitApplication,

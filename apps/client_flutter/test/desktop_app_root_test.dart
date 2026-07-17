@@ -65,7 +65,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tray.initializeCount, 1);
     expect(tray.menus.single.tooltipLabel, 'Roammand');
-    expect(tray.menus.single.exitLabel, 'Exit');
+    expect(tray.menus.single.exitLabel, 'Quit Roammand');
 
     api.bridgeEvents.add(_bridgeStatus(controlled: true));
     await tester.pump();

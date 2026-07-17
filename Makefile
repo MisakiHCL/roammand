@@ -7,7 +7,7 @@ HOST_AGENT_DEBUG := $(abspath target/debug/roammand-host-agent)
 MACOS_RELEASE_PKG := dist/apple-release/Roammand.pkg
 ROAMMAND_NOTARY_KEYCHAIN_PROFILE ?= roammand-notary
 
-.PHONY: help bootstrap bootstrap-steps app-check app-check-steps app-prepare-host-macos app-run-macos app-run-ios app-build-macos app-build-ios-simulator app-build-android package-macos package-macos-signed release-macos test-product test-product-steps doctor boundary check-libwebrtc fetch-libwebrtc format format-check generate generate-failure-check generate-check schema-lint schema-build schema-breaking test test-conformance test-dart test-host test-m4 test-m4-config test-m4-lifecycle test-m5 test-m5-config test-m5-lifecycle test-m6 test-m6-config test-m6-lifecycle test-m7 test-m7-config test-m7-fuzz test-m7-privacy test-m7-reconnect test-m8 test-m8-config test-m8-privacy test-native-webrtc test-rust test-go test-schema test-schema-contract test-signaling test-signaling-race
+.PHONY: help bootstrap bootstrap-steps app-check app-check-steps app-prepare-host-macos app-run-macos app-run-ios app-build-macos app-build-ios-simulator app-build-android package-macos package-macos-signed release-macos release-macos-steps test-product test-product-steps doctor boundary check-libwebrtc fetch-libwebrtc format format-check generate generate-failure-check generate-check schema-lint schema-build schema-breaking test test-conformance test-dart test-host test-m4 test-m4-config test-m4-lifecycle test-m5 test-m5-config test-m5-lifecycle test-m6 test-m6-config test-m6-lifecycle test-m7 test-m7-config test-m7-fuzz test-m7-privacy test-m7-reconnect test-m8 test-m8-config test-m8-privacy test-native-webrtc test-rust test-go test-schema test-schema-contract test-signaling test-signaling-race
 
 define run-product-workflow
 	@if [ "$(VERBOSE)" = "1" ]; then \
@@ -36,7 +36,7 @@ help:
 		'' \
 		"Pass Flutter options with FLUTTER_ARGS='--dart-define=KEY=value'." \
 		'Get IOS_DEVICE from flutter devices before running an iOS target.' \
-		'Set VERBOSE=1 to stream bootstrap, app-check, or test-product output.' \
+		'Set VERBOSE=1 to stream quiet workflow output.' \
 		'Full repository gate: make test-product'
 
 bootstrap:
@@ -92,7 +92,12 @@ package-macos-signed: package-macos
 	./scripts/build_macos_pkg.sh \
 		--package-dir dist/m8-macos --output $(MACOS_RELEASE_PKG)
 
-release-macos: package-macos-signed
+release-macos:
+	@printf 'Building, signing, and notarizing Roammand.pkg...\n'
+	+$(call run-product-workflow,release-macos-steps,release-macos)
+	@printf '\nRoammand.pkg ready:\n  %s\n' "$(abspath $(MACOS_RELEASE_PKG))"
+
+release-macos-steps: package-macos-signed
 	./scripts/notarize_macos_pkg.sh --package $(MACOS_RELEASE_PKG) \
 		--keychain-profile "$(ROAMMAND_NOTARY_KEYCHAIN_PROFILE)"
 
