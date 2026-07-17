@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use std::{env, fmt, path::PathBuf, sync::Arc, time::Duration};
+use std::{fmt, path::PathBuf, sync::Arc, time::Duration};
+
+#[cfg(any(target_os = "macos", windows))]
+use std::env;
 
 use roammand_host_webrtc::IceTransportPolicy;
 use roammand_ipc::IpcToken;
@@ -17,21 +20,30 @@ use url::Url;
 #[cfg(feature = "native-webrtc")]
 use crate::NativeRemoteSessionFactory;
 use crate::{
-    AgentRuntimeConfig, BridgeRemoteSessionFactory, HostService, PairingOutbound,
-    RemoteSessionCoordinator, RemoteSessionError, RemoteSessionOutbound, RuntimeError,
-    SignalingEvent, SignalingProtocol, WebSocketSignalingTransport, runtime::now_unix_ms,
+    BridgeRemoteSessionFactory, HostService, PairingOutbound, RemoteSessionCoordinator,
+    RemoteSessionError, RemoteSessionOutbound, RuntimeError, SignalingEvent, SignalingProtocol,
+    WebSocketSignalingTransport, runtime::now_unix_ms,
 };
+
+#[cfg(any(target_os = "macos", windows))]
+use crate::AgentRuntimeConfig;
 
 #[cfg(unix)]
 use roammand_privileged_bridge::unix_runtime::UnixBridgeTransportConnector;
 #[cfg(windows)]
 use roammand_privileged_bridge::windows_runtime::WindowsBridgeTransportConnector;
 
+#[cfg(any(target_os = "macos", windows))]
 const SIGNALING_ENDPOINT_ENV: &str = "ROAMMAND_SIGNALING_ENDPOINT";
+#[cfg(any(target_os = "macos", windows))]
 const ICE_TRANSPORT_POLICY_ENV: &str = "ROAMMAND_ICE_TRANSPORT_POLICY";
+#[cfg(any(target_os = "macos", windows))]
 const STUN_URLS_ENV: &str = "ROAMMAND_STUN_URLS";
+#[cfg(any(target_os = "macos", windows))]
 const TURN_URLS_ENV: &str = "ROAMMAND_TURN_URLS";
+#[cfg(any(target_os = "macos", windows))]
 const TURN_USERNAME_ENV: &str = "ROAMMAND_TURN_USERNAME";
+#[cfg(any(target_os = "macos", windows))]
 const TURN_PASSWORD_ENV: &str = "ROAMMAND_TURN_PASSWORD";
 const MAX_ICE_SERVERS: usize = 8;
 const MAX_ICE_URLS_PER_SERVER: usize = 16;
@@ -705,6 +717,7 @@ fn next_remote_request_id(generation: u64, counter: &mut u64) -> String {
     format!("host-{generation}-{counter}")
 }
 
+#[cfg(any(target_os = "macos", windows))]
 pub(crate) fn with_remote_config_from_env(
     config: AgentRuntimeConfig,
 ) -> Result<AgentRuntimeConfig, RuntimeError> {
@@ -757,6 +770,7 @@ pub(crate) fn with_remote_config_from_env(
     )?))
 }
 
+#[cfg(any(target_os = "macos", windows))]
 fn split_ice_urls(value: &str) -> Vec<String> {
     value
         .split(',')
@@ -765,6 +779,7 @@ fn split_ice_urls(value: &str) -> Vec<String> {
         .collect()
 }
 
+#[cfg(any(target_os = "macos", windows))]
 fn optional_unicode_env(name: &str) -> Result<Option<String>, RuntimeError> {
     match env::var(name) {
         Ok(value) => Ok(Some(value)),

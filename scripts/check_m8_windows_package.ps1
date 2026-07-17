@@ -26,8 +26,15 @@ if (Get-ChildItem -LiteralPath $ResolvedPackage -Recurse -Force |
 
 foreach ($Line in [IO.File]::ReadAllLines($Manifest)) {
   if ($Line -notmatch '^(?<Hash>[0-9A-Fa-f]{64}) \*(?<Path>.+)$') { throw "Invalid manifest line" }
-  $Candidate = [IO.Path]::GetFullPath((Join-Path $ResolvedPackage $Matches.Path))
-  if (-not $Candidate.StartsWith($ResolvedPackage + "\", [StringComparison]::OrdinalIgnoreCase)) {
+  $ManifestPath = $Matches.Path
+  if ([IO.Path]::IsPathRooted($ManifestPath)) { throw "Manifest path escapes package" }
+  $Candidate = [IO.Path]::GetFullPath((Join-Path $ResolvedPackage $ManifestPath))
+  $RelativeCandidate = [IO.Path]::GetRelativePath($ResolvedPackage, $Candidate)
+  $ParentDirectory = ".."
+  $ParentPrefix = $ParentDirectory + [IO.Path]::DirectorySeparatorChar
+  if ([IO.Path]::IsPathRooted($RelativeCandidate) -or
+      $RelativeCandidate -eq $ParentDirectory -or
+      $RelativeCandidate.StartsWith($ParentPrefix, [StringComparison]::Ordinal)) {
     throw "Manifest path escapes package"
   }
   if (-not (Test-Path -LiteralPath $Candidate -PathType Leaf)) { throw "Manifest file missing" }

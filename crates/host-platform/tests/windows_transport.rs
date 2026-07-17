@@ -10,12 +10,15 @@ use roammand_host_platform::{
 };
 use tempfile::tempdir;
 use tokio::net::windows::named_pipe::ClientOptions;
+use tokio::sync::Mutex;
 
 const INSTANCE_ID: [u8; 16] = [0x31; 16];
 const IPC_TOKEN: [u8; 32] = [0x42; 32];
+static PIPE_TEST_LOCK: Mutex<()> = Mutex::const_new(());
 
 #[tokio::test]
 async fn named_pipe_accepts_the_current_user_and_writes_private_discovery() {
+    let _guard = PIPE_TEST_LOCK.lock().await;
     let temporary = tempdir().expect("temporary directory must be created");
     let mut listener = WindowsLocalListener::bind(temporary.path(), INSTANCE_ID, &IPC_TOKEN)
         .expect("listener must bind");
@@ -64,6 +67,7 @@ fn windows_peer_sid_gate_rejects_a_different_user() {
 
 #[tokio::test]
 async fn dropping_named_pipe_listener_cleans_token_and_discovery() {
+    let _guard = PIPE_TEST_LOCK.lock().await;
     let temporary = tempdir().expect("temporary directory must be created");
     let listener = WindowsLocalListener::bind(temporary.path(), INSTANCE_ID, &IPC_TOKEN)
         .expect("listener must bind");

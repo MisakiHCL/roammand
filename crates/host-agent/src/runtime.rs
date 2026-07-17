@@ -51,10 +51,11 @@ use zeroize::Zeroizing;
 use crate::{
     AuthorizationRegistry, FileGrantStore, HostIdentity, HostService,
     PrivilegedBridgeRuntimeConfig, RemoteRuntimeConfig,
-    remote_runtime::{
-        PreparedRemote, prepare_remote, run_remote_sessions, with_remote_config_from_env,
-    },
+    remote_runtime::{PreparedRemote, prepare_remote, run_remote_sessions},
 };
+
+#[cfg(any(target_os = "macos", windows))]
+use crate::remote_runtime::with_remote_config_from_env;
 
 const INSTANCE_ID_BYTES: usize = 16;
 const IPC_TOKEN_BYTES: usize = 32;
