@@ -331,7 +331,9 @@ fn assign_socket_owner(
     chown(socket_path, Some(Uid::from_raw(owner)), None).map_err(|_| RuntimeBridgeError::Transport)
 }
 
+// Keep one fallible call site for every Unix implementation; Linux is a no-op today.
 #[cfg(all(unix, not(target_os = "macos")))]
+#[allow(clippy::unnecessary_wraps)]
 fn assign_socket_owner(
     _socket_path: &Path,
     _owner_os_session_id: u64,

@@ -747,10 +747,8 @@ pub(crate) fn with_remote_config_from_env(
         let username = turn_username.ok_or(RuntimeError::RemoteConfiguration)?;
         let password = turn_password.ok_or(RuntimeError::RemoteConfiguration)?;
         ice_servers.push(RemoteIceServerConfig::new(urls, username, password)?);
-    } else {
-        if turn_username.is_some() || turn_password.is_some() {
-            return Err(RuntimeError::RemoteConfiguration);
-        }
+    } else if turn_username.is_some() || turn_password.is_some() {
+        return Err(RuntimeError::RemoteConfiguration);
     }
     Ok(config.with_remote(RemoteRuntimeConfig::new(
         endpoint,

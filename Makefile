@@ -106,8 +106,7 @@ format:
 	cd apps/client_flutter && dart format lib test tool
 	cd gen/dart && dart format lib test
 	cargo fmt --all
-	cd services/signaling && gofmt -w $$(rg --files -g '*.go')
-	cd gen/go && gofmt -w $$(rg --files -g '*.go')
+	gofmt -w services/signaling gen/go
 	buf format -w
 
 format-check:
@@ -115,8 +114,7 @@ format-check:
 	cd apps/client_flutter && dart format --output=none --set-exit-if-changed lib test tool
 	cd gen/dart && dart format --output=none --set-exit-if-changed lib test
 	cargo fmt --all --check
-	cd services/signaling && test -z "$$(gofmt -l $$(rg --files -g '*.go'))"
-	cd gen/go && test -z "$$(gofmt -l $$(rg --files -g '*.go'))"
+	./scripts/check_go_format.sh
 	buf format --diff --exit-code
 
 generate:

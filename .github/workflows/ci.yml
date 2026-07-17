@@ -15,9 +15,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: ./.github/actions/setup-ci-tools
       - uses: bufbuild/buf-setup-action@v1
         with:
           version: 1.69.0
+          github_token: ${{ github.token }}
       - name: Check public boundary
         run: ./scripts/check_public_boundary.sh
       - name: Check README contract
@@ -46,6 +48,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-ci-tools
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.44.0
@@ -98,6 +101,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-ci-tools
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.44.0
@@ -124,6 +128,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-ci-tools
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.97.0
@@ -151,6 +156,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-ci-tools
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.97.0
@@ -186,6 +192,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-ci-tools
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.97.0
@@ -201,13 +208,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-ci-tools
       - uses: actions/setup-go@v5
         with:
           go-version: 1.26.5
+          cache-dependency-path: |
+            gen/go/go.sum
+            services/signaling/go.sum
       - name: Check formatting
-        run: |
-          cd gen/go && test -z "$(gofmt -l $(rg --files -g '*.go'))"
-          cd ../../services/signaling && test -z "$(gofmt -l $(rg --files -g '*.go'))"
+        run: ./scripts/check_go_format.sh
       - name: Vet and test protocol
         working-directory: gen/go
         run: go vet ./... && go test ./...
@@ -222,6 +231,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-ci-tools
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.44.0
@@ -230,6 +240,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: 1.26.5
+          cache-dependency-path: |
+            gen/go/go.sum
+            services/signaling/go.sum
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.97.0
@@ -244,6 +257,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-ci-tools
       - name: Prepare ephemeral Compose fixture secrets
         run: |
           mkdir -p infra/compose/secrets
