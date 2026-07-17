@@ -89,6 +89,29 @@ void main() {
     },
   );
 
+  test('surfaces a bounded managed startup failure', () async {
+    final unavailable = FakeHostAgentApi()..connectError = true;
+    final process = FakeHostAgentProcessLifecycle(
+      startResult: false,
+      startupFailure: HostAgentStartupFailure.protectedSessionAgentUnavailable,
+    );
+    final controller = HostAgentController(
+      clientFactory: () => unavailable,
+      processLifecycle: process,
+      refreshInterval: const Duration(hours: 1),
+    );
+
+    await controller.start();
+
+    expect(controller.state, HostAgentViewState.offline);
+    expect(
+      controller.startupFailure,
+      HostAgentStartupFailure.protectedSessionAgentUnavailable,
+    );
+    await controller.shutdown();
+    controller.dispose();
+  });
+
   test(
     'restarts a GUI-owned Host Agent when network settings change',
     () async {
@@ -232,15 +255,22 @@ void main() {
 }
 
 final class FakeHostAgentProcessLifecycle implements HostAgentProcessLifecycle {
+  FakeHostAgentProcessLifecycle({this.startResult = true, this.startupFailure});
+
+  final bool startResult;
+  final HostAgentStartupFailure? startupFailure;
   int startCount = 0;
   int restartCount = 0;
   int stopCount = 0;
   NetworkServiceConfiguration? lastConfiguration;
 
   @override
+  HostAgentStartupFailure? get lastStartupFailure => startupFailure;
+
+  @override
   Future<bool> start() async {
     startCount += 1;
-    return true;
+    return startResult;
   }
 
   @override

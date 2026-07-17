@@ -105,4 +105,29 @@ void main() {
     expect(environment.containsKey('UNRELATED_API_TOKEN'), isFalse);
     expect(environment.containsKey('HTTP_PROXY'), isFalse);
   });
+
+  test('parses only stable startup diagnostic codes', () {
+    expect(
+      parseHostAgentStartupFailure(
+        'ROAMMAND_STARTUP_ERROR=protected_session_agent_unavailable',
+      ),
+      HostAgentStartupFailure.protectedSessionAgentUnavailable,
+    );
+    expect(
+      parseHostAgentStartupFailure(
+        'ROAMMAND_STARTUP_ERROR=privileged_bridge_unavailable',
+      ),
+      HostAgentStartupFailure.privilegedBridgeUnavailable,
+    );
+    expect(
+      parseHostAgentStartupFailure(
+        'ROAMMAND_STARTUP_ERROR=remote_configuration_invalid',
+      ),
+      HostAgentStartupFailure.configurationInvalid,
+    );
+    expect(
+      parseHostAgentStartupFailure('Host Agent failed: local details'),
+      isNull,
+    );
+  });
 }

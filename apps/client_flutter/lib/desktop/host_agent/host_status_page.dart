@@ -11,6 +11,7 @@ import 'package:roammand_protocol/roammand_protocol.dart';
 import '../pairing/host_pairing_section.dart';
 import '../desktop_app_bar.dart';
 import 'host_agent_controller.dart';
+import 'host_agent_process.dart';
 import 'privileged_bridge_presenter.dart';
 
 const _pagePadding = 24.0;
@@ -215,6 +216,10 @@ final class _HostStatusPageState extends State<HostStatusPage> {
   }
 
   Widget _buildStateCard(BuildContext context, AppLocalizations strings) {
+    final offlineCopy = _hostAgentOfflineCopy(
+      strings,
+      _controller.startupFailure,
+    );
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(_cardPadding),
@@ -229,8 +234,8 @@ final class _HostStatusPageState extends State<HostStatusPage> {
           ),
           HostAgentViewState.offline => _MessageState(
             icon: const Icon(Icons.desktop_access_disabled_outlined, size: 32),
-            title: strings.hostAgentOfflineTitle,
-            body: strings.hostAgentOfflineBody,
+            title: offlineCopy.title,
+            body: offlineCopy.body,
             action: FilledButton.icon(
               onPressed: _controller.retry,
               icon: const Icon(Icons.refresh, size: 20),
@@ -455,6 +460,42 @@ final class _HostStatusPageState extends State<HostStatusPage> {
       await _controller.revokeControllerGrant(grantId);
     }
   }
+}
+
+({String title, String body}) _hostAgentOfflineCopy(
+  AppLocalizations strings,
+  HostAgentStartupFailure? failure,
+) {
+  return switch (failure) {
+    HostAgentStartupFailure.protectedSessionAgentUnavailable => (
+      title: strings.hostAgentProtectedSessionUnavailableTitle,
+      body: strings.hostAgentProtectedSessionUnavailableBody,
+    ),
+    HostAgentStartupFailure.privilegedBridgeUnavailable => (
+      title: strings.hostAgentPrivilegedBridgeUnavailableTitle,
+      body: strings.hostAgentPrivilegedBridgeUnavailableBody,
+    ),
+    HostAgentStartupFailure.executableUnavailable => (
+      title: strings.hostAgentComponentMissingTitle,
+      body: strings.hostAgentComponentMissingBody,
+    ),
+    HostAgentStartupFailure.processLaunchFailed => (
+      title: strings.hostAgentLaunchFailedTitle,
+      body: strings.hostAgentLaunchFailedBody,
+    ),
+    HostAgentStartupFailure.configurationInvalid => (
+      title: strings.hostAgentConfigurationInvalidTitle,
+      body: strings.hostAgentConfigurationInvalidBody,
+    ),
+    HostAgentStartupFailure.unexpectedExit => (
+      title: strings.hostAgentUnexpectedExitTitle,
+      body: strings.hostAgentUnexpectedExitBody,
+    ),
+    HostAgentStartupFailure.automaticStartupDisabled || null => (
+      title: strings.hostAgentOfflineTitle,
+      body: strings.hostAgentOfflineBody,
+    ),
+  };
 }
 
 ({String title, String body}) _bridgeCopy(

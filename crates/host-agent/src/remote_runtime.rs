@@ -11,6 +11,7 @@ use roammand_privileged_bridge::client::{
     AuthenticatedBridgeConnector, BridgeIceServer, BridgePeerOptions, RpcProxyPartsFactory,
 };
 use roammand_privileged_bridge::installed::{InstalledBridgeConfig, installed_file_sha256};
+use roammand_privileged_bridge::proxy::ProxyError;
 use tokio::{
     sync::watch,
     time::{MissedTickBehavior, interval, sleep, timeout},
@@ -299,9 +300,7 @@ fn prepare_bridge_remote(
         privileged_bridge.os_session_id,
     )
     .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
-    let status = connector
-        .probe_status()
-        .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+    let status = connector.probe_status().map_err(map_bridge_probe_error)?;
     service
         .update_privileged_bridge_status(status, None)
         .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
@@ -354,9 +353,7 @@ fn prepare_bridge_remote(
         privileged_bridge.os_session_id,
     )
     .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
-    let status = connector
-        .probe_status()
-        .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
+    let status = connector.probe_status().map_err(map_bridge_probe_error)?;
     service
         .update_privileged_bridge_status(status, None)
         .map_err(|_| RuntimeError::PrivilegedBridgeUnavailable)?;
@@ -392,6 +389,13 @@ fn prepare_bridge_remote(
         coordinator,
         service,
     }))
+}
+
+const fn map_bridge_probe_error(error: ProxyError) -> RuntimeError {
+    match error {
+        ProxyError::HelperUnavailable => RuntimeError::ProtectedSessionAgentUnavailable,
+        _ => RuntimeError::PrivilegedBridgeUnavailable,
+    }
 }
 
 pub(crate) async fn run_remote_sessions(

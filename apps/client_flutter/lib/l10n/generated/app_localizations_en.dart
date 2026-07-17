@@ -49,7 +49,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get hostAgentOfflineBody =>
-      'Start the Host Agent, then retry. This app never starts it automatically.';
+      'Roammand could not reach the local Host Agent. Retry or reinstall Roammand if the problem continues.';
+
+  @override
+  String get hostAgentProtectedSessionUnavailableTitle =>
+      'Protected-session Agent is not running';
+
+  @override
+  String get hostAgentProtectedSessionUnavailableBody =>
+      'The component for the current macOS session is unavailable. Retry or reinstall Roammand if the problem continues.';
+
+  @override
+  String get hostAgentPrivilegedBridgeUnavailableTitle =>
+      'Privileged bridge is unavailable';
+
+  @override
+  String get hostAgentPrivilegedBridgeUnavailableBody =>
+      'The installed privileged bridge could not be verified or reached. Reinstall Roammand, then retry.';
+
+  @override
+  String get hostAgentComponentMissingTitle => 'Host Agent is missing';
+
+  @override
+  String get hostAgentComponentMissingBody =>
+      'The installed Host Agent executable was not found. Reinstall Roammand, then retry.';
+
+  @override
+  String get hostAgentLaunchFailedTitle => 'Host Agent could not start';
+
+  @override
+  String get hostAgentLaunchFailedBody =>
+      'macOS could not launch the installed Host Agent. Reinstall Roammand, then retry.';
+
+  @override
+  String get hostAgentConfigurationInvalidTitle =>
+      'Connection configuration is invalid';
+
+  @override
+  String get hostAgentConfigurationInvalidBody =>
+      'Check the signaling and STUN settings, then retry.';
+
+  @override
+  String get hostAgentUnexpectedExitTitle => 'Host Agent exited unexpectedly';
+
+  @override
+  String get hostAgentUnexpectedExitBody =>
+      'The Host Agent stopped during startup. Retry or reinstall Roammand if the problem continues.';
 
   @override
   String get hostAgentErrorTitle => 'Host status is unavailable';

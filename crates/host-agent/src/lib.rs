@@ -55,7 +55,7 @@ pub const COMPONENT_NAME: &str = "roammand-host-agent";
 
 #[cfg(test)]
 mod tests {
-    use super::COMPONENT_NAME;
+    use super::{COMPONENT_NAME, RuntimeError};
     #[cfg(all(feature = "native-webrtc", target_os = "macos"))]
     use roammand_host_webrtc::native::probe_native_video_codecs;
     use roammand_protocol::roammand::v1::ProtocolVersion;
@@ -71,6 +71,18 @@ mod tests {
 
         assert_eq!(version.major, 1);
         assert_eq!(version.minor, 0);
+    }
+
+    #[test]
+    fn startup_diagnostic_codes_are_stable_and_non_sensitive() {
+        assert_eq!(
+            RuntimeError::ProtectedSessionAgentUnavailable.startup_code(),
+            "protected_session_agent_unavailable"
+        );
+        assert_eq!(
+            RuntimeError::PrivilegedBridgeUnavailable.startup_code(),
+            "privileged_bridge_unavailable"
+        );
     }
 
     #[cfg(all(feature = "native-webrtc", target_os = "macos"))]

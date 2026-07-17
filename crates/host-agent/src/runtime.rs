@@ -181,6 +181,35 @@ pub enum RuntimeError {
     RemoteSession,
     #[error("Host Agent required privileged bridge is unavailable")]
     PrivilegedBridgeUnavailable,
+    #[error("Host Agent protected-session Agent is unavailable")]
+    ProtectedSessionAgentUnavailable,
+}
+
+impl RuntimeError {
+    /// Returns a stable, non-sensitive startup diagnostic code.
+    #[must_use]
+    pub const fn startup_code(self) -> &'static str {
+        match self {
+            Self::AlreadyRunning => "already_running",
+            Self::UnsupportedPlatform => "unsupported_platform",
+            Self::PrivatePaths => "private_paths_unavailable",
+            Self::ProtectedIdentity => "protected_identity_unavailable",
+            Self::AuthorizationData => "authorization_data_unavailable",
+            Self::LocalTransport => "local_transport_unavailable",
+            Self::RandomGeneration => "random_generation_failed",
+            Self::SystemClock => "system_clock_unavailable",
+            Self::LocalProtocol => "local_protocol_failed",
+            Self::Task => "runtime_task_failed",
+            Self::ShutdownSignal => "shutdown_signal_unavailable",
+            Self::Environment => "environment_unavailable",
+            Self::RemoteConfiguration => "remote_configuration_invalid",
+            Self::TlsCryptoProvider => "tls_provider_unavailable",
+            Self::NativeWebRtcUnavailable => "native_webrtc_unavailable",
+            Self::RemoteSession => "remote_session_runtime_failed",
+            Self::PrivilegedBridgeUnavailable => "privileged_bridge_unavailable",
+            Self::ProtectedSessionAgentUnavailable => "protected_session_agent_unavailable",
+        }
+    }
 }
 
 pub struct AgentRuntime;

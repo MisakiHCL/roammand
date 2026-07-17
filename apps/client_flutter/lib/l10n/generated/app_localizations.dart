@@ -173,8 +173,80 @@ abstract class AppLocalizations {
   /// No description provided for @hostAgentOfflineBody.
   ///
   /// In en, this message translates to:
-  /// **'Start the Host Agent, then retry. This app never starts it automatically.'**
+  /// **'Roammand could not reach the local Host Agent. Retry or reinstall Roammand if the problem continues.'**
   String get hostAgentOfflineBody;
+
+  /// No description provided for @hostAgentProtectedSessionUnavailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Protected-session Agent is not running'**
+  String get hostAgentProtectedSessionUnavailableTitle;
+
+  /// No description provided for @hostAgentProtectedSessionUnavailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The component for the current macOS session is unavailable. Retry or reinstall Roammand if the problem continues.'**
+  String get hostAgentProtectedSessionUnavailableBody;
+
+  /// No description provided for @hostAgentPrivilegedBridgeUnavailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Privileged bridge is unavailable'**
+  String get hostAgentPrivilegedBridgeUnavailableTitle;
+
+  /// No description provided for @hostAgentPrivilegedBridgeUnavailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The installed privileged bridge could not be verified or reached. Reinstall Roammand, then retry.'**
+  String get hostAgentPrivilegedBridgeUnavailableBody;
+
+  /// No description provided for @hostAgentComponentMissingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Host Agent is missing'**
+  String get hostAgentComponentMissingTitle;
+
+  /// No description provided for @hostAgentComponentMissingBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The installed Host Agent executable was not found. Reinstall Roammand, then retry.'**
+  String get hostAgentComponentMissingBody;
+
+  /// No description provided for @hostAgentLaunchFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Host Agent could not start'**
+  String get hostAgentLaunchFailedTitle;
+
+  /// No description provided for @hostAgentLaunchFailedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS could not launch the installed Host Agent. Reinstall Roammand, then retry.'**
+  String get hostAgentLaunchFailedBody;
+
+  /// No description provided for @hostAgentConfigurationInvalidTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection configuration is invalid'**
+  String get hostAgentConfigurationInvalidTitle;
+
+  /// No description provided for @hostAgentConfigurationInvalidBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the signaling and STUN settings, then retry.'**
+  String get hostAgentConfigurationInvalidBody;
+
+  /// No description provided for @hostAgentUnexpectedExitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Host Agent exited unexpectedly'**
+  String get hostAgentUnexpectedExitTitle;
+
+  /// No description provided for @hostAgentUnexpectedExitBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The Host Agent stopped during startup. Retry or reinstall Roammand if the problem continues.'**
+  String get hostAgentUnexpectedExitBody;
 
   /// No description provided for @hostAgentErrorTitle.
   ///

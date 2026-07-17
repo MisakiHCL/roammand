@@ -53,5 +53,8 @@ umask 077
 
 /bin/launchctl bootout system/dev.roammand.PrivilegedBridge 2>/dev/null || true
 /bin/launchctl bootstrap system "$DAEMON_PLIST"
+/bin/launchctl bootout "gui/$console_uid/dev.roammand.SessionAgent" 2>/dev/null || true
+/bin/launchctl bootstrap "gui/$console_uid" "$AGENT_PLIST"
+/bin/launchctl kickstart -k "gui/$console_uid/dev.roammand.SessionAgent"
 
 exit 0

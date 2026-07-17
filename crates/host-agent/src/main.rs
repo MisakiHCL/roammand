@@ -23,6 +23,7 @@ async fn main() -> ExitCode {
     match run().await {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
+            eprintln!("ROAMMAND_STARTUP_ERROR={}", error.startup_code());
             eprintln!("Host Agent failed: {error}");
             ExitCode::FAILURE
         }

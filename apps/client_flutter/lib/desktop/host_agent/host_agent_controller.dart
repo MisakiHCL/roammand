@@ -61,6 +61,7 @@ final class HostAgentController extends ChangeNotifier {
   bool _notifierDisposed = false;
   int _generation = 0;
   Future<void>? _shutdownOperation;
+  HostAgentStartupFailure? _startupFailure;
 
   HostAgentViewState get state => _state;
   HostStatus? get status => _status;
@@ -72,6 +73,7 @@ final class HostAgentController extends ChangeNotifier {
   bool get isPairingActionPending => _pairingActionPending;
   bool get isEmergencyStopPending => _emergencyStopPending;
   EmergencyStopOutcome get emergencyStopOutcome => _emergencyStopOutcome;
+  HostAgentStartupFailure? get startupFailure => _startupFailure;
 
   bool isRevoking(List<int> grantId) =>
       _revokingGrantIds.contains(_grantKey(grantId));
@@ -88,6 +90,7 @@ final class HostAgentController extends ChangeNotifier {
     if (_disposed || processLifecycle == null) {
       return ManagedHostAgentRestartOutcome.notOwned;
     }
+    _startupFailure = null;
     await _prepareForManagedRestart();
     if (_disposed) return ManagedHostAgentRestartOutcome.unavailable;
     bool restarted;
@@ -98,6 +101,7 @@ final class HostAgentController extends ChangeNotifier {
     }
     if (_disposed) return ManagedHostAgentRestartOutcome.unavailable;
     if (!restarted) {
+      _startupFailure = processLifecycle.lastStartupFailure;
       await _connect();
       return ManagedHostAgentRestartOutcome.notOwned;
     }
@@ -106,14 +110,18 @@ final class HostAgentController extends ChangeNotifier {
       if (_disposed) return ManagedHostAgentRestartOutcome.unavailable;
       await _connect();
       if (_state == HostAgentViewState.ready) {
+        _startupFailure = null;
         return ManagedHostAgentRestartOutcome.restarted;
       }
       if (_state != HostAgentViewState.offline) break;
     }
+    _startupFailure = processLifecycle.lastStartupFailure;
+    _notify();
     return ManagedHostAgentRestartOutcome.unavailable;
   }
 
   Future<void> _connectWithManagedFallback() async {
+    _startupFailure = null;
     await _connect();
     final processLifecycle = _processLifecycle;
     if (_disposed ||
@@ -127,7 +135,12 @@ final class HostAgentController extends ChangeNotifier {
     } on Object {
       managedProcessAvailable = false;
     }
-    if (_disposed || !managedProcessAvailable) {
+    if (_disposed) {
+      return;
+    }
+    if (!managedProcessAvailable) {
+      _startupFailure = processLifecycle.lastStartupFailure;
+      _notify();
       return;
     }
     for (final delay in _managedStartupRetryDelays) {
@@ -142,6 +155,10 @@ final class HostAgentController extends ChangeNotifier {
       if (_state != HostAgentViewState.offline) {
         return;
       }
+    }
+    if (!_disposed && _state == HostAgentViewState.offline) {
+      _startupFailure = processLifecycle.lastStartupFailure;
+      _notify();
     }
   }
 
@@ -347,6 +364,7 @@ final class HostAgentController extends ChangeNotifier {
         return;
       }
       _state = HostAgentViewState.ready;
+      _startupFailure = null;
       _refreshTimer = Timer.periodic(
         refreshInterval,
         (_) => unawaited(refresh()),

@@ -36,6 +36,15 @@ rg -q 'stapler staple' scripts/notarize_macos_pkg.sh
 rg -q 'spctl --assess --type install' scripts/notarize_macos_pkg.sh
 rg -q -- '--keychain-profile' scripts/notarize_macos_pkg.sh
 rg -q '/dev/console' packaging/macos/scripts/postinstall
+rg -Fq 'launchctl bootstrap "gui/$console_uid" "$AGENT_PLIST"' \
+  packaging/macos/scripts/postinstall
+rg -Fq 'launchctl kickstart -k "gui/$console_uid/dev.roammand.SessionAgent"' \
+  packaging/macos/scripts/postinstall
+if rg -qi 'sign out and in|注销并重新登录' \
+  packaging/macos/scripts/postinstall scripts/install_m8_macos.sh docs/BUILDING.zh-CN.md; then
+  printf 'macOS installation must not require a new login session\n' >&2
+  exit 1
+fi
 if rg -q 'SUDO_UID' packaging/macos/scripts; then
   printf 'installer package scripts must not depend on a sudo shell\n' >&2
   exit 1

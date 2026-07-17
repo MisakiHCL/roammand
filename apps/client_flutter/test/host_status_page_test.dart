@@ -6,8 +6,10 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/desktop/host_agent/host_agent_controller.dart';
+import 'package:roammand/desktop/host_agent/host_agent_process.dart';
 import 'package:roammand/desktop/host_agent/host_status_page.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
+import 'package:roammand/network/network_service_configuration.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 void main() {
@@ -72,6 +74,29 @@ void main() {
     await tester.tap(find.text('重试'));
     await tester.pumpAndSettle();
     expect(find.text('Test Host'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('shows a concrete protected-session startup failure', (
+    tester,
+  ) async {
+    final api = WidgetFakeHostAgentApi()..connectError = true;
+    final controller = HostAgentController(
+      clientFactory: () => api,
+      processLifecycle: const WidgetFailingHostAgentProcessLifecycle(
+        HostAgentStartupFailure.protectedSessionAgentUnavailable,
+      ),
+      refreshInterval: const Duration(hours: 1),
+    );
+    await tester.pumpWidget(
+      _app(controller: controller, locale: const Locale('zh')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('受保护会话 Agent 未运行'), findsOneWidget);
+    expect(find.textContaining('当前 macOS 会话'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -216,6 +241,24 @@ Widget _app({required HostAgentController controller, Locale? locale}) {
       signalingEndpoint: 'wss://signal.example.test/v1/connect',
     ),
   );
+}
+
+final class WidgetFailingHostAgentProcessLifecycle
+    implements HostAgentProcessLifecycle {
+  const WidgetFailingHostAgentProcessLifecycle(this.lastStartupFailure);
+
+  @override
+  final HostAgentStartupFailure lastStartupFailure;
+
+  @override
+  Future<bool> restart(NetworkServiceConfiguration configuration) async =>
+      false;
+
+  @override
+  Future<bool> start() async => false;
+
+  @override
+  Future<void> stop() async {}
 }
 
 class WidgetFakeHostAgentApi implements HostAgentApi {

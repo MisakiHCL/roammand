@@ -133,15 +133,21 @@ impl AuthenticatedBridgeConnector {
         let Some(privileged_bridge_server_frame::Payload::Status(status)) = status.payload else {
             return Err(ProxyError::Rejected);
         };
-        if PrivilegedBridgeState::try_from(status.state) != Ok(PrivilegedBridgeState::Ready)
-            || !status.helper_connected
-        {
+        let state =
+            PrivilegedBridgeState::try_from(status.state).map_err(|_| ProxyError::Rejected)?;
+        if state == PrivilegedBridgeState::UserSessionOnly && !status.helper_connected {
+            return Err(ProxyError::HelperUnavailable);
+        }
+        if state != PrivilegedBridgeState::Ready {
             return Err(ProxyError::Rejected);
+        }
+        if !status.helper_connected {
+            return Err(ProxyError::HelperUnavailable);
         }
         let session = status
             .interactive_session
             .as_ref()
-            .ok_or(ProxyError::Rejected)?;
+            .ok_or(ProxyError::HelperUnavailable)?;
         if session.os_session_id != self.os_session_id || session.generation == 0 {
             return Err(ProxyError::Rejected);
         }

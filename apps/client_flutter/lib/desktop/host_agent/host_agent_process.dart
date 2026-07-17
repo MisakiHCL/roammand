@@ -15,6 +15,8 @@ const _macosInstalledHostAgent =
 const _windowsHostAgentFileName = 'roammand-host-agent.exe';
 const _managedProcessShutdownTimeout = Duration(seconds: 3);
 const _forcedProcessShutdownTimeout = Duration(seconds: 1);
+const _startupErrorPrefix = 'ROAMMAND_STARTUP_ERROR=';
+const _maximumStartupDiagnosticLineBytes = 256;
 
 const _signalingEndpointEnvironment = 'ROAMMAND_SIGNALING_ENDPOINT';
 const _iceTransportPolicyEnvironment = 'ROAMMAND_ICE_TRANSPORT_POLICY';
@@ -43,7 +45,20 @@ const _inheritedHostAgentEnvironmentKeys = <String>{
   'ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING',
 };
 
+enum HostAgentStartupFailure {
+  automaticStartupDisabled,
+  executableUnavailable,
+  processLaunchFailed,
+  protectedSessionAgentUnavailable,
+  privilegedBridgeUnavailable,
+  configurationInvalid,
+  unexpectedExit,
+}
+
 abstract interface class HostAgentProcessLifecycle {
+  /// Last bounded, non-sensitive startup failure reported by this lifecycle.
+  HostAgentStartupFailure? get lastStartupFailure;
+
   /// Starts or preserves a Host Agent owned by this lifecycle.
   ///
   /// Returns false when automatic startup is disabled or no installed
@@ -82,6 +97,10 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
   Future<void>? _stopOperation;
   bool _managedProcessStarted = false;
   bool _closed = false;
+  HostAgentStartupFailure? _lastStartupFailure;
+
+  @override
+  HostAgentStartupFailure? get lastStartupFailure => _lastStartupFailure;
 
   @override
   Future<bool> start() {
@@ -99,6 +118,7 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
   }
 
   Future<bool> _start() async {
+    _lastStartupFailure = null;
     if (_closed) {
       return false;
     }
@@ -106,6 +126,7 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
       return true;
     }
     if (!_automaticStartupEnabled(_parentEnvironment)) {
+      _lastStartupFailure = HostAgentStartupFailure.automaticStartupDisabled;
       return false;
     }
     final executable =
@@ -117,6 +138,7 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
           isWindows: Platform.isWindows,
         );
     if (executable == null || !await File(executable).exists()) {
+      _lastStartupFailure = HostAgentStartupFailure.executableUnavailable;
       return false;
     }
 
@@ -133,6 +155,7 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
         mode: ProcessStartMode.normal,
       );
     } on ProcessException {
+      _lastStartupFailure = HostAgentStartupFailure.processLaunchFailed;
       return false;
     }
     if (_closed) {
@@ -142,11 +165,14 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
     _process = process;
     _managedProcessStarted = true;
     unawaited(_drain(process.stdout));
-    unawaited(_drain(process.stderr));
+    final startupFailure = _observeStartupFailure(process.stderr);
     unawaited(
-      process.exitCode.then((_) {
+      process.exitCode.then((_) async {
+        final reportedFailure = await startupFailure;
         if (identical(_process, process)) {
           _process = null;
+          _lastStartupFailure =
+              reportedFailure ?? HostAgentStartupFailure.unexpectedExit;
         }
       }),
     );
@@ -268,6 +294,47 @@ Future<void> _drain(Stream<List<int>> stream) async {
     // Output is intentionally discarded to avoid blocked pipes and unbounded
     // child logs. Readiness and failures surface through authenticated IPC.
   }
+}
+
+Future<HostAgentStartupFailure?> _observeStartupFailure(
+  Stream<List<int>> stream,
+) async {
+  HostAgentStartupFailure? failure;
+  final lineBytes = <int>[];
+  try {
+    await for (final chunk in stream) {
+      for (final byte in chunk) {
+        if (byte == 0x0a) {
+          failure ??= parseHostAgentStartupFailure(
+            String.fromCharCodes(lineBytes),
+          );
+          lineBytes.clear();
+        } else if (lineBytes.length < _maximumStartupDiagnosticLineBytes) {
+          lineBytes.add(byte);
+        }
+      }
+    }
+    failure ??= parseHostAgentStartupFailure(String.fromCharCodes(lineBytes));
+  } on Object {
+    // A broken stderr pipe is treated as an unexpected exit. Raw child output
+    // is never retained or surfaced by the GUI.
+  }
+  return failure;
+}
+
+HostAgentStartupFailure? parseHostAgentStartupFailure(String line) {
+  if (!line.startsWith(_startupErrorPrefix)) {
+    return null;
+  }
+  return switch (line.substring(_startupErrorPrefix.length).trim()) {
+    'protected_session_agent_unavailable' =>
+      HostAgentStartupFailure.protectedSessionAgentUnavailable,
+    'privileged_bridge_unavailable' =>
+      HostAgentStartupFailure.privilegedBridgeUnavailable,
+    'remote_configuration_invalid' =>
+      HostAgentStartupFailure.configurationInvalid,
+    _ => HostAgentStartupFailure.unexpectedExit,
+  };
 }
 
 Future<void> _terminateProcess(Process process) async {

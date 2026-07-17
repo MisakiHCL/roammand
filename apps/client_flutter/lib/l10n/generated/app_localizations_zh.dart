@@ -45,7 +45,49 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hostAgentOfflineTitle => '主机代理未运行';
 
   @override
-  String get hostAgentOfflineBody => '请先启动主机代理，然后重试。本应用不会自动启动它。';
+  String get hostAgentOfflineBody =>
+      'Roammand 无法连接本地主机代理。请重试；如果仍然失败，请重新安装 Roammand。';
+
+  @override
+  String get hostAgentProtectedSessionUnavailableTitle => '受保护会话 Agent 未运行';
+
+  @override
+  String get hostAgentProtectedSessionUnavailableBody =>
+      '当前 macOS 会话所需的组件不可用。请重试；如果仍然失败，请重新安装 Roammand。';
+
+  @override
+  String get hostAgentPrivilegedBridgeUnavailableTitle => '特权桥接不可用';
+
+  @override
+  String get hostAgentPrivilegedBridgeUnavailableBody =>
+      '无法验证或连接已安装的特权桥接。请重新安装 Roammand，然后重试。';
+
+  @override
+  String get hostAgentComponentMissingTitle => '缺少主机代理';
+
+  @override
+  String get hostAgentComponentMissingBody =>
+      '未找到已安装的主机代理程序。请重新安装 Roammand，然后重试。';
+
+  @override
+  String get hostAgentLaunchFailedTitle => '无法启动主机代理';
+
+  @override
+  String get hostAgentLaunchFailedBody =>
+      'macOS 无法启动已安装的主机代理。请重新安装 Roammand，然后重试。';
+
+  @override
+  String get hostAgentConfigurationInvalidTitle => '连接配置无效';
+
+  @override
+  String get hostAgentConfigurationInvalidBody => '请检查信令与 STUN 设置，然后重试。';
+
+  @override
+  String get hostAgentUnexpectedExitTitle => '主机代理意外退出';
+
+  @override
+  String get hostAgentUnexpectedExitBody =>
+      '主机代理在启动期间停止。请重试；如果仍然失败，请重新安装 Roammand。';
 
   @override
   String get hostAgentErrorTitle => '无法获取主机状态';

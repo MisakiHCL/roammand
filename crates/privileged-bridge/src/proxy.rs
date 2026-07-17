@@ -62,6 +62,8 @@ pub enum ProxyError {
     InvalidConfiguration,
     #[error("privileged bridge message is invalid")]
     InvalidMessage,
+    #[error("privileged bridge session helper is unavailable")]
+    HelperUnavailable,
     #[error("privileged bridge rejected the request")]
     Rejected,
 }

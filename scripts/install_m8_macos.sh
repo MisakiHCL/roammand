@@ -65,4 +65,6 @@ chmod 0444 "$OWNER_ID"
 chown root:wheel "$BRIDGE_RUNTIME_DIR"
 chmod 0755 "$BRIDGE_RUNTIME_DIR"
 launchctl bootstrap system "/Library/LaunchDaemons/dev.roammand.PrivilegedBridge.plist"
-printf 'macOS Host components installed; open Roammand to start its Host Agent, then sign out and in once to load the protected-session Agent\n'
+launchctl bootstrap "gui/$INSTALL_UID" "/Library/LaunchAgents/dev.roammand.SessionAgent.plist"
+launchctl kickstart -k "gui/$INSTALL_UID/dev.roammand.SessionAgent"
+printf 'macOS Host components installed; open Roammand to start its Host Agent\n'

@@ -37,6 +37,7 @@ struct FakeState {
     sent: Vec<PrivilegedBridgeClientFrame>,
     failed: bool,
     corrupt_server_proof: bool,
+    helper_connected: bool,
 }
 
 struct FakeTransport {
@@ -86,11 +87,14 @@ impl LocalBridgeTransport for FakeTransport {
                     )
                     .encode_to_vec(),
                 );
+                let helper_connected = state.helper_connected;
                 state.incoming.push_back(
                     server_frame(
                         "status-1",
                         1,
-                        privileged_bridge_server_frame::Payload::Status(ready_status()),
+                        privileged_bridge_server_frame::Payload::Status(ready_status(
+                            helper_connected,
+                        )),
                     )
                     .encode_to_vec(),
                 );
@@ -130,7 +134,7 @@ impl LocalBridgeTransport for FakeTransport {
 
 #[test]
 fn authenticates_discovers_the_route_and_acquires_the_exact_verified_lease() {
-    let state = fake_state(false);
+    let state = fake_state(false, true);
     let mut connector = AuthenticatedBridgeConnector::new(
         Box::new(FakeConnector {
             state: Arc::clone(&state),
@@ -179,7 +183,7 @@ fn authenticates_discovers_the_route_and_acquires_the_exact_verified_lease() {
 
 #[test]
 fn rejects_an_invalid_broker_proof_before_acquiring_a_lease() {
-    let state = fake_state(true);
+    let state = fake_state(true, true);
     let mut connector = AuthenticatedBridgeConnector::new(
         Box::new(FakeConnector {
             state: Arc::clone(&state),
@@ -205,7 +209,26 @@ fn rejects_an_invalid_broker_proof_before_acquiring_a_lease() {
     assert_eq!(state.sent.len(), 1);
 }
 
-fn fake_state(corrupt_server_proof: bool) -> Arc<Mutex<FakeState>> {
+#[test]
+fn reports_a_missing_session_helper_without_acquiring_a_lease() {
+    let state = fake_state(false, false);
+    let mut connector = AuthenticatedBridgeConnector::new(
+        Box::new(FakeConnector {
+            state: Arc::clone(&state),
+        }),
+        IpcToken::new(TOKEN_BYTES),
+        EXECUTABLE_HASH,
+        501,
+    )
+    .expect("connector");
+
+    assert_eq!(connector.probe_status(), Err(ProxyError::HelperUnavailable));
+    let state = state.lock().expect("state");
+    assert!(state.failed);
+    assert_eq!(state.sent.len(), 1);
+}
+
+fn fake_state(corrupt_server_proof: bool, helper_connected: bool) -> Arc<Mutex<FakeState>> {
     Arc::new(Mutex::new(FakeState {
         incoming: VecDeque::from([server_frame(
             "challenge-1",
@@ -219,10 +242,20 @@ fn fake_state(corrupt_server_proof: bool) -> Arc<Mutex<FakeState>> {
         sent: Vec::new(),
         failed: false,
         corrupt_server_proof,
+        helper_connected,
     }))
 }
 
-fn ready_status() -> PrivilegedBridgeStatusSnapshot {
+fn ready_status(helper_connected: bool) -> PrivilegedBridgeStatusSnapshot {
+    if !helper_connected {
+        return PrivilegedBridgeStatusSnapshot {
+            state: PrivilegedBridgeState::UserSessionOnly as i32,
+            interactive_session: None,
+            helper_connected: false,
+            active_controller_display_name: String::new(),
+            error: None,
+        };
+    }
     PrivilegedBridgeStatusSnapshot {
         state: PrivilegedBridgeState::Ready as i32,
         interactive_session: Some(PrivilegedSessionDescriptor {
@@ -231,7 +264,7 @@ fn ready_status() -> PrivilegedBridgeStatusSnapshot {
             desktop_kind: InteractiveDesktopKind::Normal as i32,
             generation: 7,
         }),
-        helper_connected: true,
+        helper_connected,
         active_controller_display_name: String::new(),
         error: None,
     }
