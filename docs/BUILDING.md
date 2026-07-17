@@ -20,6 +20,8 @@ Run `make help` at the repository root to see the common commands.
 | Build the iOS Simulator app | `make app-build-ios-simulator` |
 | Build the Android Debug APK | `make app-build-android` |
 | Build and verify the macOS Host package | `make package-macos` |
+| Create a Developer ID-signed macOS `.pkg` | `make package-macos-signed` |
+| Notarize and staple the macOS `.pkg` | `make release-macos` |
 | Run the complete product gate | `make test-product` |
 
 `make bootstrap`, `make app-check`, and `make test-product` hide successful tool output and print one final `[PASS]` line. Failures include the last 40 log lines, the retained full-log path, and a command for enabling complete output. Add `VERBOSE=1` when you need to stream every command, for example `make test-product VERBOSE=1`.
@@ -269,11 +271,50 @@ Package scripts require a clean worktree for their default Release build. They s
 
 ### macOS
 
+`make package-macos` builds Universal `arm64 + x86_64` app and background
+components, then stages the directory used for development acceptance:
+
 ```bash
 make package-macos
 sudo ./scripts/install_m8_macos.sh --package dist/m8-macos --dry-run
 sudo ./scripts/install_m8_macos.sh --package dist/m8-macos
 ```
+
+Website distribution uses a signed installer package. After installing
+Developer ID Application and Developer ID Installer identities and configuring
+the local Apple Team, run the privacy-safe preflight and create the signed
+package without submitting it for notarization:
+
+```bash
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+./scripts/check_apple_release_preflight.sh
+make package-macos-signed
+```
+
+The workflow signs Frameworks, standalone Agents, and the app in inside-out
+order using Developer ID Application and Hardened Runtime, regenerates the
+manifest after signing, and creates `dist/apple-release/Roammand.pkg` with
+Developer ID Installer.
+
+Store notarization credentials interactively in Keychain so the Apple ID,
+Team ID, and password never appear in command arguments:
+
+```bash
+xcrun notarytool store-credentials roammand-notary
+```
+
+Leave the API private-key path blank, then enter the Apple ID, Team ID, and
+app-specific password locally. Create an app-specific password under Sign-In
+and Security at [Apple Account](https://account.apple.com/). Then run:
+
+```bash
+make release-macos
+```
+
+This submits through the `roammand-notary` Keychain profile, waits for an
+`Accepted` response, staples the final package, and runs stapler and Gatekeeper
+validation. Raw identities and credentials aren't printed. A failed
+notarization log stays under ignored `dist/apple-release/`.
 
 The installer places `Roammand.app` in `/Applications`, installed Host and
 privileged binaries in `/Library/PrivilegedHelperTools`, and protected-session
@@ -333,16 +374,11 @@ The public Xcode projects do not contain an Apple developer identity. Configure 
 
 The command validates its inputs, writes `apps/client_flutter/apple/Signing.local.xcconfig` atomically, and sets mode `0600`. Certificates, private keys, provisioning profiles, App Store Connect `*.p8` keys, and local export options must remain outside Git.
 
-Inspect the effective Release settings when needed:
+Use the privacy-safe preflight to verify effective Release settings without
+printing the Team ID, bundle ID, or signing identity:
 
 ```bash
-cd apps/client_flutter
-xcodebuild -project ios/Runner.xcodeproj -scheme Runner \
-  -configuration Release -sdk iphoneos -showBuildSettings \
-  | grep -E 'DEVELOPMENT_TEAM|PRODUCT_BUNDLE_IDENTIFIER'
-xcodebuild -project macos/Runner.xcodeproj -scheme Runner \
-  -configuration Release -showBuildSettings \
-  | grep -E 'DEVELOPMENT_TEAM|PRODUCT_BUNDLE_IDENTIFIER'
+./scripts/check_apple_release_preflight.sh
 ```
 
 iOS distribution uses App Store/TestFlight archives. The complete macOS Host uses Developer ID signing, Hardened Runtime, a signed installer, notarization, and stapling for direct distribution. Its privileged non-sandboxed architecture is not a Mac App Store target; a store-distributed macOS app requires a separate sandboxed Controller-only design.

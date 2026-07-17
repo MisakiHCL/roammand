@@ -14,6 +14,7 @@ fi
 [[ "$EUID" -eq 0 ]] || { printf 'administrator privileges are required; run with sudo or use --dry-run\n' >&2; exit 1; }
 
 readonly SERVICE_DATA_DIR="/Library/Application Support/Roammand"
+readonly PACKAGE_RECEIPT_ID="dev.roammand.pkg"
 readonly OWNER_ID_FILE="$SERVICE_DATA_DIR/bridge-owner-id"
 readonly INSTALLED_APP_PATTERN='^/Applications/Roammand[.]app/Contents/MacOS/roammand([[:space:]]|$)'
 readonly INSTALLED_HOST_AGENT_PATTERN='^/Library/PrivilegedHelperTools/roammand-host-agent([[:space:]]|$)'
@@ -34,6 +35,7 @@ launchctl bootout system/dev.roammand.PrivilegedBridge 2>/dev/null || true
 /usr/bin/pkill -TERM -f "$INSTALLED_BRIDGE_PATTERN" 2>/dev/null || true
 /usr/bin/pkill -TERM -f "$INSTALLED_SESSION_AGENT_PATTERN" 2>/dev/null || true
 /usr/bin/pkill -TERM -f "$INSTALLED_APP_PATTERN" 2>/dev/null || true
+pkgutil --forget "$PACKAGE_RECEIPT_ID" >/dev/null 2>&1 || true
 rm -f "/Library/LaunchDaemons/dev.roammand.PrivilegedBridge.plist" \
   "/Library/LaunchAgents/dev.roammand.HostAgent.plist" \
   "/Library/LaunchAgents/dev.roammand.SessionAgent.plist" \

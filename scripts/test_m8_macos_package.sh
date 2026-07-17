@@ -16,15 +16,35 @@ rg -q '<string>Aqua</string>' packaging/macos/dev.roammand.SessionAgent.plist
 rg -q '<string>LoginWindow</string>' packaging/macos/dev.roammand.SessionAgent.plist
 test ! -e packaging/macos/dev.roammand.HostAgent.plist
 test "$(rg -c 'MACOSX_DEPLOYMENT_TARGET = 14\.4;' apps/client_flutter/macos/Runner.xcodeproj/project.pbxproj)" -eq 3
-rg -q -- '--features native-webrtc' scripts/package_m8_macos.sh
+test "$(rg -c 'ENABLE_HARDENED_RUNTIME = YES;' apps/client_flutter/macos/Runner.xcodeproj/project.pbxproj)" -eq 1
+rg -q 'build_macos_universal_agents\.sh' scripts/package_m8_macos.sh
+rg -q -- '--target "\$target"' scripts/build_macos_universal_agents.sh
+rg -q 'webrtc-mac-arm64-release\.zip' scripts/build_macos_universal_agents.sh
+rg -q 'webrtc-mac-x64-release\.zip' scripts/build_macos_universal_agents.sh
+rg -q 'lipo -create' scripts/build_macos_universal_agents.sh
 rg -q -- 'flutter build macos --release --no-pub' scripts/package_m8_macos.sh
+rg -q -- '--options runtime' scripts/sign_macos_release.sh
+rg -q -- '--timestamp' scripts/sign_macos_release.sh
+rg -q 'Developer ID Application' scripts/sign_macos_release.sh
+rg -q 'Developer ID Installer' scripts/build_macos_pkg.sh
+rg -q 'notarytool submit' scripts/notarize_macos_pkg.sh
+rg -q -- '--timeout 2h' scripts/notarize_macos_pkg.sh
+rg -q 'stapler staple' scripts/notarize_macos_pkg.sh
+rg -q 'spctl --assess --type install' scripts/notarize_macos_pkg.sh
+rg -q -- '--keychain-profile' scripts/notarize_macos_pkg.sh
+rg -q '/dev/console' packaging/macos/scripts/postinstall
+if rg -q 'SUDO_UID' packaging/macos/scripts; then
+  printf 'installer package scripts must not depend on a sudo shell\n' >&2
+  exit 1
+fi
+plutil -lint packaging/macos/entitlements/*.entitlements >/dev/null
 rg -q 'bridge-install-secret\.bin' scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh
 rg -q 'bridge-owner-id' scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh
 rg -q '/var/run/roammand' scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh
 rg -q '/Applications/Roammand\.app' scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh
 rg -q 'Application Support/Roammand' scripts/package_m8_macos.sh scripts/install_m8_macos.sh
 rg -q 'uninstall-macos\.sh' scripts/package_m8_macos.sh scripts/install_m8_macos.sh
-if rg -n '(private[_ -]?key|seed|signaling|turn[_ -]?password|/Users/|--shell|interactive service)' \
+if rg -q '(private[_ -]?key|seed|signaling|turn[_ -]?password|/Users/|--shell|interactive service)' \
   packaging/macos scripts/package_m8_macos.sh scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh; then
   printf 'macOS package contains forbidden privilege or local data\n' >&2
   exit 1

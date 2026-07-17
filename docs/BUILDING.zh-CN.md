@@ -20,6 +20,8 @@
 | 构建 iOS 模拟器 App | `make app-build-ios-simulator` |
 | 构建 Android Debug APK | `make app-build-android` |
 | 构建并验证 macOS Host 安装包 | `make package-macos` |
+| 创建 Developer ID 签名的 macOS `.pkg` | `make package-macos-signed` |
+| 公证并 staple macOS `.pkg` | `make release-macos` |
 | 运行完整产品门禁 | `make test-product` |
 
 `make bootstrap`、`make app-check` 和 `make test-product` 会隐藏成功时的工具日志，最后只打印一行 `[PASS]` 结论。失败时会显示末尾 40 行日志、保留完整日志的路径，并给出查看完整输出的命令。需要实时查看每条命令时可添加 `VERBOSE=1`，例如 `make test-product VERBOSE=1`。
@@ -244,11 +246,37 @@ flutter build windows --release
 
 ### macOS
 
+`make package-macos` 会构建 `arm64 + x86_64` Universal App 与后台组件，并暂存供开发验收的目录：
+
 ```bash
 make package-macos
 sudo ./scripts/install_m8_macos.sh --package dist/m8-macos --dry-run
 sudo ./scripts/install_m8_macos.sh --package dist/m8-macos
 ```
+
+官网正式分发使用签名 `.pkg`。安装 Developer ID Application 与 Developer ID Installer、配置本地 Apple Team 后，先运行安全预检：
+
+```bash
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+./scripts/check_apple_release_preflight.sh
+make package-macos-signed
+```
+
+该流程按 Frameworks、独立 Agent、主 App 的顺序使用 Developer ID Application 与 Hardened Runtime 签名，在签名后重新生成清单，再使用 Developer ID Installer 创建 `dist/apple-release/Roammand.pkg`。它不会提交公证。
+
+将公证凭据交互式保存到 Keychain，避免把 Apple ID、Team ID 或密码写进命令参数：
+
+```bash
+xcrun notarytool store-credentials roammand-notary
+```
+
+API 私钥路径提示留空，随后在本地输入 Apple ID、Team ID 与 App 专用密码。App 专用密码在 [Apple Account](https://account.apple.com/) 的“登录与安全”中创建。最后执行：
+
+```bash
+make release-macos
+```
+
+该目标使用 `roammand-notary` Keychain profile 提交 Apple notary service，等待 `Accepted`，staple 最终 `.pkg`，并执行 stapler 与 Gatekeeper 验证。原始身份和凭据不会打印；失败的公证日志只保存在被 Git 忽略的 `dist/apple-release/`。
 
 安装器会把 `Roammand.app` 放入 `/Applications`，将 Host 与特权二进制放入 `/Library/PrivilegedHelperTools`，并将受保护会话的 launchd 定义放入 `/Library/LaunchDaemons` 和 `/Library/LaunchAgents`。打开 GUI 会启动已安装的 Host Agent；关闭窗口时 GUI 与 Agent 会继续在托盘运行，只有明确选择“退出”才会停止由该 GUI 启动的 Agent。安装后注销并重新登录一次，使受保护会话 Agent 生效。
 
@@ -296,16 +324,10 @@ pwsh -NoProfile -File scripts/uninstall_m8_windows.ps1
 
 该命令会校验输入，以原子方式写入 `apps/client_flutter/apple/Signing.local.xcconfig`，并将权限设置为 `0600`。证书、私钥、Provisioning Profile、App Store Connect `*.p8` Key 和本地 Export Options 必须始终保留在 Git 之外。
 
-需要时可以检查实际生效的 Release 配置：
+使用不会打印 Team ID、Bundle ID 或签名身份的预检确认 Release 配置：
 
 ```bash
-cd apps/client_flutter
-xcodebuild -project ios/Runner.xcodeproj -scheme Runner \
-  -configuration Release -sdk iphoneos -showBuildSettings \
-  | grep -E 'DEVELOPMENT_TEAM|PRODUCT_BUNDLE_IDENTIFIER'
-xcodebuild -project macos/Runner.xcodeproj -scheme Runner \
-  -configuration Release -showBuildSettings \
-  | grep -E 'DEVELOPMENT_TEAM|PRODUCT_BUNDLE_IDENTIFIER'
+./scripts/check_apple_release_preflight.sh
 ```
 
 iOS 使用 App Store/TestFlight Archive 发行。完整 macOS Host 使用 Developer ID 签名、Hardened Runtime、签名安装器、公证和 stapling，通过官网下载发行。其需要特权组件且不使用沙盒的架构不适用于 Mac App Store；如需商店发行，必须采用独立的沙盒 Controller-only 设计。

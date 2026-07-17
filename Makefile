@@ -4,8 +4,10 @@ FLUTTER_ARGS ?=
 IOS_DEVICE ?=
 VERBOSE ?= 0
 HOST_AGENT_DEBUG := $(abspath target/debug/roammand-host-agent)
+MACOS_RELEASE_PKG := dist/apple-release/Roammand.pkg
+ROAMMAND_NOTARY_KEYCHAIN_PROFILE ?= roammand-notary
 
-.PHONY: help bootstrap bootstrap-steps app-check app-check-steps app-prepare-host-macos app-run-macos app-run-ios app-build-macos app-build-ios-simulator app-build-android package-macos test-product test-product-steps doctor boundary check-libwebrtc fetch-libwebrtc format format-check generate generate-failure-check generate-check schema-lint schema-build schema-breaking test test-conformance test-dart test-host test-m4 test-m4-config test-m4-lifecycle test-m5 test-m5-config test-m5-lifecycle test-m6 test-m6-config test-m6-lifecycle test-m7 test-m7-config test-m7-fuzz test-m7-privacy test-m7-reconnect test-m8 test-m8-config test-m8-privacy test-native-webrtc test-rust test-go test-schema test-schema-contract test-signaling test-signaling-race
+.PHONY: help bootstrap bootstrap-steps app-check app-check-steps app-prepare-host-macos app-run-macos app-run-ios app-build-macos app-build-ios-simulator app-build-android package-macos package-macos-signed release-macos test-product test-product-steps doctor boundary check-libwebrtc fetch-libwebrtc format format-check generate generate-failure-check generate-check schema-lint schema-build schema-breaking test test-conformance test-dart test-host test-m4 test-m4-config test-m4-lifecycle test-m5 test-m5-config test-m5-lifecycle test-m6 test-m6-config test-m6-lifecycle test-m7 test-m7-config test-m7-fuzz test-m7-privacy test-m7-reconnect test-m8 test-m8-config test-m8-privacy test-native-webrtc test-rust test-go test-schema test-schema-contract test-signaling test-signaling-race
 
 define run-product-workflow
 	@if [ "$(VERBOSE)" = "1" ]; then \
@@ -28,6 +30,8 @@ help:
 		'  make app-build-ios-simulator  Build the iOS simulator app' \
 		'  make app-build-android        Build the Android debug APK' \
 		'  make package-macos            Stage and verify the macOS Host package' \
+		'  make package-macos-signed     Create a signed macOS installer package' \
+		'  make release-macos            Notarize and staple the signed installer' \
 		'  make test-product             Run the complete product gate' \
 		'' \
 		"Pass Flutter options with FLUTTER_ARGS='--dart-define=KEY=value'." \
@@ -81,6 +85,16 @@ app-build-android:
 package-macos:
 	./scripts/package_m8_macos.sh
 	./scripts/check_m8_macos_package.sh dist/m8-macos
+
+package-macos-signed: package-macos
+	./scripts/check_apple_release_preflight.sh
+	./scripts/sign_macos_release.sh --package-dir dist/m8-macos
+	./scripts/build_macos_pkg.sh \
+		--package-dir dist/m8-macos --output $(MACOS_RELEASE_PKG)
+
+release-macos: package-macos-signed
+	./scripts/notarize_macos_pkg.sh --package $(MACOS_RELEASE_PKG) \
+		--keychain-profile "$(ROAMMAND_NOTARY_KEYCHAIN_PROFILE)"
 
 test-product:
 	+$(call run-product-workflow,test-product-steps,test-product)

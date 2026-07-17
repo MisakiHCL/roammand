@@ -26,7 +26,11 @@ rg -q 'socket_path.*\[REDACTED\]' crates/privileged-bridge/src/macos/transport.r
 
 for package in dist/m8-macos dist/m8-windows; do
   [[ -d "$package" ]] || continue
-  if find "$package" -type f \( -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -print -quit | rg -q .; then
+  if find "$package" -type f \( \
+    -name '*.pem' -o -name '*.key' -o -name '*.p8' -o -name '*.p12' \
+    -o -name '*.pfx' -o -name '*.cer' -o -name '*.mobileprovision' \
+    -o -name '*.provisionprofile' \
+  \) -print -quit | rg -q .; then
     fail 'staged package contains credentials or certificates'
   fi
 done

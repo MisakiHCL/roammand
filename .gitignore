@@ -24,11 +24,26 @@ services/signaling/coverage.out
 .env
 .env.*
 !.env.example
+*.local.xcconfig
+Signing.local.xcconfig
+*.certSigningRequest
+*.cer
 *.key
 *.pem
 *.p8
 *.p12
+*.pfx
 *.mobileprovision
+*.provisionprofile
+
+# Apple release artifacts and diagnostics
+*.xcarchive
+*.ipa
+*.pkg
+*.dmg
+notarytool*.json
+notarization*.json
+apple-signing-tmp/
 
 # Logs and diagnostics
 *.log

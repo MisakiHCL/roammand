@@ -1,0 +1,30 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+
+set -eu
+
+readonly SERVICE_DATA_DIR="/Library/Application Support/Roammand"
+readonly OWNER_ID_FILE="$SERVICE_DATA_DIR/bridge-owner-id"
+readonly INSTALLED_APP_PATTERN='^/Applications/Roammand[.]app/Contents/MacOS/roammand([[:space:]]|$)'
+readonly INSTALLED_HOST_AGENT_PATTERN='^/Library/PrivilegedHelperTools/roammand-host-agent([[:space:]]|$)'
+readonly INSTALLED_BRIDGE_PATTERN='^/Library/PrivilegedHelperTools/roammand-privileged-bridge([[:space:]]|$)'
+readonly INSTALLED_SESSION_AGENT_PATTERN='^/Library/PrivilegedHelperTools/roammand-session-agent([[:space:]]|$)'
+
+owner_id=""
+if [[ -f "$OWNER_ID_FILE" ]]; then
+  owner_id="$(/usr/bin/tr -d '[:space:]' <"$OWNER_ID_FILE")"
+  [[ "$owner_id" =~ ^[0-9]+$ && "$owner_id" != "0" ]] || owner_id=""
+fi
+
+if [[ -n "$owner_id" ]]; then
+  /bin/launchctl bootout "gui/$owner_id/dev.roammand.SessionAgent" 2>/dev/null || true
+  /bin/launchctl bootout "gui/$owner_id/dev.roammand.HostAgent" 2>/dev/null || true
+fi
+/bin/launchctl bootout system/dev.roammand.PrivilegedBridge 2>/dev/null || true
+/usr/bin/pkill -TERM -f "$INSTALLED_HOST_AGENT_PATTERN" 2>/dev/null || true
+/usr/bin/pkill -TERM -f "$INSTALLED_BRIDGE_PATTERN" 2>/dev/null || true
+/usr/bin/pkill -TERM -f "$INSTALLED_SESSION_AGENT_PATTERN" 2>/dev/null || true
+/usr/bin/pkill -TERM -f "$INSTALLED_APP_PATTERN" 2>/dev/null || true
+/bin/rm -f /var/run/roammand/bridge.sock
+
+exit 0

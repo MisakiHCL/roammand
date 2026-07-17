@@ -14,6 +14,8 @@ readonly TARGETS=(
   app-build-ios-simulator
   app-build-android
   package-macos
+  package-macos-signed
+  release-macos
   test-product
 )
 readonly STEP_TARGETS=(
@@ -75,6 +77,19 @@ if [[ ! -x "$MACOS_DEVELOPMENT_SIGNER" ]]; then
 fi
 rg --quiet 'sign_macos_development\.sh' Makefile || {
   printf 'managed Debug Agent does not receive a stable development signature\n' >&2
+  exit 1
+}
+
+rg --quiet '^package-macos-signed: package-macos$' Makefile || {
+  printf 'signed macOS package target does not reuse verified staging\n' >&2
+  exit 1
+}
+rg --quiet '^release-macos: package-macos-signed$' Makefile || {
+  printf 'macOS release target does not require a signed installer\n' >&2
+  exit 1
+}
+rg --quiet 'notarize_macos_pkg\.sh' Makefile || {
+  printf 'macOS release target does not notarize the installer\n' >&2
   exit 1
 }
 

@@ -107,7 +107,21 @@ void main() {
 
   test('Apple signing identity is loaded only from an ignored local file', () {
     final rootIgnore = File('../../.gitignore').readAsStringSync();
-    expect(rootIgnore, contains('*.p8'));
+    for (final pattern in <String>[
+      '*.local.xcconfig',
+      '*.certSigningRequest',
+      '*.cer',
+      '*.p8',
+      '*.p12',
+      '*.mobileprovision',
+      '*.provisionprofile',
+      '*.xcarchive',
+      '*.ipa',
+      '*.pkg',
+      'notarization*.json',
+    ]) {
+      expect(rootIgnore, contains(pattern), reason: pattern);
+    }
     final appIgnore = File('.gitignore').readAsStringSync();
     expect(appIgnore, contains('/apple/Signing.local.xcconfig'));
     expect(appIgnore, contains('/apple/ExportOptions.local.plist'));

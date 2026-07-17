@@ -28,18 +28,14 @@ if [[ -z "$APP_BUNDLE$HOST_AGENT$BRIDGE$SESSION_AGENT" ]]; then
     printf 'refusing release build from a dirty worktree\n' >&2
     exit 1
   fi
-  readonly WEBRTC_ROOT="$(./scripts/fetch_libwebrtc.sh)"
-  LK_CUSTOM_WEBRTC="$WEBRTC_ROOT" cargo build --release \
-    -p roammand-host-agent --features native-webrtc
-  LK_CUSTOM_WEBRTC="$WEBRTC_ROOT" cargo build --release \
-    -p roammand-privileged-bridge --features native-webrtc
+  ./scripts/build_macos_universal_agents.sh
   # Dependency resolution is explicit in `make bootstrap`; packaging reuses
   # the locked cache and must not depend on pub.dev being reachable.
   (cd apps/client_flutter && flutter build macos --release --no-pub)
   APP_BUNDLE="$ROOT_DIR/apps/client_flutter/build/macos/Build/Products/Release/roammand.app"
-  HOST_AGENT="$ROOT_DIR/target/release/roammand-host-agent"
-  BRIDGE="$ROOT_DIR/target/release/roammand-privileged-bridge"
-  SESSION_AGENT="$BRIDGE"
+  HOST_AGENT="$ROOT_DIR/target/macos-universal/release/roammand-host-agent"
+  BRIDGE="$ROOT_DIR/target/macos-universal/release/roammand-privileged-bridge"
+  SESSION_AGENT="$ROOT_DIR/target/macos-universal/release/roammand-session-agent"
 elif [[ -z "$APP_BUNDLE" || -z "$HOST_AGENT" || -z "$BRIDGE" || -z "$SESSION_AGENT" ]]; then
   printf 'all four artifact overrides are required together\n' >&2
   exit 2
@@ -49,6 +45,10 @@ for artifact in "$APP_BUNDLE" "$HOST_AGENT" "$BRIDGE" "$SESSION_AGENT"; do
   [[ -e "$artifact" ]] || { printf 'missing package artifact\n' >&2; exit 1; }
 done
 
+if [[ "$OUTPUT_DIR" == "/" || "$OUTPUT_DIR" == "$ROOT_DIR" ]]; then
+  printf 'unsafe macOS package output directory\n' >&2
+  exit 2
+fi
 rm -rf "$OUTPUT_DIR"
 install -d -m 0755 \
   "$OUTPUT_DIR/Applications" \
@@ -72,13 +72,6 @@ install -m 0644 licenses/MPL-2.0.txt licenses/Apache-2.0.txt \
 install -m 0755 scripts/uninstall_m8_macos.sh \
   "$OUTPUT_DIR/Library/Application Support/Roammand/uninstall-macos.sh"
 
-readonly MANIFEST="$OUTPUT_DIR/Library/Application Support/Roammand/install-manifest.sha256"
-(
-  cd "$OUTPUT_DIR"
-  find . -type f ! -path './Library/Application Support/Roammand/install-manifest.sha256' \
-    -print | LC_ALL=C sort | sed 's#^\./##' | while IFS= read -r file; do
-      shasum -a 256 "$file"
-    done
-) >"$MANIFEST"
+./scripts/write_macos_package_manifest.sh "$OUTPUT_DIR" >/dev/null
 
-printf 'staged macOS package: %s\n' "$OUTPUT_DIR"
+printf 'staged macOS package directory\n'

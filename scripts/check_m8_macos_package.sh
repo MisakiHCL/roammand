@@ -46,6 +46,22 @@ while IFS= read -r -d '' link; do
     exit 1
   fi
 done < <(find "$PACKAGE_DIR" -type l -print0)
+
+readonly UNIVERSAL_BINARIES=(
+  "Applications/Roammand.app/Contents/MacOS/roammand"
+  "Library/PrivilegedHelperTools/roammand-host-agent"
+  "Library/PrivilegedHelperTools/roammand-privileged-bridge"
+  "Library/PrivilegedHelperTools/roammand-session-agent"
+)
+for path in "${UNIVERSAL_BINARIES[@]}"; do
+  binary="$PACKAGE_DIR/$path"
+  if file -b "$binary" | rg -q '^Mach-O'; then
+    lipo "$binary" -verify_arch arm64 x86_64 >/dev/null || {
+      printf 'macOS package binary is not Universal\n' >&2
+      exit 1
+    }
+  fi
+done
 "$PACKAGE_DIR/Library/PrivilegedHelperTools/roammand-privileged-bridge" \
   check-macos-daemon >/dev/null
 "$PACKAGE_DIR/Library/PrivilegedHelperTools/roammand-session-agent" \

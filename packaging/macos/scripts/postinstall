@@ -1,0 +1,53 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+
+set -eu
+
+readonly SERVICE_DATA_DIR="/Library/Application Support/Roammand"
+readonly INSTALL_SECRET="$SERVICE_DATA_DIR/bridge-install-secret.bin"
+readonly OWNER_ID_FILE="$SERVICE_DATA_DIR/bridge-owner-id"
+readonly BRIDGE_RUNTIME_DIR="/var/run/roammand"
+readonly APP_PATH="/Applications/Roammand.app"
+readonly HELPER_DIR="/Library/PrivilegedHelperTools"
+readonly DAEMON_PLIST="/Library/LaunchDaemons/dev.roammand.PrivilegedBridge.plist"
+readonly AGENT_PLIST="/Library/LaunchAgents/dev.roammand.SessionAgent.plist"
+
+console_user="$(/usr/bin/stat -f '%Su' /dev/console)"
+case "$console_user" in
+  ''|root|loginwindow|_mbsetupuser)
+    printf 'Roammand must be installed while a normal user is logged in\n' >&2
+    exit 1
+    ;;
+esac
+console_uid="$(/usr/bin/id -u "$console_user")"
+if [[ ! "$console_uid" =~ ^[0-9]+$ || "$console_uid" == "0" ]]; then
+  printf 'unable to determine the Roammand owner account\n' >&2
+  exit 1
+fi
+
+/usr/sbin/chown -R root:wheel "$APP_PATH"
+/usr/sbin/chown root:wheel \
+  "$HELPER_DIR/roammand-host-agent" \
+  "$HELPER_DIR/roammand-privileged-bridge" \
+  "$HELPER_DIR/roammand-session-agent" \
+  "$DAEMON_PLIST" "$AGENT_PLIST"
+/bin/chmod 0755 \
+  "$HELPER_DIR/roammand-host-agent" \
+  "$HELPER_DIR/roammand-privileged-bridge" \
+  "$HELPER_DIR/roammand-session-agent"
+/bin/chmod 0644 "$DAEMON_PLIST" "$AGENT_PLIST"
+/bin/chmod 0755 "$SERVICE_DATA_DIR/uninstall-macos.sh"
+
+/usr/bin/install -d -o root -g wheel -m 0755 "$BRIDGE_RUNTIME_DIR"
+umask 077
+/bin/dd if=/dev/urandom of="$INSTALL_SECRET" bs=32 count=1 2>/dev/null
+/usr/sbin/chown "$console_uid":wheel "$INSTALL_SECRET"
+/bin/chmod 0400 "$INSTALL_SECRET"
+/usr/bin/printf '%s\n' "$console_uid" >"$OWNER_ID_FILE"
+/usr/sbin/chown root:wheel "$OWNER_ID_FILE"
+/bin/chmod 0444 "$OWNER_ID_FILE"
+
+/bin/launchctl bootout system/dev.roammand.PrivilegedBridge 2>/dev/null || true
+/bin/launchctl bootstrap system "$DAEMON_PLIST"
+
+exit 0
