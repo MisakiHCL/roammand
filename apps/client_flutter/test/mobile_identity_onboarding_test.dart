@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/identity/device_name_provider.dart';
 import 'package:roammand/mobile/identity/mobile_device_identity.dart';
@@ -46,8 +47,10 @@ void main() {
   ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(844, 390);
+    tester.view.padding = const FakeViewPadding(left: 44, right: 24);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetPadding);
 
     await tester.pumpWidget(
       _app(
@@ -60,6 +63,7 @@ void main() {
           nameProvider: DeviceNameProvider(source: _NameSource('iPhone')),
           onReady: (_) {},
         ),
+        locale: const Locale('zh'),
       ),
     );
     await tester.pumpAndSettle();
@@ -69,14 +73,18 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
-    final cardBottom = tester.getBottomRight(
+    final backdropRect = tester.getRect(find.byType(RoammandBackdrop));
+    final cardRect = tester.getRect(
       find.byKey(const Key('mobile-identity-card')),
     );
-    expect(cardBottom.dy, lessThanOrEqualTo(390));
+    expect(backdropRect, const Rect.fromLTWH(0, 0, 844, 390));
+    expect(cardRect.center.dy, closeTo(backdropRect.center.dy, 1));
+    expect(cardRect.bottom, lessThanOrEqualTo(390));
   });
 }
 
-Widget _app(Widget home) => MaterialApp(
+Widget _app(Widget home, {Locale? locale}) => MaterialApp(
+  locale: locale,
   localizationsDelegates: AppLocalizations.localizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: home,

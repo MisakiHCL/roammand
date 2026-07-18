@@ -135,7 +135,7 @@ final class _MobileIdentityOnboardingState
             builder: (context, constraints) {
               final landscape = constraints.maxWidth > constraints.maxHeight;
               return landscape
-                  ? _buildLandscape(context, strings)
+                  ? _buildLandscape(context, strings, constraints)
                   : _buildPortrait(context, strings);
             },
           ),
@@ -167,7 +167,18 @@ final class _MobileIdentityOnboardingState
     );
   }
 
-  Widget _buildLandscape(BuildContext context, AppLocalizations strings) {
+  Widget _buildLandscape(
+    BuildContext context,
+    AppLocalizations strings,
+    BoxConstraints viewportConstraints,
+  ) {
+    final bottomPadding =
+        _landscapePagePadding + MediaQuery.viewInsetsOf(context).bottom;
+    final totalVerticalPadding = _landscapePagePadding + bottomPadding;
+    final minimumContentHeight =
+        viewportConstraints.maxHeight > totalVerticalPadding
+        ? viewportConstraints.maxHeight - totalVerticalPadding
+        : 0.0;
     return SingleChildScrollView(
       key: const Key('mobile-identity-landscape-layout'),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -175,22 +186,25 @@ final class _MobileIdentityOnboardingState
         _landscapePagePadding,
         _landscapePagePadding,
         _landscapePagePadding,
-        _landscapePagePadding + MediaQuery.viewInsetsOf(context).bottom,
+        bottomPadding,
       ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: _maximumLandscapeContentWidth,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Expanded(child: _buildHero(strings, compact: true)),
-              const SizedBox(width: _landscapeColumnSpacing),
-              Expanded(
-                child: _buildIdentityCard(context, strings, compact: true),
-              ),
-            ],
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: minimumContentHeight),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: _maximumLandscapeContentWidth,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Expanded(child: _buildHero(strings, compact: true)),
+                const SizedBox(width: _landscapeColumnSpacing),
+                Expanded(
+                  child: _buildIdentityCard(context, strings, compact: true),
+                ),
+              ],
+            ),
           ),
         ),
       ),

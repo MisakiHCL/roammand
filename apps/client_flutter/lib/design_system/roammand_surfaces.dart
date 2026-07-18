@@ -11,20 +11,22 @@ final class RoammandBackdrop extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: <Color>[
-          RoammandColors.canvas,
-          Color(0xFF0D1129),
-          RoammandColors.canvas,
-        ],
-        stops: <double>[0, 0.52, 1],
+  Widget build(BuildContext context) => SizedBox.expand(
+    child: DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            RoammandColors.canvas,
+            Color(0xFF0D1129),
+            RoammandColors.canvas,
+          ],
+          stops: <double>[0, 0.52, 1],
+        ),
       ),
+      child: child,
     ),
-    child: child,
   );
 }
 
