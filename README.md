@@ -15,6 +15,32 @@ Roammand turns your phone, tablet, or another computer into a trusted control su
 
 Continue desktop work from mobile, supervise long-running tasks, and keep your personal computing environment within reach.
 
+## Download status
+
+Roammand is preparing its first public release. The distributable builds exist,
+but the public download channels are not live yet.
+
+| Platform | Current status |
+| --- | --- |
+| macOS 14.4 or later | The signed and notarized `.pkg` installer is ready; its public download link has not been published yet. |
+| iPhone and iPad | **Not yet available.** Version 1.0.0 is awaiting App Store release. [View the upcoming App Store listing](https://apps.apple.com/app/id6792014935). |
+
+The App Store link above identifies the upcoming release; it is not currently a
+public download. TestFlight access remains limited to invited testers.
+
+## Quick start
+
+1. Install Roammand on the Mac and open **This computer**.
+2. Complete the Screen Recording and Accessibility setup shown by the app. The
+   Host stays unavailable until both permissions are ready.
+3. Create a phone QR invitation, scan it from the iPhone or iPad, compare the
+   four verification words, and approve the named Controller on the Mac.
+4. The Mac appears in **My computers**. Choose **Connect** whenever you want to
+   continue working remotely.
+
+See the [user guide](docs/user-guide/README.md) for installation, permissions,
+pairing, connection limits, and uninstalling.
+
 ## What you can do
 
 - Pair a phone by QR code or another computer with a one-time code and four-word verification.
@@ -27,9 +53,9 @@ Continue desktop work from mobile, supervise long-running tasks, and keep your p
 
 ## How it works
 
-1. Open **This computer** on the Host and create a phone QR invitation or desktop pairing code.
-2. Scan or enter the invitation, compare the four verification words, and approve the named Controller beside the Host.
-3. The computer appears in **My computers**. Choose **Connect** whenever you want to continue working remotely.
+Pairing creates a Host-local, one-way grant after the Mac user verifies and
+approves the named Controller. Later sessions authenticate that saved grant
+before remote control begins; signaling cannot grant access by itself.
 
 Authorization is one-way: a Controller can access only the Host that approved it. Reversing the direction requires a separate pairing and approval.
 
@@ -106,6 +132,7 @@ health checks, a single UDP STUN port, and bounded logs. See
 
 ## Project guides
 
+- [Install, authorize, pair, and troubleshoot](docs/user-guide/README.md)
 - [Build, run, package, and verify](docs/BUILDING.md)
 - [Brand design guidelines](brand/README.md)
 - [Architecture](docs/architecture/README.md)
