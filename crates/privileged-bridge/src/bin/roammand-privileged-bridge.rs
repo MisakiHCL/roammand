@@ -6,6 +6,14 @@ use roammand_privileged_bridge::macos::{
 use roammand_privileged_bridge::windows::{PipeAccessPolicy, ServiceControl, ServiceCore};
 
 const COMPONENT: &str = "roammand-privileged-bridge";
+#[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+const MACOS_PERMISSION_STATUS_COMMAND: &str = "macos-permission-status";
+#[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+const MACOS_REQUEST_SCREEN_RECORDING_COMMAND: &str = "macos-request-screen-recording";
+#[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+const MACOS_REQUEST_ACCESSIBILITY_COMMAND: &str = "macos-request-accessibility";
+#[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+const MACOS_PERMISSION_EXIT_CODE_BASE: u8 = 40;
 
 fn main() {
     #[cfg(windows)]
@@ -16,10 +24,36 @@ fn main() {
         }
         return;
     }
+    #[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+    if let Some(exit_code) = macos_permission_command() {
+        std::process::exit(i32::from(exit_code));
+    }
     if let Err(error) = run(std::env::args().skip(1)) {
         eprintln!("{COMPONENT}: {error}");
         std::process::exit(1);
     }
+}
+
+#[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+fn macos_permission_command() -> Option<u8> {
+    let mut arguments = std::env::args().skip(1);
+    let command = arguments.next()?;
+    if arguments.next().is_some() {
+        return None;
+    }
+    let status = match command.as_str() {
+        MACOS_PERMISSION_STATUS_COMMAND => {
+            roammand_host_platform::macos_desktop_permission_status(false, false)
+        }
+        MACOS_REQUEST_SCREEN_RECORDING_COMMAND => {
+            roammand_host_platform::macos_desktop_permission_status(true, false)
+        }
+        MACOS_REQUEST_ACCESSIBILITY_COMMAND => {
+            roammand_host_platform::macos_desktop_permission_status(false, true)
+        }
+        _ => return None,
+    };
+    Some(MACOS_PERMISSION_EXIT_CODE_BASE + status.exit_code())
 }
 
 fn run(mut arguments: impl Iterator<Item = String>) -> Result<(), &'static str> {
@@ -191,6 +225,7 @@ mod macos_runtime {
         )
         .map_err(|_| "session Agent configuration failed")?;
         let shutdown = shutdown_flag()?;
+        wait_for_desktop_permissions(shutdown.as_ref())?;
         let (indicator, indicator_runtime) = native_indicator_channel();
         let worker_indicator = indicator.clone();
         let worker_shutdown = Arc::clone(&shutdown);
@@ -198,9 +233,7 @@ mod macos_runtime {
             let result = run_unix_helper(
                 Path::new(MACOS_BRIDGE_SOCKET_PATH),
                 config,
-                Box::new(
-                    NativeHelperBackend::new(uid != 0).with_indicator(worker_indicator.clone()),
-                ),
+                Box::new(NativeHelperBackend::new().with_indicator(worker_indicator.clone())),
                 worker_shutdown.as_ref(),
                 IO_TIMEOUT,
             );
@@ -214,6 +247,17 @@ mod macos_runtime {
             .map_err(|_| "session Agent worker failed")?
             .map_err(|_| "session Agent runtime failed");
         ui_result.and(worker_result)
+    }
+
+    #[cfg(feature = "native-webrtc")]
+    fn wait_for_desktop_permissions(shutdown: &AtomicBool) -> Result<(), &'static str> {
+        while !shutdown.load(std::sync::atomic::Ordering::Relaxed) {
+            if roammand_host_platform::macos_desktop_permission_status(false, false).ready() {
+                return Ok(());
+            }
+            thread::sleep(Duration::from_millis(500));
+        }
+        Err("session Agent stopped before permissions were granted")
     }
 
     #[cfg(not(feature = "native-webrtc"))]
@@ -544,7 +588,7 @@ mod windows_service_runtime {
                 run_windows_helper(
                     config,
                     Box::new(
-                        NativeHelperBackend::new(false)
+                        NativeHelperBackend::new()
                             .with_secure_attention(secure_attention)
                             .with_indicator(indicator),
                     ),

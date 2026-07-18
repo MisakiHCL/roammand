@@ -314,6 +314,54 @@ abstract class AppLocalizations {
   /// **'Allow Screen Recording and Accessibility for Roammand in System Settings.'**
   String get privilegedBridgePermissionRequiredBody;
 
+  /// No description provided for @macOsHostPermissionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish Mac permissions'**
+  String get macOsHostPermissionsTitle;
+
+  /// No description provided for @macOsHostPermissionsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote connections stay unavailable until Screen Recording and Accessibility are both allowed. Set them up here before connecting from another device.'**
+  String get macOsHostPermissionsBody;
+
+  /// No description provided for @macOsHostPermissionsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Roammand could not check the installed Host permissions. Make sure the Host Agent is installed, then try again.'**
+  String get macOsHostPermissionsUnavailable;
+
+  /// No description provided for @macOsScreenRecordingPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen Recording'**
+  String get macOsScreenRecordingPermission;
+
+  /// No description provided for @macOsAccessibilityPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Accessibility'**
+  String get macOsAccessibilityPermission;
+
+  /// No description provided for @macOsPermissionGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowed'**
+  String get macOsPermissionGranted;
+
+  /// No description provided for @macOsPermissionNotGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Not allowed'**
+  String get macOsPermissionNotGranted;
+
+  /// No description provided for @macOsPermissionSetUpAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up'**
+  String get macOsPermissionSetUpAction;
+
   /// No description provided for @privilegedBridgeUserSessionOnlyTitle.
   ///
   /// In en, this message translates to:

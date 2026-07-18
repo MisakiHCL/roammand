@@ -11,6 +11,7 @@ workspace = true
 [features]
 default = []
 native-webrtc = [
+  "roammand-host-platform/native-webrtc",
   "roammand-host-webrtc/native-webrtc",
   "roammand-privileged-bridge/native-webrtc",
 ]

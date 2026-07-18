@@ -158,7 +158,7 @@ $env:ROAMMAND_SIGNALING_ENDPOINT = 'wss://signal.example.com:8443/v1/connect'
 cargo run -p roammand-host-agent --features native-webrtc -- serve
 ```
 
-Host Agent 管理桌面设备身份、授权记录、WebRTC peer、画面采集和输入链路。在 macOS 上，请在系统提示时授予屏幕录制和辅助功能权限。这种独立模式用于底层开发；标准的 `make app-run-macos` 已由 GUI 托管 Agent。
+Host Agent 管理桌面设备身份、授权记录、WebRTC peer、画面采集和输入链路。在 macOS 上，请先打开“这台电脑”，按照检查项完成“屏幕录制”和“辅助功能”授权，再从其他设备连接。权限设置必须由本机用户主动发起，建立远程连接时不会弹出权限请求。这种独立模式用于底层开发；标准的 `make app-run-macos` 已由 GUI 托管 Agent。
 
 ### 高级：单独启动 App
 

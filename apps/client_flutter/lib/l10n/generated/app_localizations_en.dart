@@ -140,6 +140,32 @@ class AppLocalizationsEn extends AppLocalizations {
       'Allow Screen Recording and Accessibility for Roammand in System Settings.';
 
   @override
+  String get macOsHostPermissionsTitle => 'Finish Mac permissions';
+
+  @override
+  String get macOsHostPermissionsBody =>
+      'Remote connections stay unavailable until Screen Recording and Accessibility are both allowed. Set them up here before connecting from another device.';
+
+  @override
+  String get macOsHostPermissionsUnavailable =>
+      'Roammand could not check the installed Host permissions. Make sure the Host Agent is installed, then try again.';
+
+  @override
+  String get macOsScreenRecordingPermission => 'Screen Recording';
+
+  @override
+  String get macOsAccessibilityPermission => 'Accessibility';
+
+  @override
+  String get macOsPermissionGranted => 'Allowed';
+
+  @override
+  String get macOsPermissionNotGranted => 'Not allowed';
+
+  @override
+  String get macOsPermissionSetUpAction => 'Set up';
+
+  @override
   String get privilegedBridgeUserSessionOnlyTitle =>
       'Available only while this Mac is unlocked';
 

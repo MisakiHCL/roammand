@@ -51,6 +51,7 @@ enum HostAgentStartupFailure {
   processLaunchFailed,
   protectedSessionAgentUnavailable,
   privilegedBridgeUnavailable,
+  desktopPermissionsRequired,
   configurationInvalid,
   unexpectedExit,
 }
@@ -331,6 +332,8 @@ HostAgentStartupFailure? parseHostAgentStartupFailure(String line) {
       HostAgentStartupFailure.protectedSessionAgentUnavailable,
     'privileged_bridge_unavailable' =>
       HostAgentStartupFailure.privilegedBridgeUnavailable,
+    'desktop_permissions_required' =>
+      HostAgentStartupFailure.desktopPermissionsRequired,
     'remote_configuration_invalid' =>
       HostAgentStartupFailure.configurationInvalid,
     _ => HostAgentStartupFailure.unexpectedExit,

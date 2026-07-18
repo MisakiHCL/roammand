@@ -15,16 +15,12 @@ use crate::{
 
 pub struct NativeRemoteSessionFactory {
     options: NativePeerOptions,
-    open_input_permission_prompt: bool,
 }
 
 impl NativeRemoteSessionFactory {
     #[must_use]
-    pub const fn new(options: NativePeerOptions, open_input_permission_prompt: bool) -> Self {
-        Self {
-            options,
-            open_input_permission_prompt,
-        }
+    pub const fn new(options: NativePeerOptions) -> Self {
+        Self { options }
     }
 }
 
@@ -34,8 +30,8 @@ impl RemoteSessionFactory for NativeRemoteSessionFactory {
         _config: &SessionConfig,
         _context: &RemoteSessionContext,
     ) -> Result<RemoteSessionParts, RemoteSessionError> {
-        let input = roammand_host_platform::remote_input_sink(self.open_input_permission_prompt)
-            .map_err(|error| match error {
+        let input =
+            roammand_host_platform::remote_input_sink(false).map_err(|error| match error {
                 roammand_host_platform::PlatformInputError::PermissionDenied => {
                     RemoteSessionError::InputPermission
                 }

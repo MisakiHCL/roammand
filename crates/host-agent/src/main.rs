@@ -6,6 +6,14 @@ use roammand_host_agent::{AgentRuntime, RuntimeError, production_config_from_env
 
 const USAGE: &str =
     "Roammand Host Agent\n\nUsage:\n  roammand-host-agent serve\n  roammand-host-agent --help";
+#[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+const MACOS_PERMISSION_STATUS_COMMAND: &str = "macos-permission-status";
+#[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+const MACOS_REQUEST_SCREEN_RECORDING_COMMAND: &str = "macos-request-screen-recording";
+#[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+const MACOS_REQUEST_ACCESSIBILITY_COMMAND: &str = "macos-request-accessibility";
+#[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+const MACOS_PERMISSION_EXIT_CODE_BASE: u8 = 40;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -14,6 +22,14 @@ async fn main() -> ExitCode {
     if matches!(command.as_str(), "--help" | "-h" | "help") {
         println!("{USAGE}");
         return ExitCode::SUCCESS;
+    }
+    #[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+    if let Some(exit_code) = macos_permission_command(&command) {
+        if arguments.next().is_some() {
+            eprintln!("{USAGE}");
+            return ExitCode::from(2);
+        }
+        return ExitCode::from(exit_code);
     }
     if command != "serve" || arguments.next().is_some() {
         eprintln!("{USAGE}");
@@ -28,6 +44,23 @@ async fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+#[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+fn macos_permission_command(command: &str) -> Option<u8> {
+    let status = match command {
+        MACOS_PERMISSION_STATUS_COMMAND => {
+            roammand_host_platform::macos_desktop_permission_status(false, false)
+        }
+        MACOS_REQUEST_SCREEN_RECORDING_COMMAND => {
+            roammand_host_platform::macos_desktop_permission_status(true, false)
+        }
+        MACOS_REQUEST_ACCESSIBILITY_COMMAND => {
+            roammand_host_platform::macos_desktop_permission_status(false, true)
+        }
+        _ => return None,
+    };
+    Some(MACOS_PERMISSION_EXIT_CODE_BASE + status.exit_code())
 }
 
 async fn run() -> Result<(), roammand_host_agent::RuntimeError> {

@@ -55,6 +55,38 @@ pub use windows_security::{
 #[cfg(windows)]
 pub use windows_transport::WindowsLocalListener;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MacOsDesktopPermissionStatus {
+    pub screen_recording: bool,
+    pub accessibility: bool,
+}
+
+impl MacOsDesktopPermissionStatus {
+    #[must_use]
+    pub const fn ready(self) -> bool {
+        self.screen_recording && self.accessibility
+    }
+
+    #[must_use]
+    pub const fn exit_code(self) -> u8 {
+        ((!self.screen_recording) as u8) | (((!self.accessibility) as u8) << 1)
+    }
+}
+
+#[cfg(all(target_os = "macos", feature = "native-webrtc"))]
+#[must_use]
+pub fn macos_desktop_permission_status(
+    request_screen_recording: bool,
+    request_accessibility: bool,
+) -> MacOsDesktopPermissionStatus {
+    MacOsDesktopPermissionStatus {
+        screen_recording: roammand_host_webrtc::native::macos_screen_capture_access(
+            request_screen_recording,
+        ),
+        accessibility: MacOsInputBackend::new(request_accessibility).is_ok(),
+    }
+}
+
 /// Opens the platform-protected store used by the Host identity.
 ///
 /// # Errors
@@ -100,4 +132,45 @@ pub fn remote_input_sink(
 
     #[cfg(not(any(target_os = "macos", windows)))]
     Err(PlatformInputError::UnsupportedPlatform)
+}
+
+#[cfg(test)]
+mod permission_tests {
+    use super::MacOsDesktopPermissionStatus;
+
+    #[test]
+    fn encodes_only_missing_permissions_in_the_exit_status() {
+        assert_eq!(
+            MacOsDesktopPermissionStatus {
+                screen_recording: true,
+                accessibility: true,
+            }
+            .exit_code(),
+            0
+        );
+        assert_eq!(
+            MacOsDesktopPermissionStatus {
+                screen_recording: false,
+                accessibility: true,
+            }
+            .exit_code(),
+            1
+        );
+        assert_eq!(
+            MacOsDesktopPermissionStatus {
+                screen_recording: true,
+                accessibility: false,
+            }
+            .exit_code(),
+            2
+        );
+        assert_eq!(
+            MacOsDesktopPermissionStatus {
+                screen_recording: false,
+                accessibility: false,
+            }
+            .exit_code(),
+            3
+        );
+    }
 }

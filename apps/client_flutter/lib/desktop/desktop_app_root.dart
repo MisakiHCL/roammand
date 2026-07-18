@@ -15,6 +15,7 @@ import 'host_agent/host_agent_controller.dart';
 import 'host_agent/host_agent_process.dart';
 import 'host_agent/host_status_page.dart';
 import 'host_agent/privileged_bridge_presenter.dart';
+import 'permissions/macos_host_permissions.dart';
 import 'tray/flutter_host_tray_port.dart';
 import 'tray/host_tray_controller.dart';
 import 'tray/host_tray_models.dart';
@@ -67,6 +68,7 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
   late final HostTrayController _tray;
   late final bool _ownsHostAgent;
   late final bool _ownsNetworkServices;
+  MacOsHostPermissionsController? _macOsPermissions;
   bool _trayStarted = false;
   Future<void> _pendingNetworkRestart = Future<void>.value();
 
@@ -97,6 +99,9 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
       beforeExit: _shutdownOwnedHostAgent,
     );
     _hostAgent.addListener(_onHostChanged);
+    if (Platform.isMacOS) {
+      _macOsPermissions = MacOsHostPermissionsController();
+    }
     unawaited(_hostAgent.start());
   }
 
@@ -224,6 +229,7 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
         beforeUninstall: _prepareForUninstall,
         hostPage: HostStatusPage(
           controller: _hostAgent,
+          macOsPermissionsController: _macOsPermissions,
           autoStart: false,
           disposeController: false,
           showAppBar: false,
@@ -233,6 +239,7 @@ final class _DesktopAppRootState extends State<DesktopAppRoot> {
 
   @override
   void dispose() {
+    _macOsPermissions?.dispose();
     _networkServices.removeListener(_onNetworkConfigurationChanged);
     if (_ownsNetworkServices) {
       _networkServices.dispose();

@@ -83,6 +83,10 @@ mod tests {
             RuntimeError::PrivilegedBridgeUnavailable.startup_code(),
             "privileged_bridge_unavailable"
         );
+        assert_eq!(
+            RuntimeError::DesktopPermissionsRequired.startup_code(),
+            "desktop_permissions_required"
+        );
     }
 
     #[cfg(all(feature = "native-webrtc", target_os = "macos"))]

@@ -124,6 +124,32 @@ class AppLocalizationsZh extends AppLocalizations {
       '请在“系统设置”中为 Roammand 开启“屏幕录制”和“辅助功能”。';
 
   @override
+  String get macOsHostPermissionsTitle => '完成 Mac 权限设置';
+
+  @override
+  String get macOsHostPermissionsBody =>
+      '开启“屏幕录制”和“辅助功能”之前，其他设备无法连接这台 Mac。请先在这里逐项完成授权。';
+
+  @override
+  String get macOsHostPermissionsUnavailable =>
+      'Roammand 无法检查已安装 Host 的权限。请确认 Host Agent 已安装，然后重试。';
+
+  @override
+  String get macOsScreenRecordingPermission => '屏幕录制';
+
+  @override
+  String get macOsAccessibilityPermission => '辅助功能';
+
+  @override
+  String get macOsPermissionGranted => '已允许';
+
+  @override
+  String get macOsPermissionNotGranted => '未允许';
+
+  @override
+  String get macOsPermissionSetUpAction => '去设置';
+
+  @override
   String get privilegedBridgeUserSessionOnlyTitle => '仅在这台 Mac 解锁后可用';
 
   @override

@@ -25,19 +25,17 @@ pub struct NativeHelperBackend {
     peer: Option<NativePeerBackend>,
     events: Option<NativePeerEvents>,
     input: Option<Box<dyn RemoteInputSink>>,
-    open_input_permission_prompt: bool,
     secure_attention_allowed: bool,
     indicator: Option<NativeIndicatorClient>,
 }
 
 impl NativeHelperBackend {
     #[must_use]
-    pub const fn new(open_input_permission_prompt: bool) -> Self {
+    pub const fn new() -> Self {
         Self {
             peer: None,
             events: None,
             input: None,
-            open_input_permission_prompt,
             secure_attention_allowed: false,
             indicator: None,
         }
@@ -61,7 +59,7 @@ impl NativeHelperBackend {
     ) -> Result<SessionConfig, HelperProtocolError> {
         self.close()?;
         let config = session_config(configuration)?;
-        let input = roammand_host_platform::remote_input_sink(self.open_input_permission_prompt)
+        let input = roammand_host_platform::remote_input_sink(false)
             .map_err(|_| HelperProtocolError::Backend)?;
         let options = NativePeerOptions {
             ice_servers: configuration
@@ -90,6 +88,12 @@ impl NativeHelperBackend {
             Some(input) => Ok(input.as_mut()),
             None => Err(HelperProtocolError::Backend),
         }
+    }
+}
+
+impl Default for NativeHelperBackend {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

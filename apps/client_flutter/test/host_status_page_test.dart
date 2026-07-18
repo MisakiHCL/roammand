@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/desktop/host_agent/host_agent_controller.dart';
 import 'package:roammand/desktop/host_agent/host_agent_process.dart';
 import 'package:roammand/desktop/host_agent/host_status_page.dart';
+import 'package:roammand/desktop/permissions/macos_host_permissions.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/network/network_service_configuration.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
@@ -110,6 +111,39 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
+  });
+
+  testWidgets('blocks Host actions until both macOS permissions are ready', (
+    tester,
+  ) async {
+    final api = WidgetFakeHostAgentApi();
+    final host = HostAgentController(
+      clientFactory: () => api,
+      refreshInterval: const Duration(hours: 1),
+    );
+    final permissionService = _FakeMacOsPermissionService();
+    final permissions = MacOsHostPermissionsController(
+      service: permissionService,
+    );
+    addTearDown(permissions.dispose);
+
+    await tester.pumpWidget(
+      _app(controller: host, macOsPermissionsController: permissions),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Finish Mac permissions'), findsOneWidget);
+    expect(find.text('Add a new device'), findsNothing);
+
+    permissionService.status = const MacOsHostPermissionStatus(
+      screenRecording: true,
+      accessibility: true,
+    );
+    await permissions.refresh();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Finish Mac permissions'), findsNothing);
+    expect(find.text('Add a new device'), findsOneWidget);
   });
 
   testWidgets('shows connecting state without starting a process', (
@@ -241,16 +275,36 @@ void main() {
   });
 }
 
-Widget _app({required HostAgentController controller, Locale? locale}) {
+Widget _app({
+  required HostAgentController controller,
+  Locale? locale,
+  MacOsHostPermissionsController? macOsPermissionsController,
+}) {
   return MaterialApp(
     locale: locale,
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: HostStatusPage(
       controller: controller,
+      macOsPermissionsController: macOsPermissionsController,
       signalingEndpoint: 'wss://signal.example.test/v1/connect',
     ),
   );
+}
+
+final class _FakeMacOsPermissionService implements MacOsHostPermissionService {
+  MacOsHostPermissionStatus status = const MacOsHostPermissionStatus(
+    screenRecording: false,
+    accessibility: false,
+  );
+
+  @override
+  Future<MacOsHostPermissionStatus> check() async => status;
+
+  @override
+  Future<MacOsHostPermissionStatus> request(
+    MacOsHostPermission permission,
+  ) async => status;
 }
 
 final class WidgetFailingHostAgentProcessLifecycle

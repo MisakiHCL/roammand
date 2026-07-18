@@ -64,7 +64,9 @@ pub(crate) struct CapturePipeline {
 impl CapturePipeline {
     pub(crate) fn start() -> Result<Self, HostWebRtcError> {
         #[cfg(target_os = "macos")]
-        ensure_screen_capture_access()?;
+        if !macos_screen_capture_access(false) {
+            return Err(HostWebRtcError::PeerFailure);
+        }
         let mut capturer = DesktopCaptureDriver::new()?;
         let (sender, receiver) = sync_channel(1);
         capturer.start(sender);
@@ -146,13 +148,10 @@ impl DesktopCaptureDriver {
 }
 
 #[cfg(target_os = "macos")]
-fn ensure_screen_capture_access() -> Result<(), HostWebRtcError> {
+#[must_use]
+pub fn macos_screen_capture_access(request: bool) -> bool {
     let access = ScreenCaptureAccess;
-    if access.preflight() || access.request() {
-        Ok(())
-    } else {
-        Err(HostWebRtcError::PeerFailure)
-    }
+    access.preflight() || (request && access.request())
 }
 
 impl Drop for CapturePipeline {

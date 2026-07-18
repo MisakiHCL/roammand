@@ -12,6 +12,11 @@ import 'mobile_identity_store.dart';
 const _pagePadding = 24.0;
 const _sectionSpacing = 16.0;
 const _maximumContentWidth = 560.0;
+const _maximumLandscapeContentWidth = 960.0;
+const _landscapePagePadding = 16.0;
+const _landscapeColumnSpacing = 24.0;
+const _landscapeCardPadding = 16.0;
+const _landscapeSectionSpacing = 12.0;
 
 final class MobileIdentityOnboarding extends StatefulWidget {
   const MobileIdentityOnboarding({
@@ -126,86 +131,139 @@ final class _MobileIdentityOnboardingState
     return Scaffold(
       body: RoammandBackdrop(
         child: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _maximumContentWidth),
-              child: ListView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.fromLTRB(
-                  _pagePadding,
-                  _pagePadding,
-                  _pagePadding,
-                  _pagePadding + MediaQuery.viewInsetsOf(context).bottom,
-                ),
-                children: <Widget>[
-                  RoammandPageHero(
-                    eyebrow: strings.brandPrivacyLabel,
-                    title: strings.mobileOnboardingTitle,
-                    body: strings.mobileOnboardingBody,
-                  ),
-                  const SizedBox(height: 32),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(_pagePadding),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          TextField(
-                            controller: _name,
-                            enabled: !_saving,
-                            maxLength: 128,
-                            textInputAction: TextInputAction.done,
-                            autocorrect: false,
-                            decoration: InputDecoration(
-                              labelText: strings.mobileDeviceNameLabel,
-                              prefixIcon: const Icon(Icons.phone_iphone),
-                              errorText: _failed
-                                  ? strings.mobileIdentityFailed
-                                  : null,
-                            ),
-                            onSubmitted: (_) => _confirm(),
-                          ),
-                          const SizedBox(height: _sectionSpacing),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              const Icon(
-                                Icons.shield_outlined,
-                                size: 20,
-                                color: RoammandColors.online,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  strings.mobileIdentitySecurityNote,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: _pagePadding),
-                          FilledButton.icon(
-                            onPressed: _saving ? null : _confirm,
-                            icon: _saving
-                                ? const SizedBox.square(
-                                    dimension: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.arrow_forward, size: 20),
-                            label: Text(strings.mobileConfirmIdentityAction),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final landscape = constraints.maxWidth > constraints.maxHeight;
+              return landscape
+                  ? _buildLandscape(context, strings)
+                  : _buildPortrait(context, strings);
+            },
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPortrait(BuildContext context, AppLocalizations strings) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _maximumContentWidth),
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(
+            _pagePadding,
+            _pagePadding,
+            _pagePadding,
+            _pagePadding + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          children: <Widget>[
+            _buildHero(strings),
+            const SizedBox(height: 32),
+            _buildIdentityCard(context, strings),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLandscape(BuildContext context, AppLocalizations strings) {
+    return SingleChildScrollView(
+      key: const Key('mobile-identity-landscape-layout'),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.fromLTRB(
+        _landscapePagePadding,
+        _landscapePagePadding,
+        _landscapePagePadding,
+        _landscapePagePadding + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: _maximumLandscapeContentWidth,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Expanded(child: _buildHero(strings, compact: true)),
+              const SizedBox(width: _landscapeColumnSpacing),
+              Expanded(
+                child: _buildIdentityCard(context, strings, compact: true),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHero(AppLocalizations strings, {bool compact = false}) {
+    return RoammandPageHero(
+      eyebrow: strings.brandPrivacyLabel,
+      title: strings.mobileOnboardingTitle,
+      body: strings.mobileOnboardingBody,
+      markSize: compact ? 64 : null,
+      horizontalBreakpoint: compact ? double.infinity : 520,
+    );
+  }
+
+  Widget _buildIdentityCard(
+    BuildContext context,
+    AppLocalizations strings, {
+    bool compact = false,
+  }) {
+    final cardPadding = compact ? _landscapeCardPadding : _pagePadding;
+    final sectionSpacing = compact ? _landscapeSectionSpacing : _sectionSpacing;
+    return Card(
+      key: const Key('mobile-identity-card'),
+      child: Padding(
+        padding: EdgeInsets.all(cardPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            TextField(
+              controller: _name,
+              enabled: !_saving,
+              maxLength: 128,
+              textInputAction: TextInputAction.done,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: strings.mobileDeviceNameLabel,
+                prefixIcon: const Icon(Icons.phone_iphone),
+                errorText: _failed ? strings.mobileIdentityFailed : null,
+              ),
+              onSubmitted: (_) => _confirm(),
+            ),
+            SizedBox(height: sectionSpacing),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Icon(
+                  Icons.shield_outlined,
+                  size: 20,
+                  color: RoammandColors.online,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    strings.mobileIdentitySecurityNote,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: compact ? _sectionSpacing : _pagePadding),
+            FilledButton.icon(
+              onPressed: _saving ? null : _confirm,
+              icon: _saving
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.arrow_forward, size: 20),
+              label: Text(strings.mobileConfirmIdentityAction),
+            ),
+          ],
         ),
       ),
     );

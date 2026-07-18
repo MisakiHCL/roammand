@@ -5,6 +5,8 @@ mod peer;
 
 pub const LIBWEBRTC_RELEASE_TAG: &str = "webrtc-24f6822-2";
 
+#[cfg(target_os = "macos")]
+pub use capture::macos_screen_capture_access;
 pub use capture::{NativeSourceDescriptor, select_main_display_source_id};
 pub use peer::{
     NativeConnectionState, NativeDataChannelKind, NativeIceServer, NativePeerBackend,

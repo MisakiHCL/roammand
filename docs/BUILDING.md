@@ -172,7 +172,7 @@ $env:ROAMMAND_SIGNALING_ENDPOINT = 'wss://signal.example.com:8443/v1/connect'
 cargo run -p roammand-host-agent --features native-webrtc -- serve
 ```
 
-The Host Agent owns the desktop device identity, authorization registry, WebRTC peer, capture, and input path. On macOS, grant Screen Recording and Accessibility when prompted. This independent mode is for low-level development; the standard `make app-run-macos` workflow lets the GUI manage the Agent.
+The Host Agent owns the desktop device identity, authorization registry, WebRTC peer, capture, and input path. On macOS, open **This computer** and complete the Screen Recording and Accessibility checklist before connecting. Permission setup is an explicit local action; starting a remote connection never opens permission prompts. This independent mode is for low-level development; the standard `make app-run-macos` workflow lets the GUI manage the Agent.
 
 ### Advanced: start the app independently
 

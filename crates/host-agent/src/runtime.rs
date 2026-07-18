@@ -183,6 +183,8 @@ pub enum RuntimeError {
     PrivilegedBridgeUnavailable,
     #[error("Host Agent protected-session Agent is unavailable")]
     ProtectedSessionAgentUnavailable,
+    #[error("Host Agent requires Screen Recording and Accessibility permission")]
+    DesktopPermissionsRequired,
 }
 
 impl RuntimeError {
@@ -208,6 +210,7 @@ impl RuntimeError {
             Self::RemoteSession => "remote_session_runtime_failed",
             Self::PrivilegedBridgeUnavailable => "privileged_bridge_unavailable",
             Self::ProtectedSessionAgentUnavailable => "protected_session_agent_unavailable",
+            Self::DesktopPermissionsRequired => "desktop_permissions_required",
         }
     }
 }

@@ -12,6 +12,10 @@ unsafe_code = "deny"
 all = "deny"
 pedantic = "deny"
 
+[features]
+default = []
+native-webrtc = ["roammand-host-webrtc/native-webrtc"]
+
 [dependencies]
 hex = "0.4.3"
 roammand-host-webrtc = { path = "../host-webrtc" }

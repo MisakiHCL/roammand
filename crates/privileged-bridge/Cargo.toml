@@ -17,6 +17,7 @@ pedantic = "deny"
 [features]
 default = []
 native-webrtc = [
+  "roammand-host-platform/native-webrtc",
   "roammand-host-webrtc/native-webrtc",
   "dep:objc2",
   "dep:objc2-app-kit",

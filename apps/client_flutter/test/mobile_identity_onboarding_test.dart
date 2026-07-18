@@ -40,6 +40,40 @@ void main() {
     expect(confirmed?.publicIdentity.displayName, 'Pixel 9');
     expect(storage.writes, 1);
   });
+
+  testWidgets('fits the first-run form in a compact landscape viewport', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(844, 390);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      _app(
+        MobileIdentityOnboarding(
+          store: MobileIdentityStore(
+            secureStore: _MemoryIdentityStore(),
+            platform: DevicePlatform.DEVICE_PLATFORM_IOS,
+            randomBytes: (_) => List<int>.filled(mobileIdentitySeedBytes, 7),
+          ),
+          nameProvider: DeviceNameProvider(source: _NameSource('iPhone')),
+          onReady: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('mobile-identity-landscape-layout')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    final cardBottom = tester.getBottomRight(
+      find.byKey(const Key('mobile-identity-card')),
+    );
+    expect(cardBottom.dy, lessThanOrEqualTo(390));
+  });
 }
 
 Widget _app(Widget home) => MaterialApp(

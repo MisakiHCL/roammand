@@ -40,9 +40,11 @@ not treat a staged package as proof of protected-desktop runtime behavior.
 2. Restart/sign out and in if the platform instructions request it, then open
    Roammand. Expected: the GUI starts its installed Host Agent while the broker
    and graphical-session Helper are available through the platform services.
-3. On macOS, grant Screen Recording and Accessibility only to the installed
-   Host components. Expected: denying either permission reports a localized
-   permission state and remote input remains disabled.
+3. On macOS, open **This computer** and grant Screen Recording and
+   Accessibility only through the installed Host permission checklist.
+   Expected: denying either permission keeps pairing and inbound connections
+   unavailable; attempting a Controller connection never opens a permission
+   prompt.
 4. On Windows, inspect the service. Expected: `RoammandPrivilegedBridge`
    is automatic, running as LocalSystem, and non-interactive.
 5. Open **This computer**. Expected: installed systems report a specific Ready

@@ -126,6 +126,12 @@ void main() {
       HostAgentStartupFailure.configurationInvalid,
     );
     expect(
+      parseHostAgentStartupFailure(
+        'ROAMMAND_STARTUP_ERROR=desktop_permissions_required',
+      ),
+      HostAgentStartupFailure.desktopPermissionsRequired,
+    );
+    expect(
       parseHostAgentStartupFailure('Host Agent failed: local details'),
       isNull,
     );

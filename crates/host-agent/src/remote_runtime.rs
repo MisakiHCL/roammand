@@ -251,6 +251,10 @@ fn prepare_native_remote(
     config: &RemoteRuntimeConfig,
     service: Arc<HostService>,
 ) -> Result<Option<PreparedRemote>, RuntimeError> {
+    #[cfg(target_os = "macos")]
+    if !roammand_host_platform::macos_desktop_permission_status(false, false).ready() {
+        return Err(RuntimeError::DesktopPermissionsRequired);
+    }
     let options = roammand_host_webrtc::native::NativePeerOptions {
         ice_servers: config
             .ice_servers
@@ -262,7 +266,7 @@ fn prepare_native_remote(
             })
             .collect(),
     };
-    let factory = NativeRemoteSessionFactory::new(options, true);
+    let factory = NativeRemoteSessionFactory::new(options);
     let coordinator = RemoteSessionCoordinator::with_config(
         Arc::clone(&service),
         Box::new(factory),

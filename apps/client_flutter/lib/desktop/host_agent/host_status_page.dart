@@ -10,6 +10,8 @@ import 'package:roammand_protocol/roammand_protocol.dart';
 
 import '../pairing/host_pairing_section.dart';
 import '../desktop_app_bar.dart';
+import '../permissions/macos_host_permissions.dart';
+import '../permissions/macos_host_permissions_card.dart';
 import 'host_agent_controller.dart';
 import 'host_agent_process.dart';
 import 'privileged_bridge_presenter.dart';
@@ -20,6 +22,7 @@ const _itemSpacing = 12.0;
 const _cardPadding = 20.0;
 const _maximumContentWidth = 960.0;
 const _fingerprintBytes = 8;
+const _permissionReadyRetryDelay = Duration(seconds: 1);
 
 final class HostStatusPage extends StatefulWidget {
   const HostStatusPage({
@@ -30,6 +33,7 @@ final class HostStatusPage extends StatefulWidget {
     this.nowUnixMs,
     this.autoStart = true,
     this.disposeController = true,
+    this.macOsPermissionsController,
   });
 
   final HostAgentController? controller;
@@ -38,6 +42,7 @@ final class HostStatusPage extends StatefulWidget {
   final int Function()? nowUnixMs;
   final bool autoStart;
   final bool disposeController;
+  final MacOsHostPermissionsController? macOsPermissionsController;
 
   @override
   State<HostStatusPage> createState() => _HostStatusPageState();
@@ -45,12 +50,20 @@ final class HostStatusPage extends StatefulWidget {
 
 final class _HostStatusPageState extends State<HostStatusPage> {
   late final HostAgentController _controller;
+  MacOsHostPermissionsController? _permissionsController;
+  bool _permissionsWereReady = false;
 
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? HostAgentController();
     _controller.addListener(_onChanged);
+    _permissionsController = widget.macOsPermissionsController;
+    _permissionsWereReady = _permissionsController?.ready ?? false;
+    _permissionsController?.addListener(_onPermissionsChanged);
+    if (_permissionsController case final permissions?) {
+      unawaited(permissions.start());
+    }
     if (widget.autoStart) {
       unawaited(_controller.start());
     }
@@ -58,6 +71,7 @@ final class _HostStatusPageState extends State<HostStatusPage> {
 
   @override
   void dispose() {
+    _permissionsController?.removeListener(_onPermissionsChanged);
     _controller.removeListener(_onChanged);
     if (widget.disposeController) {
       _controller.dispose();
@@ -71,9 +85,31 @@ final class _HostStatusPageState extends State<HostStatusPage> {
     }
   }
 
+  void _onPermissionsChanged() {
+    final ready = _permissionsController?.ready ?? false;
+    if (ready &&
+        !_permissionsWereReady &&
+        _controller.state != HostAgentViewState.ready) {
+      unawaited(_retryAfterPermissionsAreReady());
+    }
+    _permissionsWereReady = ready;
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _retryAfterPermissionsAreReady() async {
+    await Future<void>.delayed(_permissionReadyRetryDelay);
+    if (mounted && (_permissionsController?.ready ?? false)) {
+      await _controller.retry();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
+    final permissions = _permissionsController;
+    final blockHost = permissions?.blocksConnections ?? false;
     return Scaffold(
       appBar: widget.showAppBar
           ? RoammandDesktopAppBar(
@@ -90,9 +126,12 @@ final class _HostStatusPageState extends State<HostStatusPage> {
               child: ListView(
                 padding: const EdgeInsets.all(_pagePadding),
                 children: <Widget>[
-                  _buildStateCard(context, strings),
-                  if (_controller.state ==
-                      HostAgentViewState.ready) ...<Widget>[
+                  if (permissions != null && !permissions.ready)
+                    MacOsHostPermissionsCard(controller: permissions),
+                  if (!blockHost) _buildStateCard(context, strings),
+                  if (!blockHost &&
+                      _controller.state ==
+                          HostAgentViewState.ready) ...<Widget>[
                     const SizedBox(height: _sectionSpacing),
                     HostPairingSection(
                       controller: _controller,
@@ -474,6 +513,10 @@ final class _HostStatusPageState extends State<HostStatusPage> {
     HostAgentStartupFailure.privilegedBridgeUnavailable => (
       title: strings.hostAgentPrivilegedBridgeUnavailableTitle,
       body: strings.hostAgentPrivilegedBridgeUnavailableBody,
+    ),
+    HostAgentStartupFailure.desktopPermissionsRequired => (
+      title: strings.macOsHostPermissionsTitle,
+      body: strings.macOsHostPermissionsBody,
     ),
     HostAgentStartupFailure.executableUnavailable => (
       title: strings.hostAgentComponentMissingTitle,

@@ -119,7 +119,7 @@ Revoking a Controller grant first persists the revocation, then terminates match
 
 ### macOS Host
 
-The Host process requires Screen Recording permission for capture and Accessibility permission for input injection. Permission denial or a missing main-display source fails the session closed. The local Flutter app and Host Agent must run under the same user for authenticated IPC.
+The Host process requires Screen Recording permission for capture and Accessibility permission for input injection. macOS preflights both permissions before the Host becomes available and exposes explicit local setup actions in the Flutter app. Peer creation only checks the existing grants and never requests them, so a Controller connection cannot trigger system permission prompts. Permission denial or a missing main-display source fails closed. The local Flutter app and Host Agent must run under the same user for authenticated IPC.
 
 ### Windows Host
 
