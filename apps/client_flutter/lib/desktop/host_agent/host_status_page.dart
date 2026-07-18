@@ -48,14 +48,17 @@ final class HostStatusPage extends StatefulWidget {
   State<HostStatusPage> createState() => _HostStatusPageState();
 }
 
-final class _HostStatusPageState extends State<HostStatusPage> {
+final class _HostStatusPageState extends State<HostStatusPage>
+    with WidgetsBindingObserver {
   late final HostAgentController _controller;
   MacOsHostPermissionsController? _permissionsController;
   bool _permissionsWereReady = false;
+  Future<void>? _retryOperation;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller = widget.controller ?? HostAgentController();
     _controller.addListener(_onChanged);
     _permissionsController = widget.macOsPermissionsController;
@@ -71,12 +74,24 @@ final class _HostStatusPageState extends State<HostStatusPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _permissionsController?.removeListener(_onPermissionsChanged);
     _controller.removeListener(_onChanged);
     if (widget.disposeController) {
       _controller.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        (_permissionsController?.ready ?? true) &&
+        _controller.state == HostAgentViewState.offline &&
+        _controller.startupFailure ==
+            HostAgentStartupFailure.protectedSessionAgentUnavailable) {
+      unawaited(_retryHost());
+    }
   }
 
   void _onChanged() {
@@ -101,8 +116,22 @@ final class _HostStatusPageState extends State<HostStatusPage> {
   Future<void> _retryAfterPermissionsAreReady() async {
     await Future<void>.delayed(_permissionReadyRetryDelay);
     if (mounted && (_permissionsController?.ready ?? false)) {
-      await _controller.retry();
+      await _retryHost();
     }
+  }
+
+  Future<void> _retryHost() {
+    final pending = _retryOperation;
+    if (pending != null) return pending;
+    final operation = _controller.retry();
+    _retryOperation = operation;
+    if (mounted) setState(() {});
+    return operation.whenComplete(() {
+      if (identical(_retryOperation, operation)) {
+        _retryOperation = null;
+        if (mounted) setState(() {});
+      }
+    });
   }
 
   @override
@@ -276,7 +305,7 @@ final class _HostStatusPageState extends State<HostStatusPage> {
             title: offlineCopy.title,
             body: offlineCopy.body,
             action: FilledButton.icon(
-              onPressed: _controller.retry,
+              onPressed: _retryOperation == null ? _retryHost : null,
               icon: const Icon(Icons.refresh, size: 20),
               label: Text(strings.retryAction),
             ),
@@ -290,7 +319,7 @@ final class _HostStatusPageState extends State<HostStatusPage> {
             title: strings.hostAgentErrorTitle,
             body: strings.hostAgentErrorBody,
             action: FilledButton.icon(
-              onPressed: _controller.retry,
+              onPressed: _retryOperation == null ? _retryHost : null,
               icon: const Icon(Icons.refresh, size: 20),
               label: Text(strings.retryAction),
             ),

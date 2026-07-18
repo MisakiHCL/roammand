@@ -6,6 +6,8 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:roammand/network/network_service_configuration.dart';
 
+import 'macos_session_agent_recovery.dart';
+
 const hostAgentAutoStartEnvironment = 'ROAMMAND_HOST_AGENT_AUTOSTART';
 const hostAgentExecutableEnvironment = 'ROAMMAND_HOST_AGENT_EXECUTABLE';
 
@@ -80,16 +82,21 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
     required NetworkServiceConfiguration configuration,
     Map<String, String>? parentEnvironment,
     String? Function()? executableResolver,
+    Future<bool> Function()? sessionAgentRecovery,
   }) : _parentEnvironment = parentEnvironment ?? Platform.environment,
        // Public constructor labels keep dependency injection readable.
        // ignore: prefer_initializing_formals
        _executableResolver = executableResolver,
        // Public constructor labels keep dependency injection readable.
        // ignore: prefer_initializing_formals
+       _sessionAgentRecovery = sessionAgentRecovery,
+       // Public constructor labels keep dependency injection readable.
+       // ignore: prefer_initializing_formals
        _configuration = configuration;
 
   final Map<String, String> _parentEnvironment;
   final String? Function()? _executableResolver;
+  final Future<bool> Function()? _sessionAgentRecovery;
   NetworkServiceConfiguration _configuration;
 
   Process? _process;
@@ -119,6 +126,7 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
   }
 
   Future<bool> _start() async {
+    final previousFailure = _lastStartupFailure;
     _lastStartupFailure = null;
     if (_closed) {
       return false;
@@ -141,6 +149,23 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
     if (executable == null || !await File(executable).exists()) {
       _lastStartupFailure = HostAgentStartupFailure.executableUnavailable;
       return false;
+    }
+    if (shouldRecoverMacOsSessionAgent(
+      previousFailure,
+      isMacOS: Platform.isMacOS,
+    )) {
+      bool recovered;
+      try {
+        recovered =
+            await (_sessionAgentRecovery ??
+                restartInstalledMacOsSessionAgent)();
+      } on Object {
+        recovered = false;
+      }
+      if (!recovered) {
+        _lastStartupFailure = previousFailure;
+        return false;
+      }
     }
 
     final Process process;
@@ -231,6 +256,13 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
     await _terminateProcess(process);
   }
 }
+
+bool shouldRecoverMacOsSessionAgent(
+  HostAgentStartupFailure? failure, {
+  required bool isMacOS,
+}) =>
+    isMacOS &&
+    failure == HostAgentStartupFailure.protectedSessionAgentUnavailable;
 
 String? resolveHostAgentExecutable({
   required Map<String, String> environment,

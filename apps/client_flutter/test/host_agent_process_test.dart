@@ -136,4 +136,28 @@ void main() {
       isNull,
     );
   });
+
+  test('recovers only a missing macOS protected Session Agent', () {
+    expect(
+      shouldRecoverMacOsSessionAgent(
+        HostAgentStartupFailure.protectedSessionAgentUnavailable,
+        isMacOS: true,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldRecoverMacOsSessionAgent(
+        HostAgentStartupFailure.privilegedBridgeUnavailable,
+        isMacOS: true,
+      ),
+      isFalse,
+    );
+    expect(
+      shouldRecoverMacOsSessionAgent(
+        HostAgentStartupFailure.protectedSessionAgentUnavailable,
+        isMacOS: false,
+      ),
+      isFalse,
+    );
+  });
 }
