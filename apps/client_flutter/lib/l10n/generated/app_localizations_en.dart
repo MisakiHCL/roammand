@@ -753,7 +753,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get uninstallSettingsBody =>
-      'Remove the app and installed background components from this Mac.';
+      'Completely remove the app, background components, local data, and system permissions from this Mac.';
 
   @override
   String get uninstallDevelopmentBuildBody =>
@@ -774,8 +774,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'Remote connections will stop. Roammand and all of its background services will be removed from this Mac.';
 
   @override
-  String get uninstallPreserveDataNotice =>
-      'This keeps this Mac’s pairing records and preferences so they can be restored after reinstalling.';
+  String get uninstallDeleteDataNotice =>
+      'Device identity, pairing records, preferences, caches, and Roammand’s Screen Recording and Accessibility permissions will also be deleted. This cannot be undone.';
 
   @override
   String get uninstallConfirmAction => 'Uninstall';

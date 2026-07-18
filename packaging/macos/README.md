@@ -14,8 +14,9 @@ Installation requires explicit administrator consent. It installs only under
 `/Applications`, `/Library/PrivilegedHelperTools`, `/Library/LaunchDaemons`,
 `/Library/LaunchAgents`, and `/Library/Application Support/Roammand`.
 The installed GUI exposes the protected uninstaller under **Settings → Advanced**.
-It preserves each user's device identity, Controller grants, and preferences
-unless the user deletes that application data separately. The repository
+It removes the program, device identity, Controller grants, saved Hosts,
+preferences, caches, and Roammand-specific Screen Recording and Accessibility
+decisions. It never resets another app's privacy decisions. The repository
 script remains the terminal fallback and supports `--dry-run`.
 
 Use the repository scripts to stage, verify, install, or uninstall. Run the

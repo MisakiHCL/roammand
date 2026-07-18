@@ -126,12 +126,12 @@ simulation, unit test, cross-compile, or package dry-run is not a substitute.
     no system state changes.
 26. Use **Settings → Advanced → Uninstall Roammand**, or the terminal fallback,
     and approve administrator access. Expected: services, Helpers, package data,
-    and application files are removed; per-user identity, grants, and preferences
-    are preserved by default.
+    application files, device identity, grants, saved Hosts, preferences,
+    caches, and Roammand-specific TCC decisions are removed.
 27. Confirm the GUI-owned Host Agent, service/launchd jobs, and tray are gone.
-    If the product is being retired, delete retained per-user application data
-    separately only after deciding that device identity and grants are no
-    longer needed.
+    In System Settings, confirm neither the Session Agent nor Roammand remains
+    under Screen Recording or Accessibility. Reinstalling must create a new
+    identity and require pairing again.
 
 The supported boundary excludes cold-start access before the Host owner has
 ever logged in, continued control after full logout or Host Agent exit,

@@ -25,7 +25,8 @@ abstract interface class AppUninstaller {
   Future<AppUninstallAvailability> availability();
 
   /// Requests operating-system authorization and removes installed program
-  /// files. User identity, pairings, and preferences are preserved.
+  /// files, local identity, pairings, preferences, and app-specific system
+  /// permissions.
   Future<void> uninstallProgram();
 }
 

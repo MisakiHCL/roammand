@@ -35,6 +35,7 @@ launchctl bootout system/dev.roammand.PrivilegedBridge 2>/dev/null || true
 launchctl bootout "gui/$INSTALL_UID/dev.roammand.HostAgent" 2>/dev/null || true
 launchctl bootout "gui/$INSTALL_UID/dev.roammand.SessionAgent" 2>/dev/null || true
 rm -f "/Library/LaunchAgents/dev.roammand.HostAgent.plist"
+rm -f "/Library/PrivilegedHelperTools/roammand-session-agent"
 rm -rf "/Applications/Roammand.app" "$SERVICE_DATA_DIR"
 cp -R "$PACKAGE_DIR/Applications/Roammand.app" "/Applications/Roammand.app"
 install -d -o root -g wheel -m 0755 "/Library/PrivilegedHelperTools" \

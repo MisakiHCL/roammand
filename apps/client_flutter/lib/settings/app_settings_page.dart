@@ -243,7 +243,7 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
               children: <Widget>[
                 Text(strings.uninstallConfirmBody),
                 const SizedBox(height: _itemSpacing),
-                Text(strings.uninstallPreserveDataNotice),
+                Text(strings.uninstallDeleteDataNotice),
               ],
             ),
             actions: <Widget>[

@@ -3,6 +3,8 @@
 use std::process::ExitCode;
 
 use roammand_host_agent::{AgentRuntime, RuntimeError, production_config_from_env};
+#[cfg(target_os = "macos")]
+use roammand_host_platform::{MacOsKeychainSecretStore, ProtectedSecretStore};
 
 const USAGE: &str =
     "Roammand Host Agent\n\nUsage:\n  roammand-host-agent serve\n  roammand-host-agent --help";
@@ -14,6 +16,8 @@ const MACOS_REQUEST_SCREEN_RECORDING_COMMAND: &str = "macos-request-screen-recor
 const MACOS_REQUEST_ACCESSIBILITY_COMMAND: &str = "macos-request-accessibility";
 #[cfg(all(target_os = "macos", feature = "native-webrtc"))]
 const MACOS_PERMISSION_EXIT_CODE_BASE: u8 = 40;
+#[cfg(target_os = "macos")]
+const MACOS_DELETE_HOST_IDENTITY_COMMAND: &str = "macos-delete-host-identity";
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -22,6 +26,21 @@ async fn main() -> ExitCode {
     if matches!(command.as_str(), "--help" | "-h" | "help") {
         println!("{USAGE}");
         return ExitCode::SUCCESS;
+    }
+    #[cfg(target_os = "macos")]
+    if command == MACOS_DELETE_HOST_IDENTITY_COMMAND {
+        if arguments.next().is_some() {
+            eprintln!("{USAGE}");
+            return ExitCode::from(2);
+        }
+        return if MacOsKeychainSecretStore::for_host_identity()
+            .delete()
+            .is_ok()
+        {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
     }
     #[cfg(all(target_os = "macos", feature = "native-webrtc"))]
     if let Some(exit_code) = macos_permission_command(&command) {

@@ -262,7 +262,7 @@ rustup target add aarch64-apple-darwin x86_64-apple-darwin
 make package-macos-signed
 ```
 
-该流程按 Frameworks、独立 Agent、主 App 的顺序使用 Developer ID Application 与 Hardened Runtime 签名，在签名后重新生成清单，再使用 Developer ID Installer 创建 `dist/apple-release/Roammand.pkg`。它不会提交公证。
+该流程按 Frameworks、独立 Agent、嵌套 Session Agent、主 App 的顺序使用 Developer ID Application 与 Hardened Runtime 签名，在签名后重新生成清单，再使用 Developer ID Installer 创建 `dist/apple-release/Roammand.pkg`。它不会提交公证。
 
 将公证凭据交互式保存到 Keychain，避免把 Apple ID、Team ID 或密码写进命令参数：
 
@@ -278,9 +278,9 @@ make release-macos
 
 该目标使用 `roammand-notary` Keychain profile 提交 Apple notary service，等待 `Accepted`，staple 最终 `.pkg`，并执行 stapler 与 Gatekeeper 验证。原始身份和凭据不会打印；失败的公证日志只保存在被 Git 忽略的 `dist/apple-release/`。
 
-安装器会把 `Roammand.app` 放入 `/Applications`，将 Host 与特权二进制放入 `/Library/PrivilegedHelperTools`，并将受保护会话的 launchd 定义放入 `/Library/LaunchDaemons` 和 `/Library/LaunchAgents`。安装器会立即把 Session Agent 加载到当前图形会话，无需注销或重新登录。打开 GUI 会启动已安装的 Host Agent；关闭窗口时 GUI 与 Agent 会继续在托盘运行，只有明确选择“退出”才会停止由该 GUI 启动的 Agent。
+安装器会把包含嵌套 Session Agent 的 `Roammand.app` 放入 `/Applications`，将 Host 与特权二进制放入 `/Library/PrivilegedHelperTools`，并将受保护会话的 launchd 定义放入 `/Library/LaunchDaemons` 和 `/Library/LaunchAgents`。安装器会立即把 Session Agent 加载到当前图形会话，无需注销或重新登录。打开 GUI 会启动已安装的 Host Agent；关闭窗口时 GUI 与 Agent 会继续在托盘运行，只有明确选择“退出”才会停止由该 GUI 启动的 Agent。
 
-安装版会提供“**设置 → 高级 → 卸载 Roammand**”。该操作会请求管理员授权，停止已安装的服务，并移除 App 与后台组件。开发构建中的卸载入口保持禁用，避免误删另一份正式安装版本。
+安装版会提供“**设置 → 高级 → 卸载 Roammand**”。该操作会请求管理员授权，停止已安装的服务，并完整移除 App、后台组件、本地数据和仅属于 Roammand 的系统授权。开发构建中的卸载入口保持禁用，避免误删另一份正式安装版本。
 
 开发者仍可先独立运行 `roammand-host-agent serve` 再启动 GUI；GUI 会连接既有进程，不会取得其所有权，也不会在退出时停止它。设置 `ROAMMAND_HOST_AGENT_AUTOSTART=false` 可以关闭已安装 Agent 的自动启动回退，设置 `ROAMMAND_HOST_AGENT_EXECUTABLE` 可以指定用于测试的 Agent 二进制。
 
@@ -309,7 +309,7 @@ pwsh -NoProfile -File scripts/uninstall_m8_windows.ps1 -WhatIf
 pwsh -NoProfile -File scripts/uninstall_m8_windows.ps1
 ```
 
-两个卸载器默认都会保留每位用户的设备身份、Controller 授权和偏好设置。请使用[最终产品人工验收清单](operations/final-product-acceptance.md)在真实操作系统上验证受保护图形会话。
+macOS 卸载器会完整移除 Roammand 的设备身份、Controller 授权、已保存 Host、偏好设置、缓存，以及仅属于 Roammand 的屏幕录制和辅助功能授权。Windows 终端卸载器目前仍保留每位用户的设备身份和 Controller 授权。请使用[最终产品人工验收清单](operations/final-product-acceptance.md)在真实操作系统上验证受保护图形会话。
 
 ## 配置本地 Apple 签名
 

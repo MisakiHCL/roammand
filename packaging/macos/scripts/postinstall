@@ -9,6 +9,7 @@ readonly OWNER_ID_FILE="$SERVICE_DATA_DIR/bridge-owner-id"
 readonly BRIDGE_RUNTIME_DIR="/var/run/roammand"
 readonly APP_PATH="/Applications/Roammand.app"
 readonly HELPER_DIR="/Library/PrivilegedHelperTools"
+readonly SESSION_AGENT="$APP_PATH/Contents/Library/LoginItems/RoammandSessionAgent.app/Contents/MacOS/roammand-session-agent"
 readonly DAEMON_PLIST="/Library/LaunchDaemons/dev.roammand.PrivilegedBridge.plist"
 readonly AGENT_PLIST="/Library/LaunchAgents/dev.roammand.SessionAgent.plist"
 
@@ -33,12 +34,12 @@ fi
 /usr/sbin/chown root:wheel \
   "$HELPER_DIR/roammand-host-agent" \
   "$HELPER_DIR/roammand-privileged-bridge" \
-  "$HELPER_DIR/roammand-session-agent" \
+  "$SESSION_AGENT" \
   "$DAEMON_PLIST" "$AGENT_PLIST"
 /bin/chmod 0755 \
   "$HELPER_DIR/roammand-host-agent" \
   "$HELPER_DIR/roammand-privileged-bridge" \
-  "$HELPER_DIR/roammand-session-agent"
+  "$SESSION_AGENT"
 /bin/chmod 0644 "$DAEMON_PLIST" "$AGENT_PLIST"
 /bin/chmod 0755 "$SERVICE_DATA_DIR/uninstall-macos.sh"
 

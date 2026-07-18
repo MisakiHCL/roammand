@@ -64,9 +64,10 @@ requires a separate pairing and approval.
 ## Uninstall from macOS
 
 Open **Settings → Advanced → Uninstall Roammand**. The protected uninstaller
-removes the app, Host components, launchd configuration, runtime files, and logs.
-Device identity, pairing grants, and preferences are preserved by default so a
-later reinstall does not lose existing authorization.
+removes the app, Host components, launchd configuration, runtime files, logs,
+device identity, pairing grants, saved Hosts, preferences, caches, and
+Roammand-specific Screen Recording and Accessibility decisions. Reinstalling
+creates a new identity and requires pairing again.
 
 For technical security boundaries, see the [security guide](../security/README.md).
 Developers and source builders should use the [build guide](../BUILDING.md).

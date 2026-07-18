@@ -61,8 +61,29 @@ install -m 0755 "$HOST_AGENT" \
   "$OUTPUT_DIR/Library/PrivilegedHelperTools/roammand-host-agent"
 install -m 0755 "$BRIDGE" \
   "$OUTPUT_DIR/Library/PrivilegedHelperTools/roammand-privileged-bridge"
-install -m 0755 "$SESSION_AGENT" \
-  "$OUTPUT_DIR/Library/PrivilegedHelperTools/roammand-session-agent"
+readonly SESSION_AGENT_APP="$OUTPUT_DIR/Applications/Roammand.app/Contents/Library/LoginItems/RoammandSessionAgent.app"
+readonly SESSION_AGENT_BINARY="$SESSION_AGENT_APP/Contents/MacOS/roammand-session-agent"
+install -d -m 0755 "$SESSION_AGENT_APP/Contents/MacOS"
+install -m 0644 packaging/macos/session-agent/Info.plist \
+  "$SESSION_AGENT_APP/Contents/Info.plist"
+install -m 0755 "$SESSION_AGENT" "$SESSION_AGENT_BINARY"
+
+app_info="$OUTPUT_DIR/Applications/Roammand.app/Contents/Info.plist"
+app_bundle_id="$(plutil -extract CFBundleIdentifier raw -o - "$app_info" 2>/dev/null || true)"
+app_version="$(plutil -extract CFBundleShortVersionString raw -o - "$app_info" 2>/dev/null || true)"
+app_build="$(plutil -extract CFBundleVersion raw -o - "$app_info" 2>/dev/null || true)"
+if [[ ! "$app_bundle_id" =~ ^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$ ]] ||
+  [[ ! "$app_version" =~ ^[0-9]+(\.[0-9]+)+$ ]] ||
+  [[ ! "$app_build" =~ ^[0-9]+$ ]]; then
+  printf 'staged macOS app metadata is invalid\n' >&2
+  exit 1
+fi
+plutil -replace CFBundleIdentifier -string "$app_bundle_id.session-agent" \
+  "$SESSION_AGENT_APP/Contents/Info.plist"
+plutil -replace CFBundleShortVersionString -string "$app_version" \
+  "$SESSION_AGENT_APP/Contents/Info.plist"
+plutil -replace CFBundleVersion -string "$app_build" \
+  "$SESSION_AGENT_APP/Contents/Info.plist"
 install -m 0644 packaging/macos/dev.roammand.PrivilegedBridge.plist \
   "$OUTPUT_DIR/Library/LaunchDaemons/dev.roammand.PrivilegedBridge.plist"
 install -m 0644 packaging/macos/dev.roammand.SessionAgent.plist \

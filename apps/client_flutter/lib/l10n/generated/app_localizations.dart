@@ -1385,7 +1385,7 @@ abstract class AppLocalizations {
   /// No description provided for @uninstallSettingsBody.
   ///
   /// In en, this message translates to:
-  /// **'Remove the app and installed background components from this Mac.'**
+  /// **'Completely remove the app, background components, local data, and system permissions from this Mac.'**
   String get uninstallSettingsBody;
 
   /// No description provided for @uninstallDevelopmentBuildBody.
@@ -1418,11 +1418,11 @@ abstract class AppLocalizations {
   /// **'Remote connections will stop. Roammand and all of its background services will be removed from this Mac.'**
   String get uninstallConfirmBody;
 
-  /// No description provided for @uninstallPreserveDataNotice.
+  /// No description provided for @uninstallDeleteDataNotice.
   ///
   /// In en, this message translates to:
-  /// **'This keeps this Mac’s pairing records and preferences so they can be restored after reinstalling.'**
-  String get uninstallPreserveDataNotice;
+  /// **'Device identity, pairing records, preferences, caches, and Roammand’s Screen Recording and Accessibility permissions will also be deleted. This cannot be undone.'**
+  String get uninstallDeleteDataNotice;
 
   /// No description provided for @uninstallConfirmAction.
   ///

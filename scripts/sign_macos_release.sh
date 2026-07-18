@@ -24,7 +24,7 @@ apple_load_signing_config
 readonly APP="$PACKAGE_DIR/Applications/Roammand.app"
 readonly HOST_AGENT="$PACKAGE_DIR/Library/PrivilegedHelperTools/roammand-host-agent"
 readonly BRIDGE="$PACKAGE_DIR/Library/PrivilegedHelperTools/roammand-privileged-bridge"
-readonly SESSION_AGENT="$PACKAGE_DIR/Library/PrivilegedHelperTools/roammand-session-agent"
+readonly SESSION_AGENT_APP="$APP/Contents/Library/LoginItems/RoammandSessionAgent.app"
 readonly APP_ENTITLEMENTS="$ROOT_DIR/apps/client_flutter/macos/Runner/Release.entitlements"
 readonly HOST_ENTITLEMENTS="$ROOT_DIR/packaging/macos/entitlements/host-agent.entitlements"
 readonly BRIDGE_ENTITLEMENTS="$ROOT_DIR/packaging/macos/entitlements/privileged-bridge.entitlements"
@@ -33,7 +33,7 @@ readonly HOST_IDENTIFIER="$APPLE_BUNDLE_ID.host-agent"
 readonly BRIDGE_IDENTIFIER="$APPLE_BUNDLE_ID.privileged-bridge"
 readonly SESSION_IDENTIFIER="$APPLE_BUNDLE_ID.session-agent"
 
-for path in "$APP" "$HOST_AGENT" "$BRIDGE" "$SESSION_AGENT"; do
+for path in "$APP" "$HOST_AGENT" "$BRIDGE" "$SESSION_AGENT_APP"; do
   [[ -e "$path" ]] || { printf 'staged macOS code is missing\n' >&2; exit 1; }
 done
 plutil -lint "$APP_ENTITLEMENTS" "$HOST_ENTITLEMENTS" \
@@ -52,7 +52,7 @@ verify_release_signatures() {
   apple_verify_code_signature "$APP" "$APPLE_BUNDLE_ID" || return 1
   apple_verify_code_signature "$HOST_AGENT" "$HOST_IDENTIFIER" || return 1
   apple_verify_code_signature "$BRIDGE" "$BRIDGE_IDENTIFIER" || return 1
-  apple_verify_code_signature "$SESSION_AGENT" "$SESSION_IDENTIFIER" || return 1
+  apple_verify_code_signature "$SESSION_AGENT_APP" "$SESSION_IDENTIFIER" || return 1
   codesign --verify --deep --strict "$APP" >/dev/null 2>&1
 }
 
@@ -98,7 +98,12 @@ fi
 
 sign_code "$HOST_AGENT" "$HOST_IDENTIFIER" "$HOST_ENTITLEMENTS"
 sign_code "$BRIDGE" "$BRIDGE_IDENTIFIER" "$BRIDGE_ENTITLEMENTS"
-sign_code "$SESSION_AGENT" "$SESSION_IDENTIFIER" "$SESSION_ENTITLEMENTS"
+if [[ "$(plutil -extract CFBundleIdentifier raw -o - \
+  "$SESSION_AGENT_APP/Contents/Info.plist" 2>/dev/null || true)" != "$SESSION_IDENTIFIER" ]]; then
+  printf 'session Agent bundle identifier is invalid\n' >&2
+  exit 1
+fi
+sign_code "$SESSION_AGENT_APP" "$SESSION_IDENTIFIER" "$SESSION_ENTITLEMENTS"
 sign_code "$APP" "$APPLE_BUNDLE_ID" "$APP_ENTITLEMENTS"
 
 verify_release_signatures || {

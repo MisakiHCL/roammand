@@ -9,7 +9,7 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 
 cd "$ROOT_DIR"
 
-plutil -lint packaging/macos/*.plist >/dev/null
+plutil -lint packaging/macos/*.plist packaging/macos/session-agent/Info.plist >/dev/null
 rg -q '<string>dev\.roammand\.PrivilegedBridge</string>' \
   packaging/macos/dev.roammand.PrivilegedBridge.plist
 rg -q '<string>Aqua</string>' packaging/macos/dev.roammand.SessionAgent.plist
@@ -56,6 +56,9 @@ rg -q '/var/run/roammand' scripts/install_m8_macos.sh scripts/uninstall_m8_macos
 rg -q '/Applications/Roammand\.app' scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh
 rg -q 'Application Support/Roammand' scripts/package_m8_macos.sh scripts/install_m8_macos.sh
 rg -q 'uninstall-macos\.sh' scripts/package_m8_macos.sh scripts/install_m8_macos.sh
+rg -q 'for service in Accessibility ScreenCapture' scripts/uninstall_m8_macos.sh
+rg -q 'tccutil reset' scripts/uninstall_m8_macos.sh
+rg -q 'macos-delete-host-identity' scripts/uninstall_m8_macos.sh crates/host-agent/src/main.rs
 if rg -q '(private[_ -]?key|seed|signaling|turn[_ -]?password|/Users/|--shell|interactive service)' \
   packaging/macos scripts/package_m8_macos.sh scripts/install_m8_macos.sh scripts/uninstall_m8_macos.sh; then
   printf 'macOS package contains forbidden privilege or local data\n' >&2
@@ -64,6 +67,13 @@ fi
 
 mkdir -p "$TEMP_DIR/Roammand.app/Contents/MacOS"
 printf 'app\n' >"$TEMP_DIR/Roammand.app/Contents/MacOS/roammand"
+printf '%s\n' \
+  '<?xml version="1.0" encoding="UTF-8"?>' \
+  '<plist version="1.0"><dict>' \
+  '<key>CFBundleIdentifier</key><string>dev.roammand.test</string>' \
+  '<key>CFBundleShortVersionString</key><string>1.0.0</string>' \
+  '<key>CFBundleVersion</key><string>1</string>' \
+  '</dict></plist>' >"$TEMP_DIR/Roammand.app/Contents/Info.plist"
 printf 'host\n' >"$TEMP_DIR/roammand-host-agent"
 printf '#!/bin/sh\nexit 0\n' >"$TEMP_DIR/roammand-privileged-bridge"
 printf '#!/bin/sh\nexit 0\n' >"$TEMP_DIR/roammand-session-agent"
@@ -84,6 +94,7 @@ fi
 rm "$TEMP_DIR/package/unsafe-link"
 ./scripts/install_m8_macos.sh --dry-run \
   --package "$TEMP_DIR/package" | rg -q 'no changes made'
-./scripts/uninstall_m8_macos.sh --dry-run | rg -q 'preserve local identity and grants'
+./scripts/uninstall_m8_macos.sh --dry-run | \
+  rg -q 'system permissions, device identity, pairings, preferences, caches'
 
 printf 'M8 macOS package contract ok\n'

@@ -16,7 +16,8 @@ pub const MACOS_INSTALL_SECRET_PATH: &str =
     "/Library/Application Support/Roammand/bridge-install-secret.bin";
 pub const MACOS_OWNER_ID_PATH: &str = "/Library/Application Support/Roammand/bridge-owner-id";
 pub const MACOS_HOST_AGENT_PATH: &str = "/Library/PrivilegedHelperTools/roammand-host-agent";
-pub const MACOS_SESSION_AGENT_PATH: &str = "/Library/PrivilegedHelperTools/roammand-session-agent";
+pub const MACOS_SESSION_AGENT_PATH: &str = "/Applications/Roammand.app/Contents/Library/LoginItems/\
+RoammandSessionAgent.app/Contents/MacOS/roammand-session-agent";
 pub const WINDOWS_INSTALL_SECRET_PATH: &str = r"C:\ProgramData\Roammand\bridge-install-secret.bin";
 pub const WINDOWS_OWNER_SID_PATH: &str = r"C:\ProgramData\Roammand\bridge-owner-sid.txt";
 pub const WINDOWS_HOST_AGENT_PATH: &str = r"C:\Program Files\Roammand\roammand-host-agent.exe";

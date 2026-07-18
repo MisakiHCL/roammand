@@ -698,7 +698,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get uninstallSettingsTitle => '卸载 Roammand';
 
   @override
-  String get uninstallSettingsBody => '从这台 Mac 移除应用及已安装的后台组件。';
+  String get uninstallSettingsBody => '从这台 Mac 完整移除应用、后台组件、本地数据和系统授权。';
 
   @override
   String get uninstallDevelopmentBuildBody => '卸载仅可从已安装的 macOS 应用执行，开发构建不可使用。';
@@ -716,7 +716,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get uninstallConfirmBody => '所有远程连接都会停止；Roammand 及其后台服务将从这台 Mac 移除。';
 
   @override
-  String get uninstallPreserveDataNotice => '将保留这台 Mac 的配对记录和偏好设置，以便重新安装后继续使用。';
+  String get uninstallDeleteDataNotice =>
+      '设备身份、配对记录、偏好设置、缓存，以及 Roammand 的屏幕录制和辅助功能授权也会被删除，且无法恢复。';
 
   @override
   String get uninstallConfirmAction => '卸载';

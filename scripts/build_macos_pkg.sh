@@ -48,9 +48,19 @@ if ! pkgbuild --analyze --root "$PACKAGE_DIR" "$component_plist" >/dev/null; the
   printf 'macOS installer component analysis failed\n' >&2
   exit 1
 fi
-plutil -replace '0.BundleIsRelocatable' -bool NO "$component_plist"
-if [[ "$(plutil -extract '0.BundleIsRelocatable' raw "$component_plist")" != "false" ]]; then
-  printf 'macOS app bundle must not be relocatable\n' >&2
+component_index=0
+while plutil -extract "$component_index.RootRelativeBundlePath" raw \
+  "$component_plist" >/dev/null 2>&1; do
+  plutil -replace "$component_index.BundleIsRelocatable" -bool NO "$component_plist"
+  if [[ "$(plutil -extract "$component_index.BundleIsRelocatable" raw \
+    "$component_plist")" != "false" ]]; then
+    printf 'macOS app bundle must not be relocatable\n' >&2
+    exit 1
+  fi
+  component_index=$((component_index + 1))
+done
+if [[ "$component_index" -lt 1 ]]; then
+  printf 'macOS installer must contain the app bundle\n' >&2
   exit 1
 fi
 

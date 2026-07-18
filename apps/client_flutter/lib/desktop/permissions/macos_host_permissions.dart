@@ -8,7 +8,9 @@ import 'package:flutter/foundation.dart';
 import '../host_agent/host_agent_process.dart';
 
 const _installedSessionAgent =
-    '/Library/PrivilegedHelperTools/roammand-session-agent';
+    '/Applications/Roammand.app/Contents/Library/LoginItems/'
+    'RoammandSessionAgent.app/'
+    'Contents/MacOS/roammand-session-agent';
 const _installedHostAgent =
     '/Library/PrivilegedHelperTools/roammand-host-agent';
 const _permissionStatusCommand = 'macos-permission-status';

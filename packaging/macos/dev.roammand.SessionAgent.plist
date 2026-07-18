@@ -7,7 +7,7 @@
   <string>dev.roammand.SessionAgent</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Library/PrivilegedHelperTools/roammand-session-agent</string>
+    <string>/Applications/Roammand.app/Contents/Library/LoginItems/RoammandSessionAgent.app/Contents/MacOS/roammand-session-agent</string>
     <string>macos-agent</string>
   </array>
   <key>LimitLoadToSessionType</key>

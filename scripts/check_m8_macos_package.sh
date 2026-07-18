@@ -11,7 +11,8 @@ readonly REQUIRED=(
   "Applications/Roammand.app"
   "Library/PrivilegedHelperTools/roammand-host-agent"
   "Library/PrivilegedHelperTools/roammand-privileged-bridge"
-  "Library/PrivilegedHelperTools/roammand-session-agent"
+  "Applications/Roammand.app/Contents/Library/LoginItems/RoammandSessionAgent.app"
+  "Applications/Roammand.app/Contents/Library/LoginItems/RoammandSessionAgent.app/Contents/MacOS/roammand-session-agent"
   "Library/LaunchDaemons/dev.roammand.PrivilegedBridge.plist"
   "Library/LaunchAgents/dev.roammand.SessionAgent.plist"
   "Library/Application Support/Roammand/uninstall-macos.sh"
@@ -51,7 +52,7 @@ readonly UNIVERSAL_BINARIES=(
   "Applications/Roammand.app/Contents/MacOS/roammand"
   "Library/PrivilegedHelperTools/roammand-host-agent"
   "Library/PrivilegedHelperTools/roammand-privileged-bridge"
-  "Library/PrivilegedHelperTools/roammand-session-agent"
+  "Applications/Roammand.app/Contents/Library/LoginItems/RoammandSessionAgent.app/Contents/MacOS/roammand-session-agent"
 )
 for path in "${UNIVERSAL_BINARIES[@]}"; do
   binary="$PACKAGE_DIR/$path"
@@ -64,6 +65,6 @@ for path in "${UNIVERSAL_BINARIES[@]}"; do
 done
 "$PACKAGE_DIR/Library/PrivilegedHelperTools/roammand-privileged-bridge" \
   check-macos-daemon >/dev/null
-"$PACKAGE_DIR/Library/PrivilegedHelperTools/roammand-session-agent" \
+"$PACKAGE_DIR/Applications/Roammand.app/Contents/Library/LoginItems/RoammandSessionAgent.app/Contents/MacOS/roammand-session-agent" \
   check-macos-agent >/dev/null
 printf 'macOS package ok\n'

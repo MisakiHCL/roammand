@@ -291,8 +291,8 @@ rustup target add aarch64-apple-darwin x86_64-apple-darwin
 make package-macos-signed
 ```
 
-The workflow signs Frameworks, standalone Agents, and the app in inside-out
-order using Developer ID Application and Hardened Runtime, regenerates the
+The workflow signs Frameworks, standalone Agents, the nested Session Agent,
+and the app in inside-out order using Developer ID Application and Hardened Runtime, regenerates the
 manifest after signing, and creates `dist/apple-release/Roammand.pkg` with
 Developer ID Installer.
 
@@ -316,16 +316,18 @@ This submits through the `roammand-notary` Keychain profile, waits for an
 validation. Raw identities and credentials aren't printed. A failed
 notarization log stays under ignored `dist/apple-release/`.
 
-The installer places `Roammand.app` in `/Applications`, installed Host and
+The installer places `Roammand.app`, including its nested Session Agent, in `/Applications`, installed Host and
 privileged binaries in `/Library/PrivilegedHelperTools`, and protected-session
 launchd definitions in `/Library/LaunchDaemons` and `/Library/LaunchAgents`.
 Opening the GUI starts its installed Host Agent. Closing the window keeps both
-running in the tray; explicit **Exit** stops the Agent started by that GUI.
-Sign out and in once so the protected-session Agent loads.
+running in the tray; explicit **Exit** stops the Agent started by that GUI. The
+installer loads the protected-session Agent into the current graphical session
+without requiring sign-out.
 
 An installed build exposes **Settings → Advanced → Uninstall Roammand**. It
-requests administrator approval, stops the installed services, and removes the
-app and background components. Development builds keep this action disabled so
+requests administrator approval, stops the installed services, and completely
+removes the app, background components, local data, and app-specific system
+permissions. Development builds keep this action disabled so
 they cannot accidentally target a separate installed copy.
 
 For independent development, start `roammand-host-agent serve` before the GUI;
@@ -359,7 +361,7 @@ pwsh -NoProfile -File scripts/uninstall_m8_windows.ps1 -WhatIf
 pwsh -NoProfile -File scripts/uninstall_m8_windows.ps1
 ```
 
-Both uninstallers preserve each user's device identity, Controller grants, and preferences by default. Use the [final product acceptance checklist](operations/final-product-acceptance.md) to validate protected graphical sessions on real operating systems.
+The macOS uninstaller completely removes Roammand's device identity, Controller grants, saved Hosts, preferences, caches, and app-specific Screen Recording and Accessibility decisions. The Windows fallback currently preserves each user's device identity and Controller grants. Use the [final product acceptance checklist](operations/final-product-acceptance.md) to validate protected graphical sessions on real operating systems.
 
 ## Configure local Apple signing
 
