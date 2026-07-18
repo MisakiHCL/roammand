@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../host_agent/host_agent_process.dart';
 
@@ -23,6 +24,8 @@ const _accessibilitySettings =
     'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility';
 const _permissionPollInterval = Duration(seconds: 2);
 const _permissionExitCodeBase = 40;
+const _screenRecordingRequestAttemptedStorageKey =
+    'macos_screen_recording_request_attempted_v1';
 
 enum MacOsHostPermission { screenRecording, accessibility }
 
@@ -64,6 +67,39 @@ abstract interface class MacOsHostPermissionService {
   Future<MacOsHostPermissionStatus> request(MacOsHostPermission permission);
 }
 
+abstract interface class MacOsScreenRecordingRequestHistory {
+  Future<bool> wasRequested();
+
+  Future<void> markRequested();
+}
+
+final class SharedPreferencesMacOsScreenRecordingRequestHistory
+    implements MacOsScreenRecordingRequestHistory {
+  SharedPreferencesMacOsScreenRecordingRequestHistory({
+    SharedPreferencesAsync? preferences,
+  }) : // Public constructor labels keep dependency injection readable.
+       // ignore: prefer_initializing_formals
+       _preferences = preferences;
+
+  SharedPreferencesAsync? _preferences;
+
+  SharedPreferencesAsync get _resolvedPreferences =>
+      _preferences ??= SharedPreferencesAsync();
+
+  @override
+  Future<bool> wasRequested() async =>
+      await _resolvedPreferences.getBool(
+        _screenRecordingRequestAttemptedStorageKey,
+      ) ??
+      false;
+
+  @override
+  Future<void> markRequested() => _resolvedPreferences.setBool(
+    _screenRecordingRequestAttemptedStorageKey,
+    true,
+  );
+}
+
 typedef MacOsPermissionExecutableResolver = Future<String?> Function();
 typedef MacOsPermissionCommandRunner =
     Future<ProcessResult> Function(String executable, List<String> arguments);
@@ -74,6 +110,7 @@ final class ProcessMacOsHostPermissionService
     Map<String, String>? environment,
     MacOsPermissionExecutableResolver? executableResolver,
     MacOsPermissionCommandRunner? processRunner,
+    MacOsScreenRecordingRequestHistory? screenRecordingRequestHistory,
   }) : _environment = environment ?? Platform.environment,
        // Public constructor labels keep dependency injection readable.
        // ignore: prefer_initializing_formals
@@ -84,11 +121,15 @@ final class ProcessMacOsHostPermissionService
              executable,
              arguments,
              includeParentEnvironment: false,
-           ));
+           )),
+       _screenRecordingRequestHistory =
+           screenRecordingRequestHistory ??
+           SharedPreferencesMacOsScreenRecordingRequestHistory();
 
   final Map<String, String> _environment;
   final MacOsPermissionExecutableResolver? _executableResolver;
   final MacOsPermissionCommandRunner _processRunner;
+  final MacOsScreenRecordingRequestHistory _screenRecordingRequestHistory;
 
   @override
   Future<MacOsHostPermissionStatus> check() =>
@@ -102,6 +143,12 @@ final class ProcessMacOsHostPermissionService
       MacOsHostPermission.screenRecording => _requestScreenRecordingCommand,
       MacOsHostPermission.accessibility => _requestAccessibilityCommand,
     };
+    if (permission == MacOsHostPermission.screenRecording &&
+        !await _screenRecordingWasRequested()) {
+      final status = await _runPermissionCommand(command);
+      await _markScreenRecordingRequested();
+      return status;
+    }
     try {
       await _openSettings(permission);
     } on MacOsHostPermissionException {
@@ -111,6 +158,23 @@ final class ProcessMacOsHostPermissionService
       return _runPermissionCommand(command);
     }
     return check();
+  }
+
+  Future<bool> _screenRecordingWasRequested() async {
+    try {
+      return await _screenRecordingRequestHistory.wasRequested();
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<void> _markScreenRecordingRequested() async {
+    try {
+      await _screenRecordingRequestHistory.markRequested();
+    } on Object {
+      // Losing this optional UX marker must not block the system permission
+      // request. A later attempt may show the native prompt again.
+    }
   }
 
   Future<MacOsHostPermissionStatus> _runPermissionCommand(

@@ -38,8 +38,10 @@ void main() {
 
   test('opens System Settings without also showing a native prompt', () async {
     final invocations = <(String, List<String>)>[];
+    final history = _MemoryScreenRecordingRequestHistory(requested: true);
     final service = ProcessMacOsHostPermissionService(
       executableResolver: () async => '/test/roammand-session-agent',
+      screenRecordingRequestHistory: history,
       processRunner: (executable, arguments) async {
         invocations.add((executable, List<String>.of(arguments)));
         if (executable == '/usr/bin/open') {
@@ -75,8 +77,10 @@ void main() {
     'falls back to the native prompt when System Settings cannot open',
     () async {
       final invocations = <(String, List<String>)>[];
+      final history = _MemoryScreenRecordingRequestHistory(requested: true);
       final service = ProcessMacOsHostPermissionService(
         executableResolver: () async => '/test/roammand-session-agent',
+        screenRecordingRequestHistory: history,
         processRunner: (executable, arguments) async {
           invocations.add((executable, List<String>.of(arguments)));
           return ProcessResult(
@@ -96,6 +100,45 @@ void main() {
       expect(invocations.last.$2, <String>['macos-request-screen-recording']);
     },
   );
+
+  test('registers Screen Recording before opening its settings pane', () async {
+    final invocations = <(String, List<String>)>[];
+    final history = _MemoryScreenRecordingRequestHistory();
+    final service = ProcessMacOsHostPermissionService(
+      executableResolver: () async => '/test/roammand-session-agent',
+      screenRecordingRequestHistory: history,
+      processRunner: (executable, arguments) async {
+        invocations.add((executable, List<String>.of(arguments)));
+        return ProcessResult(1, executable == '/usr/bin/open' ? 0 : 43, '', '');
+      },
+    );
+
+    await service.request(MacOsHostPermission.screenRecording);
+
+    expect(history.requested, isTrue);
+    expect(invocations, hasLength(1));
+    expect(invocations.single.$1, '/test/roammand-session-agent');
+    expect(invocations.single.$2, <String>['macos-request-screen-recording']);
+
+    await service.request(MacOsHostPermission.screenRecording);
+
+    expect(invocations, hasLength(3));
+    expect(invocations[1].$1, '/usr/bin/open');
+    expect(invocations[2].$2, <String>['macos-permission-status']);
+  });
+}
+
+final class _MemoryScreenRecordingRequestHistory
+    implements MacOsScreenRecordingRequestHistory {
+  _MemoryScreenRecordingRequestHistory({this.requested = false});
+
+  bool requested;
+
+  @override
+  Future<void> markRequested() async => requested = true;
+
+  @override
+  Future<bool> wasRequested() async => requested;
 }
 
 final class _GrantingPermissionService implements MacOsHostPermissionService {
