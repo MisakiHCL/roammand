@@ -96,7 +96,7 @@ root, iOS can also be run with
 
 After `make bootstrap`, the supported Make targets reuse the locked package
 cache without accessing pub.dev. Append `--no-pub` when invoking Flutter
-manually. Use the command for the connected platform. The first launch confirms a best-effort system device name and creates an Ed25519 identity in protected local storage. Pairing accepts QR data only from the camera. After Host-local approval, choose **Connect** on the saved Host card to render video and use tap, double-tap, long-press drag, two-finger right-click, scroll, pinch zoom, text, modifiers, and special keys.
+manually. Use the command for the connected platform. The first launch confirms a best-effort system device name and creates an Ed25519 identity in protected local storage. A desktop Host also uses its system computer name when available. Pairing accepts QR data only from the camera. After Host-local approval, choose **Connect** on the saved Host card to render video and use tap, double-tap, long-press drag, two-finger right-click, scroll, pinch zoom, text, modifiers, and special keys. The edit action on a saved computer sets a Controller-local alias without changing the Host identity or authorization.
 
 The signaling endpoint is read from the validated per-Host binding. The STUN
 service and the default signaling address for future manual pairing flows are

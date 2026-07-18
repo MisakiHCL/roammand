@@ -1239,8 +1239,10 @@ type TrustedHostBinding struct {
 	PairedAtUnixMs                   uint64                 `protobuf:"varint,3,opt,name=paired_at_unix_ms,json=pairedAtUnixMs,proto3" json:"paired_at_unix_ms,omitempty"`
 	LastSuccessfulConnectionAtUnixMs uint64                 `protobuf:"varint,4,opt,name=last_successful_connection_at_unix_ms,json=lastSuccessfulConnectionAtUnixMs,proto3" json:"last_successful_connection_at_unix_ms,omitempty"`
 	DisplayOrder                     uint32                 `protobuf:"varint,5,opt,name=display_order,json=displayOrder,proto3" json:"display_order,omitempty"`
-	unknownFields                    protoimpl.UnknownFields
-	sizeCache                        protoimpl.SizeCache
+	// Optional name chosen locally by this Controller. It is never sent to the Host.
+	LocalAlias    string `protobuf:"bytes,6,opt,name=local_alias,json=localAlias,proto3" json:"local_alias,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TrustedHostBinding) Reset() {
@@ -1306,6 +1308,13 @@ func (x *TrustedHostBinding) GetDisplayOrder() uint32 {
 		return x.DisplayOrder
 	}
 	return 0
+}
+
+func (x *TrustedHostBinding) GetLocalAlias() string {
+	if x != nil {
+		return x.LocalAlias
+	}
+	return ""
 }
 
 type TrustedHostSnapshot struct {
@@ -1719,13 +1728,15 @@ const file_roammand_v1_pairing_proto_rawDesc = "" +
 	"\bsequence\x18\x04 \x01(\x04R\bsequence\x12\x1e\n" +
 	"\n" +
 	"ciphertext\x18\x05 \x01(\fR\n" +
-	"ciphertext\"\xa6\x02\n" +
+	"ciphertext\"\xc7\x02\n" +
 	"\x12TrustedHostBinding\x12@\n" +
 	"\rhost_identity\x18\x01 \x01(\v2\x1b.roammand.v1.DeviceIdentityR\fhostIdentity\x12-\n" +
 	"\x12signaling_endpoint\x18\x02 \x01(\tR\x11signalingEndpoint\x12)\n" +
 	"\x11paired_at_unix_ms\x18\x03 \x01(\x04R\x0epairedAtUnixMs\x12O\n" +
 	"%last_successful_connection_at_unix_ms\x18\x04 \x01(\x04R lastSuccessfulConnectionAtUnixMs\x12#\n" +
-	"\rdisplay_order\x18\x05 \x01(\rR\fdisplayOrder\"\x9b\x01\n" +
+	"\rdisplay_order\x18\x05 \x01(\rR\fdisplayOrder\x12\x1f\n" +
+	"\vlocal_alias\x18\x06 \x01(\tR\n" +
+	"localAlias\"\x9b\x01\n" +
 	"\x13TrustedHostSnapshot\x12G\n" +
 	"\x10protocol_version\x18\x01 \x01(\v2\x1c.roammand.v1.ProtocolVersionR\x0fprotocolVersion\x12;\n" +
 	"\bbindings\x18\x02 \x03(\v2\x1f.roammand.v1.TrustedHostBindingR\bbindings\"\xca\x03\n" +

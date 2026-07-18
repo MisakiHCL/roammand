@@ -45,7 +45,7 @@ Both paths use the same cryptographic exchange:
 6. Controller sends encrypted readiness. Host displays the sanitized Controller identity for a local decision.
 7. For desktop-code pairing, both desktops derive the same four fixed English BIP-39 words from the first 44 transcript-hash bits. Users must compare all four words before approval. QR pairing relies on possession of the live authenticated invitation and still requires Host-local approval.
 8. On approval, the Host persists the permanent one-way view-and-control grant before sending an encrypted accepted decision. Rejection, expiry, cancellation, disconnect, invalid state, or persistence failure never reports acceptance.
-9. Controller validates the final grant and persists a bounded Host binding containing only the Host public identity, signaling endpoint, pairing time, and later successful-session time.
+9. Controller validates the final grant and persists a bounded Host binding containing only the Host public identity, signaling endpoint, pairing time, later successful-session time, and an optional Controller-local alias. The alias is never sent to the Host and cannot alter identity or authorization.
 
 Protocol vectors under `conformance/protocol_vectors/` fix transcript bytes, hashes, SAS indexes and words, HKDF keys, nonce, AAD, plaintext, and ciphertext/tag across Dart, Rust, and Go. SAS words are protocol values and are intentionally not localized.
 

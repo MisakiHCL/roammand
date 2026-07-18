@@ -153,6 +153,8 @@ message TrustedHostBinding {
   uint64 paired_at_unix_ms = 3;
   uint64 last_successful_connection_at_unix_ms = 4;
   uint32 display_order = 5;
+  // Optional name chosen locally by this Controller. It is never sent to the Host.
+  string local_alias = 6;
 }
 
 message TrustedHostSnapshot {

@@ -4,12 +4,15 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
+import 'package:roammand/identity/device_display_name.dart';
 import 'package:roammand/network/network_service_configuration.dart';
 
+import 'desktop_device_name.dart';
 import 'macos_session_agent_recovery.dart';
 
 const hostAgentAutoStartEnvironment = 'ROAMMAND_HOST_AGENT_AUTOSTART';
 const hostAgentExecutableEnvironment = 'ROAMMAND_HOST_AGENT_EXECUTABLE';
+const hostAgentDeviceNameEnvironment = 'ROAMMAND_DEVICE_NAME';
 
 const _hostAgentCommand = 'serve';
 const _macosInstalledHostAgent =
@@ -43,7 +46,7 @@ const _inheritedHostAgentEnvironmentKeys = <String>{
   // Explicitly supported development and packaging overrides.
   'ROAMMAND_DATA_DIR',
   'ROAMMAND_RUNTIME_DIR',
-  'ROAMMAND_DEVICE_NAME',
+  hostAgentDeviceNameEnvironment,
   'ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING',
 };
 
@@ -83,6 +86,7 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
     Map<String, String>? parentEnvironment,
     String? Function()? executableResolver,
     Future<bool> Function()? sessionAgentRecovery,
+    Future<String?> Function()? deviceNameResolver,
   }) : _parentEnvironment = parentEnvironment ?? Platform.environment,
        // Public constructor labels keep dependency injection readable.
        // ignore: prefer_initializing_formals
@@ -90,6 +94,8 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
        // Public constructor labels keep dependency injection readable.
        // ignore: prefer_initializing_formals
        _sessionAgentRecovery = sessionAgentRecovery,
+       _deviceNameResolver =
+           deviceNameResolver ?? DesktopDeviceNameProvider().read,
        // Public constructor labels keep dependency injection readable.
        // ignore: prefer_initializing_formals
        _configuration = configuration;
@@ -97,6 +103,7 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
   final Map<String, String> _parentEnvironment;
   final String? Function()? _executableResolver;
   final Future<bool> Function()? _sessionAgentRecovery;
+  final Future<String?> Function() _deviceNameResolver;
   NetworkServiceConfiguration _configuration;
 
   Process? _process;
@@ -167,16 +174,14 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
         return false;
       }
     }
+    final processEnvironment = await _processEnvironment();
 
     final Process process;
     try {
       process = await Process.start(
         executable,
         const <String>[_hostAgentCommand],
-        environment: hostAgentProcessEnvironment(
-          configuration: _configuration,
-          parentEnvironment: _parentEnvironment,
-        ),
+        environment: processEnvironment,
         includeParentEnvironment: false,
         mode: ProcessStartMode.normal,
       );
@@ -203,6 +208,14 @@ final class DesktopHostAgentProcess implements HostAgentProcessLifecycle {
       }),
     );
     return true;
+  }
+
+  Future<Map<String, String>> _processEnvironment() async {
+    return resolvedHostAgentProcessEnvironment(
+      configuration: _configuration,
+      parentEnvironment: _parentEnvironment,
+      deviceNameResolver: _deviceNameResolver,
+    );
   }
 
   @override
@@ -317,6 +330,30 @@ Map<String, String> hostAgentProcessEnvironment({
     }
   }
   environment.addAll(hostAgentLaunchEnvironment(configuration));
+  return environment;
+}
+
+Future<Map<String, String>> resolvedHostAgentProcessEnvironment({
+  required NetworkServiceConfiguration configuration,
+  required Map<String, String> parentEnvironment,
+  required Future<String?> Function() deviceNameResolver,
+}) async {
+  final environment = hostAgentProcessEnvironment(
+    configuration: configuration,
+    parentEnvironment: parentEnvironment,
+  );
+  if (environment.containsKey(hostAgentDeviceNameEnvironment)) {
+    return environment;
+  }
+  try {
+    final name = normalizeDeviceDisplayName(await deviceNameResolver());
+    if (name != null) {
+      environment[hostAgentDeviceNameEnvironment] = name;
+    }
+  } on Object {
+    // The Host Agent retains its generic fallback when platform metadata is
+    // unavailable. A device name is never logged by this recovery path.
+  }
   return environment;
 }
 

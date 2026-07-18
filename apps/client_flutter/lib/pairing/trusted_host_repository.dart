@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fixnum/fixnum.dart';
+import 'package:roammand/identity/device_display_name.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 import 'trusted_host_store.dart';
@@ -12,6 +13,7 @@ enum TrustedHostRepositoryError {
   notInitialized,
   duplicateHost,
   hostNotFound,
+  invalidDisplayName,
   invalidTimestamp,
   persistence,
   closed,
@@ -34,16 +36,20 @@ final class TrustedHostRecord {
       lastSuccessfulConnectionAtUnixMs = binding
           .lastSuccessfulConnectionAtUnixMs
           .toInt(),
-      displayOrder = binding.displayOrder;
+      displayOrder = binding.displayOrder,
+      _localAlias = binding.localAlias;
 
   final DeviceIdentity _hostIdentity;
   final Uri signalingEndpoint;
   final int pairedAtUnixMs;
   final int lastSuccessfulConnectionAtUnixMs;
   final int displayOrder;
+  final String _localAlias;
 
   DeviceIdentity get hostIdentity => _hostIdentity.deepCopy();
-  String get displayName => _hostIdentity.displayName;
+  String get displayName =>
+      _localAlias.isEmpty ? _hostIdentity.displayName : _localAlias;
+  String? get localAlias => _localAlias.isEmpty ? null : _localAlias;
 
   TrustedHostBinding toBinding() => TrustedHostBinding(
     hostIdentity: _hostIdentity,
@@ -51,6 +57,7 @@ final class TrustedHostRecord {
     pairedAtUnixMs: Int64(pairedAtUnixMs),
     lastSuccessfulConnectionAtUnixMs: Int64(lastSuccessfulConnectionAtUnixMs),
     displayOrder: displayOrder,
+    localAlias: _localAlias,
   );
 }
 
@@ -143,9 +150,41 @@ final class TrustedHostRepository {
     }
     normalized
       ..displayOrder = _hosts[existingIndex].displayOrder
-      ..lastSuccessfulConnectionAtUnixMs = Int64.ZERO;
+      ..lastSuccessfulConnectionAtUnixMs = Int64.ZERO
+      ..localAlias = _hosts[existingIndex]._localAlias;
     final next = List<TrustedHostRecord>.of(_hosts)
       ..[existingIndex] = TrustedHostRecord._(normalized);
+    await _commit(next);
+  });
+
+  Future<void> renameLocal(
+    List<int> hostDeviceId, {
+    required String displayName,
+  }) => _serialized(() async {
+    _ensureReady();
+    final normalized = normalizeDeviceDisplayName(displayName);
+    if (normalized == null) {
+      throw const TrustedHostRepositoryException(
+        TrustedHostRepositoryError.invalidDisplayName,
+      );
+    }
+    final key = _deviceKey(hostDeviceId);
+    final index = _hosts.indexWhere(
+      (host) => _deviceKey(host._hostIdentity.deviceId) == key,
+    );
+    if (index < 0) {
+      throw const TrustedHostRepositoryException(
+        TrustedHostRepositoryError.hostNotFound,
+      );
+    }
+    final current = _hosts[index];
+    final localAlias = normalized == current._hostIdentity.displayName
+        ? ''
+        : normalized;
+    if (localAlias == current._localAlias) return;
+    final updated = current.toBinding()..localAlias = localAlias;
+    final next = List<TrustedHostRecord>.of(_hosts)
+      ..[index] = TrustedHostRecord._(updated);
     await _commit(next);
   });
 

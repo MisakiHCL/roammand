@@ -901,6 +901,9 @@ pub struct TrustedHostBinding {
     pub last_successful_connection_at_unix_ms: u64,
     #[prost(uint32, tag="5")]
     pub display_order: u32,
+    /// Optional name chosen locally by this Controller. It is never sent to the Host.
+    #[prost(string, tag="6")]
+    pub local_alias: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

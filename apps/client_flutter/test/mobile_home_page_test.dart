@@ -177,6 +177,45 @@ void main() {
     await _pumpUntilConnectReady(tester, expectedButtons: 2);
     expect(find.widgetWithText(FilledButton, 'Connect'), findsNWidgets(2));
   });
+
+  testWidgets('renames one paired computer only on this device', (
+    tester,
+  ) async {
+    final first = _host(1)..hostIdentity.displayName = 'Roammand Host';
+    final second = _host(2)..hostIdentity.displayName = 'Roammand Host';
+    final persistence = _MemoryHosts()
+      ..bindings = <TrustedHostBinding>[first, second];
+    final repository = TrustedHostRepository(persistence: persistence);
+    await repository.initialize();
+
+    await tester.pumpWidget(
+      _app(
+        MobileHomePage(
+          trustedHosts: repository,
+          launchRemote: (context, target) async => false,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Roammand Host'), findsNWidgets(2));
+    await tester.tap(find.byKey(const Key('rename-trusted-host')).first);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('trusted-host-name-field')),
+      'Studio Mac',
+    );
+    await tester.tap(find.byKey(const Key('save-trusted-host-name')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Studio Mac'), findsOneWidget);
+    expect(find.text('Roammand Host'), findsOneWidget);
+    expect(repository.hosts.first.localAlias, 'Studio Mac');
+    expect(repository.hosts.first.hostIdentity.displayName, 'Roammand Host');
+    expect(repository.hosts.last.localAlias, isNull);
+    expect(find.text('Mac'), findsNWidgets(2));
+    expect(find.textContaining('Safety code:'), findsNWidgets(2));
+  });
 }
 
 Future<void> _pumpUntilConnectReady(

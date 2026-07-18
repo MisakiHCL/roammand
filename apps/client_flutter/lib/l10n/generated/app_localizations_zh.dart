@@ -492,6 +492,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get openRemoteAction => '连接';
 
   @override
+  String get renameTrustedHostAction => '重命名';
+
+  @override
+  String get renameTrustedHostTitle => '重命名电脑';
+
+  @override
+  String get trustedHostNameLabel => '电脑名称';
+
+  @override
+  String get trustedHostNameInvalid => '请输入有效的电脑名称。';
+
+  @override
+  String get renameTrustedHostSaveAction => '保存名称';
+
+  @override
+  String get renameTrustedHostFailed => '无法保存电脑名称。';
+
+  @override
   String get deleteTrustedHostAction => '删除';
 
   @override

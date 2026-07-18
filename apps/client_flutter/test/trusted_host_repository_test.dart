@@ -119,6 +119,11 @@ void main() {
       addTearDown(repository.close);
       await repository.initialize();
 
+      await repository.renameLocal(
+        repository.hosts.single.hostIdentity.deviceId,
+        displayName: 'Editing Mac',
+      );
+
       final replacement = _binding(1)
         ..signalingEndpoint = 'wss://new-signal.example.test/v1/connect'
         ..pairedAtUnixMs = Int64(1700000010000);
@@ -131,8 +136,62 @@ void main() {
       );
       expect(repository.hosts.single.lastSuccessfulConnectionAtUnixMs, 0);
       expect(repository.hosts.single.displayOrder, 0);
+      expect(repository.hosts.single.displayName, 'Editing Mac');
+      expect(repository.hosts.single.localAlias, 'Editing Mac');
     },
   );
+
+  test('renames one Host locally without changing its identity', () async {
+    final persistence = FakeTrustedHostPersistence(<TrustedHostBinding>[
+      _binding(1),
+      _binding(2),
+    ]);
+    final repository = TrustedHostRepository(persistence: persistence);
+    addTearDown(repository.close);
+    await repository.initialize();
+    final originalIdentity = repository.hosts.first.hostIdentity;
+
+    await repository.renameLocal(
+      originalIdentity.deviceId,
+      displayName: '  Studio Mac  ',
+    );
+
+    expect(repository.hosts.first.displayName, 'Studio Mac');
+    expect(repository.hosts.first.localAlias, 'Studio Mac');
+    expect(repository.hosts.first.hostIdentity, originalIdentity);
+    expect(persistence.stored.first.localAlias, 'Studio Mac');
+
+    await repository.renameLocal(
+      originalIdentity.deviceId,
+      displayName: originalIdentity.displayName,
+    );
+    expect(repository.hosts.first.localAlias, isNull);
+    expect(repository.hosts.first.displayName, originalIdentity.displayName);
+  });
+
+  test('rejects an invalid local Host name without saving', () async {
+    final persistence = FakeTrustedHostPersistence(<TrustedHostBinding>[
+      _binding(1),
+    ]);
+    final repository = TrustedHostRepository(persistence: persistence);
+    addTearDown(repository.close);
+    await repository.initialize();
+
+    await expectLater(
+      repository.renameLocal(
+        repository.hosts.single.hostIdentity.deviceId,
+        displayName: ' ',
+      ),
+      throwsA(
+        isA<TrustedHostRepositoryException>().having(
+          (error) => error.code,
+          'code',
+          TrustedHostRepositoryError.invalidDisplayName,
+        ),
+      ),
+    );
+    expect(persistence.savedSnapshots, isEmpty);
+  });
 }
 
 final class FakeTrustedHostPersistence implements TrustedHostPersistence {

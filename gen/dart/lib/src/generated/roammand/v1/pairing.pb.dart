@@ -1426,6 +1426,7 @@ class TrustedHostBinding extends $pb.GeneratedMessage {
     $fixnum.Int64? pairedAtUnixMs,
     $fixnum.Int64? lastSuccessfulConnectionAtUnixMs,
     $core.int? displayOrder,
+    $core.String? localAlias,
   }) {
     final result = create();
     if (hostIdentity != null) result.hostIdentity = hostIdentity;
@@ -1435,6 +1436,7 @@ class TrustedHostBinding extends $pb.GeneratedMessage {
       result.lastSuccessfulConnectionAtUnixMs =
           lastSuccessfulConnectionAtUnixMs;
     if (displayOrder != null) result.displayOrder = displayOrder;
+    if (localAlias != null) result.localAlias = localAlias;
     return result;
   }
 
@@ -1464,6 +1466,7 @@ class TrustedHostBinding extends $pb.GeneratedMessage {
         defaultOrMaker: $fixnum.Int64.ZERO)
     ..a<$core.int>(
         5, _omitFieldNames ? '' : 'displayOrder', $pb.PbFieldType.OU3)
+    ..aOS(6, _omitFieldNames ? '' : 'localAlias')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1534,6 +1537,16 @@ class TrustedHostBinding extends $pb.GeneratedMessage {
   $core.bool hasDisplayOrder() => $_has(4);
   @$pb.TagNumber(5)
   void clearDisplayOrder() => $_clearField(5);
+
+  /// Optional name chosen locally by this Controller. It is never sent to the Host.
+  @$pb.TagNumber(6)
+  $core.String get localAlias => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set localAlias($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasLocalAlias() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearLocalAlias() => $_clearField(6);
 }
 
 class TrustedHostSnapshot extends $pb.GeneratedMessage {

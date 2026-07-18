@@ -531,6 +531,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get openRemoteAction => 'Connect';
 
   @override
+  String get renameTrustedHostAction => 'Rename';
+
+  @override
+  String get renameTrustedHostTitle => 'Rename computer';
+
+  @override
+  String get trustedHostNameLabel => 'Computer name';
+
+  @override
+  String get trustedHostNameInvalid => 'Enter a valid computer name.';
+
+  @override
+  String get renameTrustedHostSaveAction => 'Save name';
+
+  @override
+  String get renameTrustedHostFailed => 'The computer name could not be saved.';
+
+  @override
   String get deleteTrustedHostAction => 'Delete';
 
   @override

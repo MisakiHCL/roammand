@@ -8,6 +8,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as paths;
 import 'package:path_provider/path_provider.dart';
 import 'package:roammand/desktop/remote/signaling_client.dart';
+import 'package:roammand/identity/device_display_name.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 const trustedHostEnvelopeMagic = <int>[
@@ -168,6 +169,11 @@ void validateTrustedHostBindings(List<TrustedHostBinding> bindings) {
         throw const FormatException();
       }
       validateSignalingEndpoint(Uri.parse(binding.signalingEndpoint));
+      if (binding.localAlias.isNotEmpty &&
+          normalizeDeviceDisplayName(binding.localAlias) !=
+              binding.localAlias) {
+        throw const FormatException();
+      }
       if (!deviceIds.add(base64UrlEncode(identity.deviceId))) {
         throw const TrustedHostStoreException(
           TrustedHostStoreError.invalidBinding,

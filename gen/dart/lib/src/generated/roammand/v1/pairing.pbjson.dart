@@ -657,6 +657,7 @@ const TrustedHostBinding$json = {
       '10': 'lastSuccessfulConnectionAtUnixMs'
     },
     {'1': 'display_order', '3': 5, '4': 1, '5': 13, '10': 'displayOrder'},
+    {'1': 'local_alias', '3': 6, '4': 1, '5': 9, '10': 'localAlias'},
   ],
 };
 
@@ -667,7 +668,7 @@ final $typed_data.Uint8List trustedHostBindingDescriptor = $convert.base64Decode
     'ASgJUhFzaWduYWxpbmdFbmRwb2ludBIpChFwYWlyZWRfYXRfdW5peF9tcxgDIAEoBFIOcGFpcm'
     'VkQXRVbml4TXMSTwolbGFzdF9zdWNjZXNzZnVsX2Nvbm5lY3Rpb25fYXRfdW5peF9tcxgEIAEo'
     'BFIgbGFzdFN1Y2Nlc3NmdWxDb25uZWN0aW9uQXRVbml4TXMSIwoNZGlzcGxheV9vcmRlchgFIA'
-    'EoDVIMZGlzcGxheU9yZGVy');
+    'EoDVIMZGlzcGxheU9yZGVyEh8KC2xvY2FsX2FsaWFzGAYgASgJUgpsb2NhbEFsaWFz');
 
 @$core.Deprecated('Use trustedHostSnapshotDescriptor instead')
 const TrustedHostSnapshot$json = {

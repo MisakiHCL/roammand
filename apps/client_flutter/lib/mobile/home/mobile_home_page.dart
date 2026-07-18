@@ -10,12 +10,15 @@ import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
+import 'package:roammand/identity/device_display_name.dart';
 import 'package:roammand/mobile/identity/mobile_device_identity.dart';
 import 'package:roammand/mobile/pairing/mobile_pairing_page.dart';
 import 'package:roammand/mobile/remote/mobile_remote_launcher.dart';
 import 'package:roammand/network/network_service_controller.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
+import 'package:roammand/pairing/device_identity_validator.dart';
 import 'package:roammand/settings/app_settings_page.dart';
+import 'package:roammand_protocol/roammand_protocol.dart';
 
 const _pagePadding = 24.0;
 const _itemSpacing = 12.0;
@@ -25,6 +28,7 @@ const _landscapeLayoutBreakpoint = 680.0;
 const _homeHeadlineFontSize = 24.0;
 const _homeTitleFontSize = 16.0;
 const _homeBodyFontSize = 12.0;
+const _fingerprintBytes = 8;
 
 typedef MobilePairingPageBuilder = Widget Function(BuildContext context);
 
@@ -132,6 +136,30 @@ final class _MobileHomePageState extends State<MobileHomePage> {
     }
   }
 
+  Future<void> _rename(TrustedHostRecord host) async {
+    final strings = AppLocalizations.of(context);
+    final renamed = await showDialog<String>(
+      context: context,
+      builder: (_) => _TrustedHostRenameDialog(
+        initialName: host.displayName,
+        strings: strings,
+      ),
+    );
+    if (renamed == null || renamed == host.displayName) return;
+    try {
+      await widget.trustedHosts.renameLocal(
+        host.hostIdentity.deviceId,
+        displayName: renamed,
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(strings.renameTrustedHostFailed)),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
@@ -226,6 +254,7 @@ final class _MobileHomePageState extends State<MobileHomePage> {
                 _connectingHostKey == null &&
                 (widget.identity != null || widget.launchRemote != null),
             onConnect: () => _connect(host),
+            onRename: () => _rename(host),
           ),
           const SizedBox(height: _itemSpacing),
         ],
@@ -248,18 +277,93 @@ final class _MobileHomePageState extends State<MobileHomePage> {
   }
 }
 
+final class _TrustedHostRenameDialog extends StatefulWidget {
+  const _TrustedHostRenameDialog({
+    required this.initialName,
+    required this.strings,
+  });
+
+  final String initialName;
+  final AppLocalizations strings;
+
+  @override
+  State<_TrustedHostRenameDialog> createState() =>
+      _TrustedHostRenameDialogState();
+}
+
+final class _TrustedHostRenameDialogState
+    extends State<_TrustedHostRenameDialog> {
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final normalized = normalizeDeviceDisplayName(_controller.text);
+    if (normalized == null) {
+      setState(() => _errorText = widget.strings.trustedHostNameInvalid);
+      return;
+    }
+    Navigator.pop(context, normalized);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.strings.renameTrustedHostTitle),
+    content: TextField(
+      key: const Key('trusted-host-name-field'),
+      controller: _controller,
+      autofocus: true,
+      textInputAction: TextInputAction.done,
+      decoration: InputDecoration(
+        labelText: widget.strings.trustedHostNameLabel,
+        errorText: _errorText,
+      ),
+      onChanged: (_) {
+        if (_errorText != null) {
+          setState(() => _errorText = null);
+        }
+      },
+      onSubmitted: (_) => _submit(),
+    ),
+    actions: <Widget>[
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: Text(widget.strings.cancelAction),
+      ),
+      FilledButton(
+        key: const Key('save-trusted-host-name'),
+        onPressed: _submit,
+        child: Text(widget.strings.renameTrustedHostSaveAction),
+      ),
+    ],
+  );
+}
+
 final class _MobileTrustedHostCard extends StatelessWidget {
   const _MobileTrustedHostCard({
     required this.host,
     required this.connecting,
     required this.enabled,
     required this.onConnect,
+    required this.onRename,
   });
 
   final TrustedHostRecord host;
   final bool connecting;
   final bool enabled;
   final VoidCallback onConnect;
+  final VoidCallback onRename;
 
   @override
   Widget build(BuildContext context) {
@@ -267,6 +371,7 @@ final class _MobileTrustedHostCard extends StatelessWidget {
     final lastConnected = host.lastSuccessfulConnectionAtUnixMs == 0
         ? strings.neverConnected
         : _formatDateTime(context, host.lastSuccessfulConnectionAtUnixMs);
+    final identity = host.hostIdentity;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -302,11 +407,18 @@ final class _MobileTrustedHostCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       RoammandStatusPill(
-                        label: strings.computerReadyLabel,
-                        tone: RoammandStatusTone.online,
+                        label: _platformLabel(strings, identity.platform),
+                        tone: RoammandStatusTone.neutral,
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  key: const Key('rename-trusted-host'),
+                  onPressed: onRename,
+                  tooltip: strings.renameTrustedHostAction,
+                  icon: const Icon(Icons.edit_outlined, size: 20),
                 ),
               ],
             ),
@@ -317,6 +429,12 @@ final class _MobileTrustedHostCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(strings.trustedHostLastConnectedLabel(lastConnected)),
+            const SizedBox(height: 4),
+            Text(
+              strings.hostShortFingerprint(
+                _shortFingerprint(devicePublicKeyFingerprintSha256(identity)),
+              ),
+            ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: enabled ? onConnect : null,
@@ -366,6 +484,18 @@ final class _EmptyState extends StatelessWidget {
 
 String _hostKey(TrustedHostRecord host) =>
     base64UrlEncode(host.hostIdentity.deviceId);
+
+String _platformLabel(AppLocalizations strings, DevicePlatform platform) =>
+    switch (platform) {
+      DevicePlatform.DEVICE_PLATFORM_MACOS => strings.devicePlatformMacos,
+      DevicePlatform.DEVICE_PLATFORM_WINDOWS => strings.devicePlatformWindows,
+      _ => strings.devicePlatformUnknown,
+    };
+
+String _shortFingerprint(List<int> fingerprint) => fingerprint
+    .take(_fingerprintBytes)
+    .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+    .join(' ');
 
 String _formatDateTime(BuildContext context, int unixMs) {
   final value = DateTime.fromMillisecondsSinceEpoch(unixMs).toLocal();

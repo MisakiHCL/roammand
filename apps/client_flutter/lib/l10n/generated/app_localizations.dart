@@ -980,6 +980,42 @@ abstract class AppLocalizations {
   /// **'Connect'**
   String get openRemoteAction;
 
+  /// No description provided for @renameTrustedHostAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get renameTrustedHostAction;
+
+  /// No description provided for @renameTrustedHostTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename computer'**
+  String get renameTrustedHostTitle;
+
+  /// No description provided for @trustedHostNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer name'**
+  String get trustedHostNameLabel;
+
+  /// No description provided for @trustedHostNameInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid computer name.'**
+  String get trustedHostNameInvalid;
+
+  /// No description provided for @renameTrustedHostSaveAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Save name'**
+  String get renameTrustedHostSaveAction;
+
+  /// No description provided for @renameTrustedHostFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The computer name could not be saved.'**
+  String get renameTrustedHostFailed;
+
   /// No description provided for @deleteTrustedHostAction.
   ///
   /// In en, this message translates to:

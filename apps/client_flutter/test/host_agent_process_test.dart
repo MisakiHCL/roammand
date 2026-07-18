@@ -106,6 +106,39 @@ void main() {
     expect(environment.containsKey('HTTP_PROXY'), isFalse);
   });
 
+  test(
+    'adds the desktop computer name to the Host Agent environment',
+    () async {
+      final environment = await resolvedHostAgentProcessEnvironment(
+        configuration: NetworkServiceConfiguration.official(),
+        parentEnvironment: const <String, String>{'PATH': '/usr/bin'},
+        deviceNameResolver: () async => '  Office Mac  ',
+      );
+
+      expect(environment[hostAgentDeviceNameEnvironment], 'Office Mac');
+    },
+  );
+
+  test(
+    'explicit Host name override wins without reading the computer name',
+    () async {
+      var resolverCalled = false;
+      final environment = await resolvedHostAgentProcessEnvironment(
+        configuration: NetworkServiceConfiguration.official(),
+        parentEnvironment: const <String, String>{
+          hostAgentDeviceNameEnvironment: 'Development Host',
+        },
+        deviceNameResolver: () async {
+          resolverCalled = true;
+          return 'Office Mac';
+        },
+      );
+
+      expect(environment[hostAgentDeviceNameEnvironment], 'Development Host');
+      expect(resolverCalled, isFalse);
+    },
+  );
+
   test('parses only stable startup diagnostic codes', () {
     expect(
       parseHostAgentStartupFailure(

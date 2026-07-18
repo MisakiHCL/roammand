@@ -48,6 +48,11 @@ the Mac when approving the Controller.
 4. Approve the named Controller on the Mac.
 5. Select the Mac under **My computers** and choose **Connect**.
 
+Roammand uses the Mac's system computer name when it is available. If multiple
+computers have similar names, use the edit action on a saved computer to set an
+alias such as “Office Mac” or “Home Mac.” The alias remains only on that
+Controller; it does not change the Mac name, device identity, or authorization.
+
 Pairing authorization is one-way. Reversing which device controls which Host
 requires a separate pairing and approval.
 

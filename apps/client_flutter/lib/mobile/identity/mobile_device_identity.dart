@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:roammand/identity/device_display_name.dart';
 import 'package:roammand/pairing/controller_pairing_identity.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 const mobileIdentitySeedBytes = 32;
-const maxDeviceDisplayNameUtf8Bytes = 128;
 
 final class MobileDeviceIdentity implements ControllerPairingIdentity {
   MobileDeviceIdentity._(this._identity, this._keyPair, this._algorithm);
@@ -64,20 +63,7 @@ final class MobileDeviceIdentity implements ControllerPairingIdentity {
 }
 
 String validateConfirmedDeviceName(String value) {
-  final normalized = normalizeDeviceName(value);
-  if (normalized == null) {
-    throw ArgumentError.value(value, 'displayName', 'Invalid device name');
-  }
-  return normalized;
+  return requireDeviceDisplayName(value);
 }
 
-String? normalizeDeviceName(String? value) {
-  final normalized = value?.trim();
-  if (normalized == null ||
-      normalized.isEmpty ||
-      utf8.encode(normalized).length > maxDeviceDisplayNameUtf8Bytes ||
-      normalized.runes.any((rune) => rune < 0x20 || rune == 0x7f)) {
-    return null;
-  }
-  return normalized;
-}
+String? normalizeDeviceName(String? value) => normalizeDeviceDisplayName(value);
