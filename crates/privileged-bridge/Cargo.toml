@@ -22,6 +22,7 @@ native-webrtc = [
   "dep:objc2",
   "dep:objc2-app-kit",
   "dep:objc2-foundation",
+  "dep:tokio",
 ]
 
 [dependencies]
@@ -62,6 +63,7 @@ nix = { version = "0.31.3", features = ["fs", "socket", "user"] }
 objc2 = { version = "0.6.4", optional = true }
 objc2-app-kit = { version = "0.3.2", optional = true }
 objc2-foundation = { version = "0.3.2", optional = true }
+tokio = { version = "1.52.3", features = ["rt-multi-thread"], optional = true }
 
 [[bin]]
 name = "roammand-privileged-bridge"

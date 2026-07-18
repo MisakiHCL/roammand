@@ -151,7 +151,7 @@ mod macos_runtime {
         roammand_privileged_bridge::{
             macos_indicator_runtime::run_macos_indicator,
             native_helper::NativeHelperBackend,
-            native_indicator::native_indicator_channel,
+            native_indicator::{NativeIndicatorClient, native_indicator_channel},
             runtime::{HelperClientConfig, run_unix_helper},
         },
         roammand_protocol::roammand::v1::{
@@ -164,6 +164,14 @@ mod macos_runtime {
     };
 
     const IO_TIMEOUT: Duration = Duration::from_secs(5);
+
+    struct FinishIndicatorOnDrop(NativeIndicatorClient);
+
+    impl Drop for FinishIndicatorOnDrop {
+        fn drop(&mut self) {
+            self.0.finish();
+        }
+    }
 
     pub fn run_daemon() -> Result<(), &'static str> {
         validate_component_role(
@@ -230,23 +238,33 @@ mod macos_runtime {
         let worker_indicator = indicator.clone();
         let worker_shutdown = Arc::clone(&shutdown);
         let worker = thread::spawn(move || {
-            let result = run_unix_helper(
-                Path::new(MACOS_BRIDGE_SOCKET_PATH),
-                config,
-                Box::new(NativeHelperBackend::new().with_indicator(worker_indicator.clone())),
-                worker_shutdown.as_ref(),
-                IO_TIMEOUT,
-            );
-            worker_indicator.finish();
-            result
+            let _finish_indicator = FinishIndicatorOnDrop(worker_indicator.clone());
+            run_with_async_runtime(|| {
+                run_unix_helper(
+                    Path::new(MACOS_BRIDGE_SOCKET_PATH),
+                    config,
+                    Box::new(NativeHelperBackend::new().with_indicator(worker_indicator)),
+                    worker_shutdown.as_ref(),
+                    IO_TIMEOUT,
+                )
+            })
+            .and_then(|result| result.map_err(|_| "session Agent runtime failed"))
         });
         let ui_result = run_macos_indicator(indicator_runtime);
         shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
-        let worker_result = worker
-            .join()
-            .map_err(|_| "session Agent worker failed")?
-            .map_err(|_| "session Agent runtime failed");
+        let worker_result = worker.join().map_err(|_| "session Agent worker failed")?;
         ui_result.and(worker_result)
+    }
+
+    #[cfg(feature = "native-webrtc")]
+    fn run_with_async_runtime<T>(operation: impl FnOnce() -> T) -> Result<T, &'static str> {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .build()
+            .map_err(|_| "session Agent async runtime failed")?;
+        let _runtime_context = runtime.enter();
+        Ok(operation())
     }
 
     #[cfg(feature = "native-webrtc")]
@@ -327,6 +345,45 @@ mod macos_runtime {
 
     fn current_uid() -> u32 {
         nix::unistd::Uid::effective().as_raw()
+    }
+
+    #[cfg(all(test, feature = "native-webrtc"))]
+    mod tests {
+        use std::{
+            panic::{AssertUnwindSafe, catch_unwind},
+            sync::mpsc::sync_channel,
+            time::Duration,
+        };
+
+        use roammand_privileged_bridge::native_indicator::native_indicator_channel;
+
+        use super::{FinishIndicatorOnDrop, run_with_async_runtime};
+
+        #[test]
+        fn async_runtime_is_available_and_driven_for_helper_operations() {
+            let (sender, receiver) = sync_channel(1);
+            run_with_async_runtime(|| {
+                tokio::spawn(async move {
+                    sender.send(()).expect("test receiver remains available");
+                });
+                receiver
+                    .recv_timeout(Duration::from_secs(1))
+                    .expect("runtime worker must drive spawned tasks");
+            })
+            .expect("runtime must initialize");
+        }
+
+        #[test]
+        fn worker_panic_finishes_the_indicator_runtime() {
+            let (indicator, runtime) = native_indicator_channel();
+            let result = catch_unwind(AssertUnwindSafe(|| {
+                let _finish_indicator = FinishIndicatorOnDrop(indicator);
+                panic!("simulated Helper worker failure");
+            }));
+
+            assert!(result.is_err());
+            assert!(runtime.snapshot().finished);
+        }
     }
 }
 
