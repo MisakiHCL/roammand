@@ -18,7 +18,8 @@ import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 
 import '../../diagnostics/diagnostics_dialog.dart';
 
-const _statusHorizontalPadding = 12.0;
+const _statusHeight = 32.0;
+const _statusHorizontalPadding = 8.0;
 const _statusVerticalPadding = 4.0;
 const _statusRadius = 16.0;
 const _controlBarPadding = 4.0;
@@ -183,7 +184,7 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
           tooltip: MaterialLocalizations.of(context).backButtonTooltip,
         ),
         const SizedBox(width: 4),
-        Flexible(
+        Expanded(
           flex: 2,
           child: Text(
             strings.remoteDesktopTitle(widget.target.hostIdentity.displayName),
@@ -285,56 +286,60 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
         : connected
         ? RoammandColors.online
         : RoammandColors.auroraSoft;
-    return DecoratedBox(
-      key: const Key('mobile-remote-status'),
-      decoration: BoxDecoration(
-        color: failed
-            ? colors.errorContainer
-            : connected
-            ? RoammandColors.online.withValues(alpha: 0.14)
-            : colors.surfaceContainerHighest.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(_statusRadius),
-        border: Border.all(color: accent.withValues(alpha: 0.48)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: _statusHorizontalPadding,
-          vertical: _statusVerticalPadding,
+    return SizedBox(
+      height: _statusHeight,
+      child: DecoratedBox(
+        key: const Key('mobile-remote-status'),
+        decoration: BoxDecoration(
+          color: failed
+              ? colors.errorContainer
+              : connected
+              ? RoammandColors.online.withValues(alpha: 0.14)
+              : colors.surfaceContainerHighest.withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(_statusRadius),
+          border: Border.all(color: accent.withValues(alpha: 0.48)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (connected) ...<Widget>[
-              const Icon(Icons.circle, size: 8, color: RoammandColors.online),
-              const SizedBox(width: 8),
-            ],
-            if (_isProgressState(widget.controller.state)) ...<Widget>[
-              const SizedBox.square(
-                dimension: 12,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 4),
-            ],
-            Flexible(
-              child: Text(
-                _statusText(strings),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-            ),
-            if (failed && widget.controller.canRetry) ...<Widget>[
-              const SizedBox(width: 4),
-              TextButton(
-                onPressed: () => unawaited(_retrySession()),
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(36, 32),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: _statusHorizontalPadding,
+            vertical: _statusVerticalPadding,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (connected) ...<Widget>[
+                const Icon(Icons.circle, size: 8, color: RoammandColors.online),
+                const SizedBox(width: 8),
+              ],
+              if (_isProgressState(widget.controller.state)) ...<Widget>[
+                const SizedBox.square(
+                  dimension: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                child: Text(strings.retryRemoteAction),
+                const SizedBox(width: 4),
+              ],
+              Flexible(
+                child: Text(
+                  _statusText(strings),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
               ),
+              if (failed && widget.controller.canRetry) ...<Widget>[
+                const SizedBox(width: 4),
+                TextButton(
+                  onPressed: () => unawaited(_retrySession()),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(36, 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(strings.retryRemoteAction),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

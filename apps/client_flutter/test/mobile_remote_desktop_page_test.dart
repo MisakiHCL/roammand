@@ -144,7 +144,12 @@ void main() {
       tester.view.padding = FakeViewPadding.zero;
       return tester.binding.setSurfaceSize(null);
     });
-    await tester.pumpWidget(_app(_PageFixture().page()));
+    final fixture = _PageFixture(
+      state: RemoteDesktopState.failed,
+      errorCode: RemoteDesktopErrorCode.signaling,
+    );
+    fixture.controller.retryAvailable = true;
+    await tester.pumpWidget(_app(fixture.page(), locale: const Locale('zh')));
     await tester.pump();
 
     final header = find.byKey(const Key('mobile-remote-header'));
@@ -166,7 +171,11 @@ void main() {
       tester
           .getRect(find.byKey(const Key('mobile-remote-diagnostics-action')))
           .right,
-      lessThanOrEqualTo(820),
+      tester.getRect(find.byKey(const Key('mobile-keyboard-toggle'))).right,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('mobile-remote-status'))).height,
+      32,
     );
     expect(tester.widget<Material>(header).color, RoammandColors.canvas);
     expect(tester.widget<Material>(controlBar).color, RoammandColors.canvas);
@@ -398,6 +407,10 @@ void main() {
       ..state = RemoteDesktopState.failed
       ..notifyListeners();
     await tester.pump();
+    expect(
+      tester.getSize(find.byKey(const Key('mobile-remote-status'))).height,
+      32,
+    );
     await tester.tap(find.text('重试'));
     await tester.pump();
     expect(fixture.controller.retryCount, 1);
