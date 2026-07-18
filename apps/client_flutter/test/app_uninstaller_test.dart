@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/settings/uninstall/app_uninstaller.dart';
 
+const _uninstallerChannel = MethodChannel('dev.roammand/uninstaller');
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('only enables uninstall for a complete installed macOS app', () async {
     final installed = MacOsAppUninstaller(
       resolvedExecutable: macosInstalledAppExecutable,
@@ -58,4 +63,29 @@ void main() {
       ),
     );
   });
+
+  test(
+    'routes installed-app uninstall through native macOS authorization',
+    () async {
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      MethodCall? receivedCall;
+      messenger.setMockMethodCallHandler(_uninstallerChannel, (call) async {
+        receivedCall = call;
+        return null;
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(_uninstallerChannel, null),
+      );
+
+      final uninstaller = MacOsAppUninstaller(
+        resolvedExecutable: macosInstalledAppExecutable,
+        fileExists: (_) async => true,
+      );
+      await uninstaller.uninstallProgram();
+
+      expect(receivedCall?.method, 'uninstall');
+      expect(receivedCall?.arguments, isNull);
+    },
+  );
 }

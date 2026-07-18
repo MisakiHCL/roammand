@@ -2,15 +2,15 @@
 
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
 const macosInstalledAppExecutable =
     '/Applications/Roammand.app/Contents/MacOS/roammand';
 const macosInstalledUninstaller =
     '/Library/Application Support/Roammand/uninstall-macos.sh';
-const _osascriptExecutable = '/usr/bin/osascript';
-const _authorizedUninstallScript =
-    'do shell script (quoted form of '
-    '"$macosInstalledUninstaller") '
-    'with administrator privileges';
+const _uninstallerChannelName = 'dev.roammand/uninstaller';
+const _uninstallMethodName = 'uninstall';
+const _uninstallerChannel = MethodChannel(_uninstallerChannelName);
 
 enum AppUninstallAvailability { available, developmentBuild, unavailable }
 
@@ -70,16 +70,11 @@ final class MacOsAppUninstaller implements AppUninstaller {
 
 Future<int> _runAuthorizedMacOsUninstaller() async {
   try {
-    final result = await Process.run(
-      _osascriptExecutable,
-      const <String>['-e', _authorizedUninstallScript],
-      environment: const <String, String>{
-        'PATH': '/usr/bin:/bin:/usr/sbin:/sbin',
-      },
-      includeParentEnvironment: false,
-    );
-    return result.exitCode;
-  } on ProcessException {
+    await _uninstallerChannel.invokeMethod<void>(_uninstallMethodName);
+    return 0;
+  } on PlatformException catch (_) {
+    return 1;
+  } on MissingPluginException catch (_) {
     return 1;
   }
 }
