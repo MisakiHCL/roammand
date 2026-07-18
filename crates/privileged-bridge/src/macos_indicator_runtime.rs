@@ -108,7 +108,9 @@ define_class!(
                 .get()
                 .expect("detail label")
                 .setStringValue(&NSString::from_str(&controller));
-            window.orderFrontRegardless();
+            if !window.isVisible() {
+                window.orderFrontRegardless();
+            }
         }
 
         #[unsafe(method(localStop:))]

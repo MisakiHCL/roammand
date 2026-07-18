@@ -23,6 +23,12 @@ fn controlled_state_is_visible_bounded_and_transitions_fail_closed() {
     assert_eq!(presentation.status_key(), IndicatorStatusKey::Controlled);
     assert!(presentation.stop_visible());
     assert!(presentation.input_enabled());
+    assert!(
+        indicator
+            .show_controlled("My phone")
+            .expect("repeat controlled indicator")
+            .is_empty()
+    );
 
     let actions = indicator.set_phase(IndicatorPhase::Transitioning);
     let IndicatorAction::Update(presentation) = actions[0].clone() else {

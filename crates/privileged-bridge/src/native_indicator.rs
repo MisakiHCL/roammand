@@ -65,7 +65,10 @@ impl NativeIndicatorClient {
         if state.finished {
             return Err(IndicatorError::RemoteCommandRejected);
         }
-        state.controller.show_controlled(controller_display_name)?;
+        let actions = state.controller.show_controlled(controller_display_name)?;
+        if actions.is_empty() {
+            return Ok(());
+        }
         self.shared.local_stop.store(false, Ordering::Release);
         state.bump_revision();
         Ok(())

@@ -36,3 +36,16 @@ fn local_stop_is_one_shot_and_tears_down_the_shared_surface() {
     runtime.finish();
     assert!(runtime.snapshot().finished);
 }
+
+#[test]
+fn repeated_controlled_state_does_not_republish_the_surface() {
+    let (client, runtime) = native_indicator_channel();
+    client.show_controlled("Controller phone").expect("show");
+    let revision = runtime.snapshot().revision;
+
+    client
+        .show_controlled("Controller phone")
+        .expect("repeat show");
+
+    assert_eq!(runtime.snapshot().revision, revision);
+}

@@ -120,6 +120,9 @@ impl IndicatorController {
             controller_display_name: controller_display_name.to_owned(),
             phase: IndicatorPhase::Controlled,
         };
+        if self.presentation.as_ref() == Some(&presentation) && !self.stop_emitted {
+            return Ok(Vec::new());
+        }
         self.presentation = Some(presentation.clone());
         self.stop_emitted = false;
         Ok(vec![if was_visible {
