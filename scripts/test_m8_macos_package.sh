@@ -22,6 +22,8 @@ rg -q -- '--target "\$target"' scripts/build_macos_universal_agents.sh
 rg -q 'webrtc-mac-arm64-release\.zip' scripts/build_macos_universal_agents.sh
 rg -q 'webrtc-mac-x64-release\.zip' scripts/build_macos_universal_agents.sh
 rg -q 'lipo -create' scripts/build_macos_universal_agents.sh
+rg -q 'rustc-link-arg-bin=.*=-ObjC' crates/privileged-bridge/build.rs
+rg -q 'stringForAbslStringView' scripts/check_m8_macos_package.sh
 rg -q -- 'flutter build macos --release --no-pub' scripts/package_m8_macos.sh
 rg -q -- '--options runtime' scripts/sign_macos_release.sh
 rg -q -- '--timestamp' scripts/sign_macos_release.sh

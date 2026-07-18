@@ -165,8 +165,10 @@ mod macos_runtime {
 
     const IO_TIMEOUT: Duration = Duration::from_secs(5);
 
+    #[cfg(feature = "native-webrtc")]
     struct FinishIndicatorOnDrop(NativeIndicatorClient);
 
+    #[cfg(feature = "native-webrtc")]
     impl Drop for FinishIndicatorOnDrop {
         fn drop(&mut self) {
             self.0.finish();

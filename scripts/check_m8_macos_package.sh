@@ -63,8 +63,17 @@ for path in "${UNIVERSAL_BINARIES[@]}"; do
     }
   fi
 done
+readonly SESSION_AGENT="$PACKAGE_DIR/Applications/Roammand.app/Contents/Library/LoginItems/RoammandSessionAgent.app/Contents/MacOS/roammand-session-agent"
+if file -b "$SESSION_AGENT" | rg -q '^Mach-O'; then
+  for architecture in arm64 x86_64; do
+    if ! nm -arch "$architecture" "$SESSION_AGENT" 2>/dev/null | \
+      rg -F '+[NSString(AbslStringView) stringForAbslStringView:]' >/dev/null; then
+      printf 'macOS Session Agent is missing required Objective-C categories\n' >&2
+      exit 1
+    fi
+  done
+fi
 "$PACKAGE_DIR/Library/PrivilegedHelperTools/roammand-privileged-bridge" \
   check-macos-daemon >/dev/null
-"$PACKAGE_DIR/Applications/Roammand.app/Contents/Library/LoginItems/RoammandSessionAgent.app/Contents/MacOS/roammand-session-agent" \
-  check-macos-agent >/dev/null
+"$SESSION_AGENT" check-macos-agent >/dev/null
 printf 'macOS package ok\n'
