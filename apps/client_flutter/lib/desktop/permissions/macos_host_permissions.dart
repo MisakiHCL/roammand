@@ -64,12 +64,31 @@ abstract interface class MacOsHostPermissionService {
   Future<MacOsHostPermissionStatus> request(MacOsHostPermission permission);
 }
 
+typedef MacOsPermissionExecutableResolver = Future<String?> Function();
+typedef MacOsPermissionCommandRunner =
+    Future<ProcessResult> Function(String executable, List<String> arguments);
+
 final class ProcessMacOsHostPermissionService
     implements MacOsHostPermissionService {
-  ProcessMacOsHostPermissionService({Map<String, String>? environment})
-    : _environment = environment ?? Platform.environment;
+  ProcessMacOsHostPermissionService({
+    Map<String, String>? environment,
+    MacOsPermissionExecutableResolver? executableResolver,
+    MacOsPermissionCommandRunner? processRunner,
+  }) : _environment = environment ?? Platform.environment,
+       // Public constructor labels keep dependency injection readable.
+       // ignore: prefer_initializing_formals
+       _executableResolver = executableResolver,
+       _processRunner =
+           processRunner ??
+           ((executable, arguments) => Process.run(
+             executable,
+             arguments,
+             includeParentEnvironment: false,
+           ));
 
   final Map<String, String> _environment;
+  final MacOsPermissionExecutableResolver? _executableResolver;
+  final MacOsPermissionCommandRunner _processRunner;
 
   @override
   Future<MacOsHostPermissionStatus> check() =>
@@ -83,24 +102,27 @@ final class ProcessMacOsHostPermissionService
       MacOsHostPermission.screenRecording => _requestScreenRecordingCommand,
       MacOsHostPermission.accessibility => _requestAccessibilityCommand,
     };
-    final status = await _runPermissionCommand(command);
-    if (!status.granted(permission)) {
+    try {
       await _openSettings(permission);
+    } on MacOsHostPermissionException {
+      // The native request is a fallback for systems where the privacy pane
+      // cannot be opened. Never run both paths together: its system-owned
+      // prompt is asynchronous and would otherwise overlap System Settings.
+      return _runPermissionCommand(command);
     }
-    return status;
+    return check();
   }
 
   Future<MacOsHostPermissionStatus> _runPermissionCommand(
     String command,
   ) async {
-    final executable = await _resolveExecutable();
+    final executable =
+        await (_executableResolver?.call() ?? _resolveExecutable());
     if (executable == null) {
       throw const MacOsHostPermissionException();
     }
     try {
-      final result = await Process.run(executable, <String>[
-        command,
-      ], includeParentEnvironment: false);
+      final result = await _processRunner(executable, <String>[command]);
       return MacOsHostPermissionStatus.fromExitCode(result.exitCode);
     } on ProcessException {
       throw const MacOsHostPermissionException();
@@ -127,9 +149,7 @@ final class ProcessMacOsHostPermissionService
       MacOsHostPermission.accessibility => _accessibilitySettings,
     };
     try {
-      final result = await Process.run(_openCommand, <String>[
-        destination,
-      ], includeParentEnvironment: false);
+      final result = await _processRunner(_openCommand, <String>[destination]);
       if (result.exitCode != 0) {
         throw const MacOsHostPermissionException();
       }

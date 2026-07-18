@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/desktop/permissions/macos_host_permissions.dart';
 
@@ -33,6 +35,67 @@ void main() {
       MacOsHostPermission.accessibility,
     ]);
   });
+
+  test('opens System Settings without also showing a native prompt', () async {
+    final invocations = <(String, List<String>)>[];
+    final service = ProcessMacOsHostPermissionService(
+      executableResolver: () async => '/test/roammand-session-agent',
+      processRunner: (executable, arguments) async {
+        invocations.add((executable, List<String>.of(arguments)));
+        if (executable == '/usr/bin/open') {
+          return ProcessResult(1, 0, '', '');
+        }
+        return ProcessResult(1, 43, '', '');
+      },
+    );
+
+    await service.request(MacOsHostPermission.screenRecording);
+    await service.request(MacOsHostPermission.accessibility);
+
+    expect(invocations, hasLength(4));
+    expect(
+      invocations.where((invocation) => invocation.$1 == '/usr/bin/open'),
+      hasLength(2),
+    );
+    expect(
+      invocations
+          .expand((invocation) => invocation.$2)
+          .where((argument) => argument.startsWith('macos-request-')),
+      isEmpty,
+    );
+    expect(invocations.map((invocation) => invocation.$2.single), <String>[
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
+      'macos-permission-status',
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
+      'macos-permission-status',
+    ]);
+  });
+
+  test(
+    'falls back to the native prompt when System Settings cannot open',
+    () async {
+      final invocations = <(String, List<String>)>[];
+      final service = ProcessMacOsHostPermissionService(
+        executableResolver: () async => '/test/roammand-session-agent',
+        processRunner: (executable, arguments) async {
+          invocations.add((executable, List<String>.of(arguments)));
+          return ProcessResult(
+            1,
+            executable == '/usr/bin/open' ? 1 : 43,
+            '',
+            '',
+          );
+        },
+      );
+
+      await service.request(MacOsHostPermission.screenRecording);
+
+      expect(invocations, hasLength(2));
+      expect(invocations.first.$1, '/usr/bin/open');
+      expect(invocations.last.$1, '/test/roammand-session-agent');
+      expect(invocations.last.$2, <String>['macos-request-screen-recording']);
+    },
+  );
 }
 
 final class _GrantingPermissionService implements MacOsHostPermissionService {
