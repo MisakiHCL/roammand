@@ -475,6 +475,55 @@ fn signaling_loss_reconnects_for_thirty_seconds_before_failing_closed() {
 }
 
 #[test]
+fn signaling_loss_with_a_failed_bridge_clears_only_the_active_session() {
+    let mut fixture = Fixture::with_input_release_failures(1);
+    fixture.connect();
+    fixture
+        .coordinator
+        .handle_peer_event(RemotePeerEvent::Connected, NOW_UNIX_MS)
+        .expect("session must connect");
+
+    assert_eq!(
+        fixture.coordinator.signaling_lost(NOW_UNIX_MS),
+        Err(RemoteSessionError::Peer)
+    );
+    assert_eq!(fixture.status_state(), SessionState::Failed);
+    assert_eq!(
+        fixture.operations(),
+        vec![
+            "peer-start",
+            "input-release-all",
+            "input-release-all",
+            "peer-close"
+        ]
+    );
+
+    fixture.session_id = vec![0x95; 16];
+    let next_offer = signed_offer_with_nonce(
+        &fixture.controller,
+        fixture.host_identity(),
+        fixture.session_id.clone(),
+        OFFER_SDP,
+        0x75,
+    );
+    assert!(
+        fixture
+            .route(
+                &authentication_envelope_for(&fixture, next_offer),
+                NOW_UNIX_MS + 1,
+            )
+            .is_empty()
+    );
+    assert_eq!(
+        fixture
+            .route(&description_envelope(&fixture), NOW_UNIX_MS + 1)
+            .len(),
+        2
+    );
+    assert_eq!(fixture.status_state(), SessionState::Connecting);
+}
+
+#[test]
 fn authenticates_reconnect_and_reuses_the_active_peer() {
     let mut fixture = Fixture::new();
     fixture.connect();
@@ -682,14 +731,23 @@ struct Fixture {
     operations: Arc<Mutex<Vec<&'static str>>>,
     contexts: Arc<Mutex<Vec<RemoteSessionContext>>>,
     peer_start_failures: Arc<Mutex<usize>>,
+    input_release_failures: Arc<Mutex<usize>>,
 }
 
 impl Fixture {
     fn new() -> Self {
-        Self::with_peer_start_failures(0)
+        Self::with_failures(0, 0)
     }
 
     fn with_peer_start_failures(failure_count: usize) -> Self {
+        Self::with_failures(failure_count, 0)
+    }
+
+    fn with_input_release_failures(failure_count: usize) -> Self {
+        Self::with_failures(0, failure_count)
+    }
+
+    fn with_failures(peer_start_failure_count: usize, input_release_failure_count: usize) -> Self {
         let identity = HostIdentity::load_or_create(
             &MemorySecretStore::new(),
             "Remote Host",
@@ -720,11 +778,13 @@ impl Fixture {
         ));
         let operations = Arc::new(Mutex::new(Vec::new()));
         let contexts = Arc::new(Mutex::new(Vec::new()));
-        let peer_start_failures = Arc::new(Mutex::new(failure_count));
+        let peer_start_failures = Arc::new(Mutex::new(peer_start_failure_count));
+        let input_release_failures = Arc::new(Mutex::new(input_release_failure_count));
         let factory = FakeSessionFactory {
             operations: Arc::clone(&operations),
             contexts: Arc::clone(&contexts),
             peer_start_failures: Arc::clone(&peer_start_failures),
+            input_release_failures: Arc::clone(&input_release_failures),
         };
         let coordinator = RemoteSessionCoordinator::new(service.clone(), Box::new(factory))
             .expect("coordinator must initialize");
@@ -737,6 +797,7 @@ impl Fixture {
             operations,
             contexts,
             peer_start_failures,
+            input_release_failures,
         }
     }
 
@@ -796,6 +857,7 @@ impl Fixture {
                 operations: Arc::clone(&self.operations),
                 contexts: Arc::clone(&self.contexts),
                 peer_start_failures: Arc::clone(&self.peer_start_failures),
+                input_release_failures: Arc::clone(&self.input_release_failures),
             }),
         )
         .expect("new coordinator must initialize");
@@ -853,6 +915,7 @@ struct FakeSessionFactory {
     operations: Arc<Mutex<Vec<&'static str>>>,
     contexts: Arc<Mutex<Vec<RemoteSessionContext>>>,
     peer_start_failures: Arc<Mutex<usize>>,
+    input_release_failures: Arc<Mutex<usize>>,
 }
 
 impl RemoteSessionFactory for FakeSessionFactory {
@@ -872,6 +935,7 @@ impl RemoteSessionFactory for FakeSessionFactory {
             }),
             Box::new(FakeInput {
                 operations: Arc::clone(&self.operations),
+                release_failures: Arc::clone(&self.input_release_failures),
             }),
             Box::new(NoPeerEvents),
         ))
@@ -949,6 +1013,7 @@ impl PeerBackend for FakePeer {
 
 struct FakeInput {
     operations: Arc<Mutex<Vec<&'static str>>>,
+    release_failures: Arc<Mutex<usize>>,
 }
 
 impl RemoteInputSink for FakeInput {
@@ -957,6 +1022,11 @@ impl RemoteInputSink for FakeInput {
             .lock()
             .expect("operations lock")
             .push("input-release-all");
+        let mut release_failures = self.release_failures.lock().expect("release failures lock");
+        if *release_failures > 0 {
+            *release_failures -= 1;
+            return Err(HostWebRtcError::InputFailure);
+        }
         Ok(())
     }
 }

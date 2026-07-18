@@ -420,15 +420,18 @@ pub(crate) async fn run_remote_sessions(
         if *shutdown.borrow() {
             break;
         }
-        remote
-            .coordinator
-            .signaling_lost(now_unix_ms()?)
-            .map_err(|_| RuntimeError::RemoteSession)?;
+        if let Err(error) = connection_result {
+            log_remote_failure("signalingConnection", error);
+        }
+        if let Err(error) = remote.coordinator.signaling_lost(now_unix_ms()?) {
+            // The coordinator has already failed the affected session closed.
+            // Keep the Agent available for a fresh signaling connection.
+            log_remote_failure("signalingLost", error);
+        }
         remote
             .service
             .pairing_signaling_lost()
             .map_err(|_| RuntimeError::RemoteSession)?;
-        let _ = connection_result;
         tokio::select! {
             changed = shutdown.changed() => {
                 if changed.is_err() || *shutdown.borrow() {
@@ -575,7 +578,7 @@ async fn run_registered_connection(
                 let outbound = coordinator
                     .poll_peer_event(now_unix_ms()?)
                     .map_err(|error| {
-                        debug_remote_failure("pollPeerEvent", error);
+                        log_remote_failure("pollPeerEvent", error);
                         RuntimeError::RemoteSession
                     })?;
                 send_remote_outbound(
@@ -624,11 +627,11 @@ fn handle_remote_server_frame(
                 | RemoteSessionError::PendingIceLimit
                 | RemoteSessionError::DeviceBusy),
             ) => {
-                debug_remote_failure("handleRouted", error);
+                log_remote_failure("handleRouted", error);
                 Ok(Vec::new())
             }
             Err(error) => {
-                debug_remote_failure("handleRouted", error);
+                log_remote_failure("handleRouted", error);
                 Err(RuntimeError::RemoteSession)
             }
         },
@@ -656,11 +659,8 @@ fn handle_pairing_server_event(
     Vec::new()
 }
 
-fn debug_remote_failure(operation: &str, error: RemoteSessionError) {
-    #[cfg(debug_assertions)]
+fn log_remote_failure(operation: &str, error: impl fmt::Debug) {
     eprintln!("[remote] host_operation={operation} cause={error:?}");
-    #[cfg(not(debug_assertions))]
-    let _ = (operation, error);
 }
 
 async fn send_pairing_outbound(

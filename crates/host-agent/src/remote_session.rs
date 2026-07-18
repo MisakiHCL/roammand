@@ -468,8 +468,18 @@ impl RemoteSessionCoordinator {
     /// Returns a stable cleanup or service error.
     pub fn signaling_lost(&mut self, now_unix_ms: u64) -> Result<(), RemoteSessionError> {
         self.pending = None;
-        if self.active.is_some() {
-            self.begin_active_reconnect(now_unix_ms)?;
+        if self.active.is_some()
+            && let Err(reconnect_error) = self.begin_active_reconnect(now_unix_ms)
+        {
+            // A failed bridge/input operation can make the retained peer
+            // unusable. Remove it before the signaling runtime retries so
+            // a later connection is not rejected as device-busy.
+            let close_result =
+                self.close_active(Some(session_error(ErrorCode::IceFailed)), now_unix_ms);
+            return match close_result {
+                Ok(()) => Err(reconnect_error),
+                Err(close_error) => Err(close_error),
+            };
         }
         Ok(())
     }
