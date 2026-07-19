@@ -126,13 +126,20 @@ impl HostPeerSession {
         Ok(answer)
     }
 
-    /// Marks a negotiated peer as connected.
+    /// Marks a negotiated or recovering peer as connected.
     ///
     /// # Errors
     ///
-    /// Returns an error unless the session is negotiating.
+    /// Returns an error unless the session already has a live peer. Duplicate
+    /// connected callbacks are idempotent because native WebRTC backends can
+    /// publish them while an ICE path is being recovered.
     pub fn mark_connected(&mut self) -> Result<(), HostWebRtcError> {
-        if self.state != HostSessionState::Negotiating {
+        if !matches!(
+            self.state,
+            HostSessionState::Negotiating
+                | HostSessionState::Connected
+                | HostSessionState::Reconnecting
+        ) {
             return Err(HostWebRtcError::InvalidState);
         }
         self.state = HostSessionState::Connected;

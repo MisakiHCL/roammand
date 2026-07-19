@@ -167,6 +167,36 @@ fn reconnect_releases_input_and_reuses_the_existing_peer() {
     session.close().expect("session must close");
 }
 
+#[test]
+fn reconnect_accepts_spontaneous_and_duplicate_connected_events() {
+    let operations = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+    let mut session = HostPeerSession::new(
+        vec![0x72; 16],
+        &[SessionPermission::ViewScreen],
+        SessionConfig::new(IceTransportPolicy::All),
+        Box::new(FakePeer::new(Arc::clone(&operations))),
+        Box::new(FakeInput::new(Arc::clone(&operations))),
+    )
+    .expect("session inputs must be valid");
+    session
+        .accept_offer("v=0\r\n")
+        .expect("initial offer must negotiate");
+    session.mark_connected().expect("session must connect");
+    session
+        .mark_connected()
+        .expect("duplicate connected callbacks must be idempotent");
+
+    session
+        .begin_reconnect()
+        .expect("disconnect must enter reconnect");
+    session
+        .mark_connected()
+        .expect("the existing ICE path may recover before a restart offer");
+
+    assert_eq!(session.state(), HostSessionState::Connected);
+    session.close().expect("session must close");
+}
+
 struct FakePeer {
     operations: Arc<Mutex<Vec<&'static str>>>,
 }

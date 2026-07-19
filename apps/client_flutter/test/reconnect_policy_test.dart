@@ -12,7 +12,7 @@ void main() {
       Duration(seconds: 2),
       Duration(seconds: 4),
       Duration(seconds: 8),
-      Duration(seconds: 15),
+      Duration(seconds: 8),
     ]);
     expect(policy.recoveryWindow, const Duration(seconds: 30));
     expect(
@@ -20,8 +20,9 @@ void main() {
         Duration.zero,
         (elapsed, delay) => elapsed + delay,
       ),
-      policy.recoveryWindow,
+      const Duration(seconds: 23),
     );
+    expect(policy.start().remainingRecoveryWindow, policy.recoveryWindow);
   });
 
   test('permits one timer and one attempt at a time', () {
@@ -44,7 +45,7 @@ void main() {
     expect(second?.elapsed, const Duration(seconds: 3));
   });
 
-  test('stops after the fifth failed attempt at thirty seconds', () {
+  test('keeps a final grace window after the fifth failed attempt', () {
     final sequence = const ReconnectPolicy().start();
     ReconnectAttemptTicket? last;
 
@@ -57,9 +58,13 @@ void main() {
       last = ticket;
     }
 
-    expect(last?.elapsed, const Duration(seconds: 30));
-    expect(sequence.exhausted, isTrue);
+    expect(last?.elapsed, const Duration(seconds: 23));
+    expect(sequence.allAttemptsCompleted, isTrue);
+    expect(sequence.remainingRecoveryWindow, const Duration(seconds: 7));
+    expect(sequence.exhausted, isFalse);
     expect(sequence.scheduleNext(), isNull);
+    expect(sequence.expire(), isTrue);
+    expect(sequence.exhausted, isTrue);
   });
 
   test('recovery cancels pending work and invalidates stale callbacks', () {

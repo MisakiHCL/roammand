@@ -7,7 +7,7 @@ const _reconnectAttemptDelays = <Duration>[
   Duration(seconds: 2),
   Duration(seconds: 4),
   Duration(seconds: 8),
-  Duration(seconds: 15),
+  Duration(seconds: 8),
 ];
 
 const _reconnectRecoveryWindow = Duration(seconds: 30);
@@ -77,6 +77,17 @@ final class ReconnectAttemptSequence {
 
   bool get exhausted => _exhausted;
 
+  bool get allAttemptsCompleted =>
+      _active &&
+      _pending == null &&
+      _inFlight == null &&
+      _nextIndex >= _policy.attemptDelays.length;
+
+  Duration get remainingRecoveryWindow {
+    final remaining = _policy.recoveryWindow - _elapsed;
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
   ReconnectAttemptTicket? scheduleNext() {
     if (!_active ||
         _pending != null ||
@@ -111,10 +122,15 @@ final class ReconnectAttemptSequence {
       return false;
     }
     _inFlight = null;
-    if (_nextIndex >= _policy.attemptDelays.length) {
-      _active = false;
-      _exhausted = true;
+    return true;
+  }
+
+  bool expire() {
+    if (!allAttemptsCompleted) {
+      return false;
     }
+    _active = false;
+    _exhausted = true;
     return true;
   }
 

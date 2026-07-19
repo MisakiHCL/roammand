@@ -10,6 +10,9 @@ use crate::{RemotePeerEventSource, RemoteSessionError};
 pub(super) const MAX_PENDING_ICE_CANDIDATES: usize = 64;
 pub(super) const MAX_PENDING_ICE_BYTES: usize = 65_536;
 pub(super) const PENDING_SESSION_LIFETIME_MS: u64 = 30_000;
+// The Host must outlive the Controller's bounded 30-second recovery window so
+// the final authenticated ICE Restart still has time to complete.
+pub(super) const ACTIVE_RECONNECT_LIFETIME_MS: u64 = 45_000;
 
 pub(super) struct PendingSession {
     pub(super) controller_device_id: Vec<u8>,

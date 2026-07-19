@@ -10,7 +10,7 @@ use roammand_protocol::roammand::v1::{
 use crate::{
     RemoteSessionCoordinator, RemoteSessionError, RemoteSessionOutbound,
     remote_session::protocol_error_for,
-    remote_session_state::{PENDING_SESSION_LIFETIME_MS, PendingSession},
+    remote_session_state::{ACTIVE_RECONNECT_LIFETIME_MS, PendingSession},
     service::RemoteServiceError,
 };
 
@@ -26,7 +26,7 @@ impl RemoteSessionCoordinator {
             .map_err(super::remote_session::map_peer_error)?;
         active
             .reconnect_deadline_unix_ms
-            .get_or_insert(now_unix_ms.saturating_add(PENDING_SESSION_LIFETIME_MS));
+            .get_or_insert(now_unix_ms.saturating_add(ACTIVE_RECONNECT_LIFETIME_MS));
         self.service
             .update_remote_status(
                 active.session_id.clone(),

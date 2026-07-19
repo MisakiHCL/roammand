@@ -436,7 +436,7 @@ fn revocation_closes_peer_and_releases_input() {
 }
 
 #[test]
-fn signaling_loss_reconnects_for_thirty_seconds_before_failing_closed() {
+fn signaling_loss_keeps_the_host_alive_beyond_the_controller_window() {
     let mut fixture = Fixture::new();
     fixture.connect();
     fixture
@@ -455,12 +455,12 @@ fn signaling_loss_reconnects_for_thirty_seconds_before_failing_closed() {
 
     fixture
         .coordinator
-        .poll_peer_event(NOW_UNIX_MS + 29_999)
+        .poll_peer_event(NOW_UNIX_MS + 44_999)
         .expect("reconnect window must remain open");
     assert_eq!(fixture.status_state(), SessionState::Reconnecting);
     fixture
         .coordinator
-        .poll_peer_event(NOW_UNIX_MS + 30_000)
+        .poll_peer_event(NOW_UNIX_MS + 45_000)
         .expect("reconnect deadline must fail closed");
     assert_eq!(fixture.status_state(), SessionState::Failed);
     assert_eq!(
@@ -627,6 +627,39 @@ fn authenticates_reconnect_and_reuses_the_active_peer() {
             "input-release-all"
         ]
     );
+}
+
+#[test]
+fn spontaneous_peer_recovery_clears_the_host_reconnect_window() {
+    let mut fixture = Fixture::new();
+    fixture.connect();
+    fixture
+        .coordinator
+        .handle_peer_event(RemotePeerEvent::Connected, NOW_UNIX_MS)
+        .expect("session must connect");
+    fixture
+        .coordinator
+        .handle_peer_event(RemotePeerEvent::Disconnected, NOW_UNIX_MS + 1)
+        .expect("disconnect must enter reconnect");
+
+    fixture
+        .coordinator
+        .handle_peer_event(RemotePeerEvent::Connected, NOW_UNIX_MS + 2)
+        .expect("the retained peer may recover without a restart offer");
+
+    assert_eq!(fixture.status_state(), SessionState::Connected);
+    assert_eq!(
+        fixture.operations(),
+        vec!["peer-start", "input-release-all"]
+    );
+    assert!(
+        fixture
+            .coordinator
+            .poll_peer_event(NOW_UNIX_MS + 45_001)
+            .expect("cleared reconnect deadline must not expire the session")
+            .is_empty()
+    );
+    assert_eq!(fixture.status_state(), SessionState::Connected);
 }
 
 #[test]

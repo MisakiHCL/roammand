@@ -716,17 +716,31 @@ final class RemoteDesktopController extends ChangeNotifier
     ReconnectAttemptTicket ticket,
   ) async {
     if (!sequence.complete(ticket)) return;
-    if (sequence.exhausted) {
-      _diagnostics.recordReconnect(
-        attempt: ticket.attempt,
-        delay: ticket.delay,
-        outcome: DiagnosticsReconnectOutcome.exhausted,
-        totalElapsed: ticket.elapsed,
-      );
-      await _fail(_reconnectFailureCode);
+    if (sequence.allAttemptsCompleted) {
+      _scheduleReconnectExpiry(sequence, ticket);
       return;
     }
     _scheduleReconnect();
+  }
+
+  void _scheduleReconnectExpiry(
+    ReconnectAttemptSequence sequence,
+    ReconnectAttemptTicket ticket,
+  ) {
+    final grace = sequence.remainingRecoveryWindow;
+    _reconnectTimer = _reconnectScheduler.schedule(grace, () {
+      _reconnectTimer = null;
+      if (!identical(_reconnectSequence, sequence) || !sequence.expire()) {
+        return;
+      }
+      _diagnostics.recordReconnect(
+        attempt: ticket.attempt,
+        delay: grace,
+        outcome: DiagnosticsReconnectOutcome.exhausted,
+        totalElapsed: ticket.elapsed + grace,
+      );
+      unawaited(_fail(_reconnectFailureCode));
+    });
   }
 
   void _completeReconnect() {

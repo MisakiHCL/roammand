@@ -408,7 +408,7 @@ void main() {
   });
 
   test(
-    'stops automatic recovery after the exact thirty-second window',
+    'waits for the final ICE restart through the thirty-second window',
     () async {
       final fixture = await _Fixture.create();
       await fixture.connectFully();
@@ -420,12 +420,20 @@ void main() {
         await _pumpEvents();
       }
 
+      expect(fixture.controller.state, RemoteDesktopState.reconnecting);
+      expect(fixture.scheduler.pendingDelays, <Duration>[
+        const Duration(seconds: 7),
+      ]);
+      await fixture.scheduler.fireNext();
+      await _pumpEvents();
+
       expect(fixture.scheduler.firedDelays, <Duration>[
         const Duration(seconds: 1),
         const Duration(seconds: 2),
         const Duration(seconds: 4),
         const Duration(seconds: 8),
-        const Duration(seconds: 15),
+        const Duration(seconds: 8),
+        const Duration(seconds: 7),
       ]);
       expect(fixture.sentOffers, hasLength(6));
       expect(
@@ -435,6 +443,45 @@ void main() {
       expect(fixture.controller.state, RemoteDesktopState.failed);
       expect(fixture.controller.errorCode, RemoteDesktopErrorCode.peer);
       expect(fixture.adapter.closeCount, 1);
+    },
+  );
+
+  test(
+    'accepts a successful final ICE restart during its grace window',
+    () async {
+      final fixture = await _Fixture.create();
+      await fixture.connectFully();
+      fixture.adapter.emit(ControllerPeerEvent.failed);
+      await _pumpEvents();
+
+      for (var attempt = 0; attempt < 5; attempt += 1) {
+        await fixture.scheduler.fireNext();
+        await _pumpEvents();
+      }
+      expect(fixture.scheduler.pendingDelays, <Duration>[
+        const Duration(seconds: 7),
+      ]);
+
+      final finalRestart = fixture.sentOffers.last;
+      fixture.signaling.route(
+        fixture.envelope(
+          sessionAuthentication: SessionAuthentication(
+            reconnect: await fixture.signedReconnect(
+              finalRestart,
+              generation: 1,
+            ),
+          ),
+        ),
+      );
+      fixture.routeAnswerDescription(finalRestart);
+      await _pumpEvents();
+      fixture.adapter.emit(ControllerPeerEvent.connected);
+      await _pumpEvents();
+
+      expect(fixture.controller.state, RemoteDesktopState.connected);
+      expect(fixture.controller.errorCode, isNull);
+      expect(fixture.scheduler.activeCount, 0);
+      expect(fixture.adapter.closeCount, 0);
     },
   );
 }
