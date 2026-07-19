@@ -186,6 +186,7 @@ final class RemoteDesktopController extends ChangeNotifier
   Future<void>? _closeFuture;
   ReconnectAttemptSequence? _reconnectSequence;
   ReconnectTimer? _reconnectTimer;
+  bool _reconnectConnectionGracePending = false;
   Timer? _diagnosticsTimer;
   bool _offerSent = false;
   bool _signalingRecoveryRequired = false;
@@ -502,6 +503,9 @@ final class RemoteDesktopController extends ChangeNotifier
     _answer = null;
     _reconnect = null;
     _answerDescription = null;
+    if (_reconnectSequence != null) {
+      _reconnectConnectionGracePending = true;
+    }
     _setState(RemoteDesktopState.connecting);
   }
 
@@ -642,7 +646,9 @@ final class RemoteDesktopController extends ChangeNotifier
     }
     _reconnectTimer = _reconnectScheduler.schedule(ticket.delay, () {
       _reconnectTimer = null;
-      if (_state == RemoteDesktopState.connecting) {
+      if (_state == RemoteDesktopState.connecting &&
+          _reconnectConnectionGracePending) {
+        _reconnectConnectionGracePending = false;
         _waitForCurrentConnection(ticket);
         return;
       }
@@ -732,6 +738,7 @@ final class RemoteDesktopController extends ChangeNotifier
     _reconnectSequence?.recovered();
     _reconnectSequence = null;
     _reconnectProgress = null;
+    _reconnectConnectionGracePending = false;
     _signalingRecoveryRequired = false;
     try {
       _inputSender?.resume();
@@ -776,6 +783,7 @@ final class RemoteDesktopController extends ChangeNotifier
     _reconnectSequence?.cancel();
     _reconnectSequence = null;
     _reconnectProgress = null;
+    _reconnectConnectionGracePending = false;
     _setState(RemoteDesktopState.closing);
     final input = _inputSender;
     _inputSender = null;

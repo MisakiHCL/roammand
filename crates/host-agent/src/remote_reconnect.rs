@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use roammand_host_webrtc::{PeerAnswer, PeerIceCandidate};
+use roammand_host_webrtc::{HostSessionState, PeerAnswer, PeerIceCandidate};
 use roammand_protocol::roammand::v1::{
     ErrorCode, SessionAuthentication, SessionDescriptionType, SessionReconnectAuthentication,
     SessionState, SignalingEnvelope, WebRtcNegotiation, WebRtcSessionDescription,
@@ -102,7 +102,11 @@ impl RemoteSessionCoordinator {
             .ok_or(RemoteSessionError::InvalidEnvelope)?
         {
             web_rtc_negotiation::Payload::IceCandidate(candidate)
-                if active.reconnect_deadline_unix_ms.is_none() && active.reconnect.is_none() =>
+                if active.reconnect.is_none()
+                    && matches!(
+                        active.session.state(),
+                        HostSessionState::Negotiating | HostSessionState::Connected
+                    ) =>
             {
                 self.active
                     .as_mut()

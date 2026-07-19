@@ -558,12 +558,22 @@ fn authenticates_reconnect_and_reuses_the_active_peer() {
     );
     let reconnect_envelope = authentication_envelope_for(&fixture, reconnect_offer);
     assert!(fixture.route(&reconnect_envelope, NOW_UNIX_MS).is_empty());
+    let candidate = candidate_envelope(&fixture);
+    assert!(fixture.route(&candidate, NOW_UNIX_MS).is_empty());
     let outbound = fixture.route(&description_envelope(&fixture), NOW_UNIX_MS);
     assert_eq!(
         fixture.operations(),
-        vec!["peer-start", "input-release-all", "peer-restart"]
+        vec![
+            "peer-start",
+            "input-release-all",
+            "peer-restart",
+            "peer-candidate"
+        ]
     );
     assert_eq!(outbound.len(), 2);
+
+    assert!(fixture.route(&candidate, NOW_UNIX_MS).is_empty());
+    assert_eq!(fixture.operations().last(), Some(&"peer-candidate"));
 
     let reconnect = outbound
         .iter()
@@ -612,6 +622,8 @@ fn authenticates_reconnect_and_reuses_the_active_peer() {
             "peer-start",
             "input-release-all",
             "peer-restart",
+            "peer-candidate",
+            "peer-candidate",
             "input-release-all"
         ]
     );

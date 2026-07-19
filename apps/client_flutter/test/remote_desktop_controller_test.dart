@@ -292,7 +292,7 @@ void main() {
   });
 
   test(
-    'does not replace a verified reconnect while ICE is connecting',
+    'gives a verified reconnect one retry interval before replacing it',
     () async {
       final fixture = await _Fixture.create();
       await fixture.connectFully();
@@ -320,6 +320,25 @@ void main() {
       expect(fixture.scheduler.pendingDelays, <Duration>[
         const Duration(seconds: 4),
       ]);
+
+      await fixture.scheduler.fireNext();
+      await _pumpEvents();
+      expect(fixture.sentOffers, hasLength(3));
+      expect(fixture.adapter.restartCount, 2);
+
+      final secondRestart = fixture.sentOffers.last;
+      fixture.signaling.route(
+        fixture.envelope(
+          sessionAuthentication: SessionAuthentication(
+            reconnect: await fixture.signedReconnect(
+              secondRestart,
+              generation: 2,
+            ),
+          ),
+        ),
+      );
+      fixture.routeAnswerDescription(secondRestart);
+      await _pumpEvents();
 
       fixture.adapter.emit(ControllerPeerEvent.connected);
       await _pumpEvents();
