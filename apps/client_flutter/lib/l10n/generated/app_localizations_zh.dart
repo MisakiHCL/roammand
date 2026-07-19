@@ -18,7 +18,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get brandPrivacyLabel => '隐私优先 · 无需账号';
 
   @override
-  String get mobileHomeSubtitle => '无论身在何处，你的电脑都触手可及。';
+  String get mobileHomeSubtitle => '使用这台手机，安全控制你自己的 Mac。';
 
   @override
   String get desktopHomeSubtitle => '选择一台已配对的电脑，安全地开始连接。';
@@ -531,10 +531,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mobileDeviceFallbackName => '我的手机';
 
   @override
-  String get mobileOnboardingTitle => '为此手机命名';
+  String get mobileOnboardingTitle => '用这台手机控制你的 Mac';
 
   @override
-  String get mobileOnboardingBody => '此名称只会显示给你配对的电脑，配对信息始终保存在本机。';
+  String get mobileOnboardingBody =>
+      'Roammand 需要同时安装在两台设备上。请先在要控制的 Mac 上安装，然后为这台手机设置名称，以便批准配对时认出它。';
 
   @override
   String get mobileDeviceNameLabel => '设备名称';
@@ -552,10 +553,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mobileHomeTitle => '我的电脑';
 
   @override
-  String get mobileHomeEmptyTitle => '尚未配对电脑';
+  String get mobileHomeEmptyTitle => '请先在 Mac 上开始';
 
   @override
-  String get mobileHomeEmptyBody => '扫描电脑上显示的二维码，将其与此手机配对。';
+  String get mobileHomeEmptyBody =>
+      '这台手机是控制端。请先在要控制的 Mac 上设置 Roammand，并从 Mac 端生成配对二维码。';
+
+  @override
+  String get mobileSetupStepInstall => '在要控制的 Mac 上安装并打开 Roammand。';
+
+  @override
+  String get mobileSetupStepCreateQr => '在 Mac 上打开“此电脑”，创建手机配对二维码。';
+
+  @override
+  String get mobileSetupStepScanApprove => '在这里扫码、核对验证词，然后在 Mac 上批准这台手机。';
+
+  @override
+  String get mobileMacDownloadAction => '获取 Roammand Mac 版';
+
+  @override
+  String get mobileAboutAction => '了解 Roammand 如何工作';
 
   @override
   String get mobileScanQrAction => '扫描电脑二维码';
@@ -708,6 +725,74 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsAdvancedSection => '高级';
+
+  @override
+  String get settingsHelpSection => '关于与帮助';
+
+  @override
+  String get aboutSettingsTitle => '关于 Roammand';
+
+  @override
+  String get aboutSettingsBody => '查看 Mac 设置、用户指南、开源项目和 App 版本。';
+
+  @override
+  String get aboutPageTitle => '关于 Roammand';
+
+  @override
+  String get aboutHeroTitle => '随时连接你的 Mac';
+
+  @override
+  String get aboutHeroBody =>
+      'Roammand 将这台手机变成控制你自己 Mac 的可信控制端。手机 App 需要与安装在 Mac 上的 Roammand 配合使用。';
+
+  @override
+  String get aboutGettingStartedTitle => '如何开始';
+
+  @override
+  String get aboutGettingStartedBody => '两台设备只需完成一次配对，以后可以随时从“我的电脑”重新连接。';
+
+  @override
+  String get aboutMacAppTitle => 'Roammand Mac 版';
+
+  @override
+  String get aboutMacAppBody =>
+      '请在 macOS 14.4 或更高版本上安装经过签名和公证的 Mac App。Mac 端负责提供画面，并且只接受你批准过的设备进行远程控制。';
+
+  @override
+  String get aboutMacDownloadNote => '请在 Mac 上打开下载页面，或从这台手机将链接分享给 Mac。';
+
+  @override
+  String get aboutHelpTitle => '用户指南';
+
+  @override
+  String get aboutHelpBody => '查看安装、系统权限、配对、连接和故障排查的完整说明。';
+
+  @override
+  String get aboutOpenGuideAction => '阅读用户指南';
+
+  @override
+  String get aboutOpenSourceTitle => 'GitHub 开源项目';
+
+  @override
+  String get aboutOpenSourceBody => '你可以在 GitHub 查看源代码、历史版本、安全设计和项目文档。';
+
+  @override
+  String get aboutOpenGitHubAction => '查看 GitHub 项目';
+
+  @override
+  String get aboutPrivacyTitle => '隐私优先';
+
+  @override
+  String get aboutPrivacyBody =>
+      '无需注册账号。设备身份和配对权限保存在本机，并且必须先在 Mac 上批准这台手机，才能建立连接。';
+
+  @override
+  String aboutVersionLabel(String version) {
+    return '版本 $version';
+  }
+
+  @override
+  String get externalLinkFailed => '无法打开链接，请稍后重试。';
 
   @override
   String get settingsLanguageTitle => '语言';

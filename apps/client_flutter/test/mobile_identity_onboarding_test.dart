@@ -34,6 +34,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Pixel 9'), findsOneWidget);
+    expect(find.text('Control your Mac from this phone'), findsOneWidget);
+    expect(find.textContaining('Install it on the Mac'), findsOneWidget);
     expect(storage.writes, 0);
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
@@ -68,6 +70,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('用这台手机控制你的 Mac'), findsOneWidget);
+    expect(find.textContaining('要控制的 Mac 上安装'), findsOneWidget);
     expect(
       find.byKey(const Key('mobile-identity-landscape-layout')),
       findsOneWidget,

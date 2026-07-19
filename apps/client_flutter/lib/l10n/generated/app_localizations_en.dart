@@ -18,7 +18,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get brandPrivacyLabel => 'Private · Account-free';
 
   @override
-  String get mobileHomeSubtitle => 'Your computers, ready wherever you are.';
+  String get mobileHomeSubtitle =>
+      'Use this phone to securely control your own Mac.';
 
   @override
   String get desktopHomeSubtitle =>
@@ -571,11 +572,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mobileDeviceFallbackName => 'My phone';
 
   @override
-  String get mobileOnboardingTitle => 'Name this phone';
+  String get mobileOnboardingTitle => 'Control your Mac from this phone';
 
   @override
   String get mobileOnboardingBody =>
-      'This name is shown only to computers you pair with. Pairing information stays on this device.';
+      'Roammand works on both devices. Install it on the Mac you want to control, then name this phone so you can recognize it when approving pairing.';
 
   @override
   String get mobileDeviceNameLabel => 'Device name';
@@ -594,11 +595,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mobileHomeTitle => 'My computers';
 
   @override
-  String get mobileHomeEmptyTitle => 'No computers paired yet';
+  String get mobileHomeEmptyTitle => 'Start on your Mac';
 
   @override
   String get mobileHomeEmptyBody =>
-      'Scan a QR code shown by your computer to pair it with this phone.';
+      'This phone is the controller. Set up Roammand on the Mac you want to control, then create a pairing QR code there.';
+
+  @override
+  String get mobileSetupStepInstall =>
+      'Install and open Roammand on the Mac you want to control.';
+
+  @override
+  String get mobileSetupStepCreateQr =>
+      'On the Mac, open “This computer” and create a mobile pairing QR code.';
+
+  @override
+  String get mobileSetupStepScanApprove =>
+      'Scan the code here, compare the verification words, and approve this phone on the Mac.';
+
+  @override
+  String get mobileMacDownloadAction => 'Get Roammand for Mac';
+
+  @override
+  String get mobileAboutAction => 'How Roammand works';
 
   @override
   String get mobileScanQrAction => 'Scan computer QR code';
@@ -763,6 +782,80 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAdvancedSection => 'Advanced';
+
+  @override
+  String get settingsHelpSection => 'About & help';
+
+  @override
+  String get aboutSettingsTitle => 'About Roammand';
+
+  @override
+  String get aboutSettingsBody =>
+      'Mac setup, user guide, open-source project, and app version.';
+
+  @override
+  String get aboutPageTitle => 'About Roammand';
+
+  @override
+  String get aboutHeroTitle => 'Your Mac, within reach';
+
+  @override
+  String get aboutHeroBody =>
+      'Roammand turns this phone into a trusted controller for your own Mac. The mobile app works together with Roammand installed on the Mac.';
+
+  @override
+  String get aboutGettingStartedTitle => 'How to get started';
+
+  @override
+  String get aboutGettingStartedBody =>
+      'Pair the two devices once, then reconnect from My computers whenever you need your Mac.';
+
+  @override
+  String get aboutMacAppTitle => 'Roammand for Mac';
+
+  @override
+  String get aboutMacAppBody =>
+      'Install the signed and notarized Mac app on macOS 14.4 or later. The Mac app provides the screen and accepts remote input only from devices you approve.';
+
+  @override
+  String get aboutMacDownloadNote =>
+      'Open the download page on your Mac, or share the link from this phone.';
+
+  @override
+  String get aboutHelpTitle => 'User guide';
+
+  @override
+  String get aboutHelpBody =>
+      'Read the complete instructions for installation, permissions, pairing, connecting, and troubleshooting.';
+
+  @override
+  String get aboutOpenGuideAction => 'Read the user guide';
+
+  @override
+  String get aboutOpenSourceTitle => 'Open source on GitHub';
+
+  @override
+  String get aboutOpenSourceBody =>
+      'Review the source code, releases, security design, and project documentation on GitHub.';
+
+  @override
+  String get aboutOpenGitHubAction => 'View GitHub project';
+
+  @override
+  String get aboutPrivacyTitle => 'Private by design';
+
+  @override
+  String get aboutPrivacyBody =>
+      'No account is required. Device identity and pairing permissions are stored locally, and the Mac must approve this phone before it can connect.';
+
+  @override
+  String aboutVersionLabel(String version) {
+    return 'Version $version';
+  }
+
+  @override
+  String get externalLinkFailed =>
+      'The link could not be opened. Please try again.';
 
   @override
   String get settingsLanguageTitle => 'Language';

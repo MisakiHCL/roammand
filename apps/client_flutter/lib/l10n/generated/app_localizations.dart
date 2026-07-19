@@ -119,7 +119,7 @@ abstract class AppLocalizations {
   /// No description provided for @mobileHomeSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Your computers, ready wherever you are.'**
+  /// **'Use this phone to securely control your own Mac.'**
   String get mobileHomeSubtitle;
 
   /// No description provided for @desktopHomeSubtitle.
@@ -1055,13 +1055,13 @@ abstract class AppLocalizations {
   /// No description provided for @mobileOnboardingTitle.
   ///
   /// In en, this message translates to:
-  /// **'Name this phone'**
+  /// **'Control your Mac from this phone'**
   String get mobileOnboardingTitle;
 
   /// No description provided for @mobileOnboardingBody.
   ///
   /// In en, this message translates to:
-  /// **'This name is shown only to computers you pair with. Pairing information stays on this device.'**
+  /// **'Roammand works on both devices. Install it on the Mac you want to control, then name this phone so you can recognize it when approving pairing.'**
   String get mobileOnboardingBody;
 
   /// No description provided for @mobileDeviceNameLabel.
@@ -1097,14 +1097,44 @@ abstract class AppLocalizations {
   /// No description provided for @mobileHomeEmptyTitle.
   ///
   /// In en, this message translates to:
-  /// **'No computers paired yet'**
+  /// **'Start on your Mac'**
   String get mobileHomeEmptyTitle;
 
   /// No description provided for @mobileHomeEmptyBody.
   ///
   /// In en, this message translates to:
-  /// **'Scan a QR code shown by your computer to pair it with this phone.'**
+  /// **'This phone is the controller. Set up Roammand on the Mac you want to control, then create a pairing QR code there.'**
   String get mobileHomeEmptyBody;
+
+  /// No description provided for @mobileSetupStepInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Install and open Roammand on the Mac you want to control.'**
+  String get mobileSetupStepInstall;
+
+  /// No description provided for @mobileSetupStepCreateQr.
+  ///
+  /// In en, this message translates to:
+  /// **'On the Mac, open “This computer” and create a mobile pairing QR code.'**
+  String get mobileSetupStepCreateQr;
+
+  /// No description provided for @mobileSetupStepScanApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the code here, compare the verification words, and approve this phone on the Mac.'**
+  String get mobileSetupStepScanApprove;
+
+  /// No description provided for @mobileMacDownloadAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Get Roammand for Mac'**
+  String get mobileMacDownloadAction;
+
+  /// No description provided for @mobileAboutAction.
+  ///
+  /// In en, this message translates to:
+  /// **'How Roammand works'**
+  String get mobileAboutAction;
 
   /// No description provided for @mobileScanQrAction.
   ///
@@ -1405,6 +1435,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Advanced'**
   String get settingsAdvancedSection;
+
+  /// No description provided for @settingsHelpSection.
+  ///
+  /// In en, this message translates to:
+  /// **'About & help'**
+  String get settingsHelpSection;
+
+  /// No description provided for @aboutSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About Roammand'**
+  String get aboutSettingsTitle;
+
+  /// No description provided for @aboutSettingsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Mac setup, user guide, open-source project, and app version.'**
+  String get aboutSettingsBody;
+
+  /// No description provided for @aboutPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About Roammand'**
+  String get aboutPageTitle;
+
+  /// No description provided for @aboutHeroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Mac, within reach'**
+  String get aboutHeroTitle;
+
+  /// No description provided for @aboutHeroBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Roammand turns this phone into a trusted controller for your own Mac. The mobile app works together with Roammand installed on the Mac.'**
+  String get aboutHeroBody;
+
+  /// No description provided for @aboutGettingStartedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How to get started'**
+  String get aboutGettingStartedTitle;
+
+  /// No description provided for @aboutGettingStartedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair the two devices once, then reconnect from My computers whenever you need your Mac.'**
+  String get aboutGettingStartedBody;
+
+  /// No description provided for @aboutMacAppTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Roammand for Mac'**
+  String get aboutMacAppTitle;
+
+  /// No description provided for @aboutMacAppBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Install the signed and notarized Mac app on macOS 14.4 or later. The Mac app provides the screen and accepts remote input only from devices you approve.'**
+  String get aboutMacAppBody;
+
+  /// No description provided for @aboutMacDownloadNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the download page on your Mac, or share the link from this phone.'**
+  String get aboutMacDownloadNote;
+
+  /// No description provided for @aboutHelpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'User guide'**
+  String get aboutHelpTitle;
+
+  /// No description provided for @aboutHelpBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the complete instructions for installation, permissions, pairing, connecting, and troubleshooting.'**
+  String get aboutHelpBody;
+
+  /// No description provided for @aboutOpenGuideAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the user guide'**
+  String get aboutOpenGuideAction;
+
+  /// No description provided for @aboutOpenSourceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open source on GitHub'**
+  String get aboutOpenSourceTitle;
+
+  /// No description provided for @aboutOpenSourceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Review the source code, releases, security design, and project documentation on GitHub.'**
+  String get aboutOpenSourceBody;
+
+  /// No description provided for @aboutOpenGitHubAction.
+  ///
+  /// In en, this message translates to:
+  /// **'View GitHub project'**
+  String get aboutOpenGitHubAction;
+
+  /// No description provided for @aboutPrivacyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Private by design'**
+  String get aboutPrivacyTitle;
+
+  /// No description provided for @aboutPrivacyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'No account is required. Device identity and pairing permissions are stored locally, and the Mac must approve this phone before it can connect.'**
+  String get aboutPrivacyBody;
+
+  /// No description provided for @aboutVersionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version}'**
+  String aboutVersionLabel(String version);
+
+  /// No description provided for @externalLinkFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The link could not be opened. Please try again.'**
+  String get externalLinkFailed;
 
   /// No description provided for @settingsLanguageTitle.
   ///

@@ -42,6 +42,7 @@ void main() {
     expect(find.text('General'), findsOneWidget);
     expect(find.text('Connection'), findsOneWidget);
     expect(find.text('Advanced'), findsOneWidget);
+    expect(find.byKey(const Key('settings-about-roammand')), findsNothing);
     expect(
       find.byType(DropdownButtonFormField<AppLocalePreference>),
       findsNothing,
@@ -81,6 +82,8 @@ void main() {
           onLocalePreferenceChanged: (_) async {},
           networkServices: networkServices,
           mobileContext: true,
+          linkLauncher: (_) async => true,
+          versionLoader: () async => '1.0.0 (3)',
         ),
       ),
     );
@@ -88,12 +91,21 @@ void main() {
 
     expect(find.text('General'), findsOneWidget);
     expect(find.text('Connection'), findsOneWidget);
+    expect(find.text('About & help'), findsOneWidget);
     expect(find.text('Advanced'), findsNothing);
     expect(find.byKey(const Key('settings-uninstall')), findsNothing);
     expect(find.byType(AppBar), findsNothing);
     expect(find.byType(MobilePageNavigationHeader), findsOneWidget);
     expect(find.byKey(const Key('mobile-settings-back')), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('settings-about-roammand')),
+    );
+    await tester.tap(find.byKey(const Key('settings-about-roammand')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-about-header')), findsOneWidget);
+    expect(find.text('Version 1.0.0 (3)'), findsOneWidget);
   });
 
   testWidgets('explains why development builds cannot uninstall', (

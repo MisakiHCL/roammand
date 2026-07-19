@@ -40,3 +40,4 @@ The native WebRTC archives are downloaded from the pinned upstream release and a
 | Dart `qr_flutter` 4.1.0 | `LICENSE` in the resolved pub package | BSD-3-Clause |
 | Dart `flutter_secure_storage` 10.3.1 | `LICENSE` in the resolved pub package | BSD-3-Clause |
 | Dart `device_info_plus` 13.2.0 and `path_provider` 2.1.6 | `LICENSE` in each resolved pub package | BSD-3-Clause |
+| Dart `url_launcher` 6.3.2 and `package_info_plus` 10.2.1 | `LICENSE` in each resolved pub package | BSD-3-Clause |

@@ -4,6 +4,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:roammand/about/roammand_about_page.dart';
+import 'package:roammand/about/roammand_links.dart';
 import 'package:roammand/design_system/roammand_brand_mark.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/design_system/roammand_progress_indicator.dart';
@@ -51,6 +53,8 @@ final class MobileHomePage extends StatefulWidget {
     this.nowUnixMs,
     this.localePreference = AppLocalePreference.system,
     this.onLocalePreferenceChanged,
+    this.linkLauncher = launchExternalLink,
+    this.versionLoader = loadAppVersion,
     super.key,
   });
 
@@ -63,6 +67,8 @@ final class MobileHomePage extends StatefulWidget {
   final AppLocalePreference localePreference;
   final Future<void> Function(AppLocalePreference preference)?
   onLocalePreferenceChanged;
+  final ExternalLinkLauncher linkLauncher;
+  final AppVersionLoader versionLoader;
 
   @override
   State<MobileHomePage> createState() => _MobileHomePageState();
@@ -100,6 +106,33 @@ final class _MobileHomePageState extends State<MobileHomePage> {
     await Navigator.of(
       context,
     ).push<void>(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  Future<void> _openMacDownload() async {
+    var opened = false;
+    try {
+      opened = await widget.linkLauncher(macOsDownloadPageUri);
+    } on Object {
+      opened = false;
+    }
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).externalLinkFailed),
+        ),
+      );
+    }
+  }
+
+  Future<void> _openAbout() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => RoammandAboutPage(
+          linkLauncher: widget.linkLauncher,
+          versionLoader: widget.versionLoader,
+        ),
+      ),
+    );
   }
 
   Future<void> _connect(TrustedHostRecord host) async {
@@ -312,7 +345,11 @@ final class _MobileHomePageState extends State<MobileHomePage> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: <Widget>[
       if (_hosts.isEmpty)
-        _EmptyState(strings: strings)
+        _EmptyState(
+          strings: strings,
+          onDownloadMac: _openMacDownload,
+          onOpenAbout: _openAbout,
+        )
       else
         for (final host in _hosts) ...<Widget>[
           _MobileTrustedHostCard(
@@ -342,6 +379,8 @@ final class _MobileHomePageState extends State<MobileHomePage> {
           onLocalePreferenceChanged: widget.onLocalePreferenceChanged,
           networkServices: controller,
           mobileContext: true,
+          linkLauncher: widget.linkLauncher,
+          versionLoader: widget.versionLoader,
         ),
       ),
     );
@@ -638,8 +677,15 @@ final class _MobileTrustedHostCard extends StatelessWidget {
 }
 
 final class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.strings});
+  const _EmptyState({
+    required this.strings,
+    required this.onDownloadMac,
+    required this.onOpenAbout,
+  });
+
   final AppLocalizations strings;
+  final VoidCallback onDownloadMac;
+  final VoidCallback onOpenAbout;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -656,8 +702,62 @@ final class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(strings.mobileHomeEmptyBody, textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          _MobileSetupStep(
+            icon: Icons.download_outlined,
+            text: strings.mobileSetupStepInstall,
+          ),
+          _MobileSetupStep(
+            icon: Icons.qr_code_2_rounded,
+            text: strings.mobileSetupStepCreateQr,
+          ),
+          _MobileSetupStep(
+            icon: Icons.verified_user_outlined,
+            text: strings.mobileSetupStepScanApprove,
+            last: true,
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            key: const Key('mobile-download-macos'),
+            onPressed: onDownloadMac,
+            icon: const Icon(Icons.laptop_mac_outlined, size: 20),
+            label: Text(strings.mobileMacDownloadAction),
+          ),
+          const SizedBox(height: 4),
+          TextButton(
+            key: const Key('mobile-open-about'),
+            onPressed: onOpenAbout,
+            child: Text(strings.mobileAboutAction),
+          ),
         ],
       ),
+    ),
+  );
+}
+
+final class _MobileSetupStep extends StatelessWidget {
+  const _MobileSetupStep({
+    required this.icon,
+    required this.text,
+    this.last = false,
+  });
+
+  final IconData icon;
+  final String text;
+  final bool last;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(bottom: last ? 0 : 12),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Icon(icon, size: 20, color: RoammandColors.auroraSoft),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(text, style: Theme.of(context).textTheme.bodyLarge),
+        ),
+      ],
     ),
   );
 }

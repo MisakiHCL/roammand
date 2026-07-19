@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:roammand/about/roammand_links.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
@@ -78,8 +79,47 @@ void main() {
 
     expect(find.text('我的电脑'), findsOneWidget);
     expect(find.text('扫描电脑二维码'), findsOneWidget);
-    expect(find.text('尚未配对电脑'), findsOneWidget);
+    expect(find.text('请先在 Mac 上开始'), findsOneWidget);
+    expect(find.textContaining('这台手机是控制端'), findsOneWidget);
+    expect(find.text('在要控制的 Mac 上安装并打开 Roammand。'), findsOneWidget);
+    expect(find.text('获取 Roammand Mac 版'), findsOneWidget);
+    expect(find.text('了解 Roammand 如何工作'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opens Mac download and in-app help from the empty state', (
+    tester,
+  ) async {
+    final repository = TrustedHostRepository(persistence: _MemoryHosts());
+    await repository.initialize();
+    final opened = <Uri>[];
+
+    await tester.pumpWidget(
+      _app(
+        MobileHomePage(
+          trustedHosts: repository,
+          pairingPageBuilder: (_) => const SizedBox.shrink(),
+          linkLauncher: (uri) async {
+            opened.add(uri);
+            return true;
+          },
+          versionLoader: () async => '1.0.0 (3)',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('mobile-download-macos')));
+    await tester.tap(find.byKey(const Key('mobile-download-macos')));
+    await tester.pump();
+    expect(opened, <Uri>[macOsDownloadPageUri]);
+
+    await tester.ensureVisible(find.byKey(const Key('mobile-open-about')));
+    await tester.tap(find.byKey(const Key('mobile-open-about')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-about-header')), findsOneWidget);
+    expect(find.text('About Roammand'), findsWidgets);
+    expect(find.text('Version 1.0.0 (3)'), findsOneWidget);
   });
 
   testWidgets('uses an in-content landscape hero and changes language', (

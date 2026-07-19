@@ -3,6 +3,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:roammand/about/roammand_about_page.dart';
+import 'package:roammand/about/roammand_links.dart';
 import 'package:roammand/design_system/roammand_back_button.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/design_system/roammand_progress_indicator.dart';
@@ -29,6 +31,8 @@ final class AppSettingsPage extends StatefulWidget {
     this.onOpenNetworkSettings,
     this.uninstaller,
     this.beforeUninstall,
+    this.linkLauncher = launchExternalLink,
+    this.versionLoader = loadAppVersion,
     super.key,
   });
 
@@ -41,6 +45,8 @@ final class AppSettingsPage extends StatefulWidget {
   final VoidCallback? onOpenNetworkSettings;
   final AppUninstaller? uninstaller;
   final Future<void> Function()? beforeUninstall;
+  final ExternalLinkLauncher linkLauncher;
+  final AppVersionLoader versionLoader;
 
   @override
   State<AppSettingsPage> createState() => _AppSettingsPageState();
@@ -91,6 +97,22 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
                     ),
                   ],
                 ),
+                if (widget.mobileContext) ...<Widget>[
+                  const SizedBox(height: _sectionSpacing),
+                  _SettingsSection(
+                    title: strings.settingsHelpSection,
+                    children: <Widget>[
+                      ListTile(
+                        key: const Key('settings-about-roammand'),
+                        leading: const Icon(Icons.info_outline_rounded),
+                        title: Text(strings.aboutSettingsTitle),
+                        subtitle: Text(strings.aboutSettingsBody),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: _openAbout,
+                      ),
+                    ],
+                  ),
+                ],
                 if (widget.uninstaller != null) ...<Widget>[
                   const SizedBox(height: _sectionSpacing),
                   _SettingsSection(
@@ -229,6 +251,17 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
           result.signalingChanged
               ? AppLocalizations.of(context).networkHostMigrationSaved
               : AppLocalizations.of(context).networkConfigurationSaved,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAbout() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => RoammandAboutPage(
+          linkLauncher: widget.linkLauncher,
+          versionLoader: widget.versionLoader,
         ),
       ),
     );
