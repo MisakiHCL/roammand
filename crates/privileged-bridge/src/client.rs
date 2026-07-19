@@ -33,6 +33,11 @@ use crate::{
 pub use crate::connector::{AuthenticatedBridgeConnector, BridgeTransportConnector};
 
 const REQUEST_ID_PREFIX: &str = "session";
+/// Keeps Host renewals beyond the Broker's strict minimum cadence. The two
+/// processes sample millisecond clocks independently, so an exact interval can
+/// otherwise arrive one millisecond early after a long-running session.
+pub const RENEW_SAFETY_MARGIN_MS: u64 = 250;
+const RENEW_ATTEMPT_INTERVAL_MS: u64 = RENEW_INTERVAL_MS + RENEW_SAFETY_MARGIN_MS;
 
 /// A request/response transport that has already authenticated its local peer
 /// and strictly decoded each bounded Protobuf frame at the IPC boundary.
@@ -408,7 +413,7 @@ impl ProtobufBridgeWire {
 
     fn renew_if_due(&mut self) -> Result<(), ProxyError> {
         let now_ms = self.clock.now_ms();
-        if now_ms.saturating_sub(self.last_renewed_at_ms) < RENEW_INTERVAL_MS {
+        if now_ms.saturating_sub(self.last_renewed_at_ms) < RENEW_ATTEMPT_INTERVAL_MS {
             return Ok(());
         }
         let route = self.route.ok_or(ProxyError::InvalidMessage)?;

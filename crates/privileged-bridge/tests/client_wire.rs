@@ -9,9 +9,9 @@ use roammand_host_webrtc::{IceTransportPolicy, PeerIceCandidate, SessionConfig};
 use roammand_privileged_bridge::{
     client::{
         BridgeClock, BridgeConnection, BridgeIceServer, BridgePeerOptions, BridgeRpc,
-        BridgeRpcConnector, ProtobufBridgeWire, RpcProxyPartsFactory,
+        BridgeRpcConnector, ProtobufBridgeWire, RENEW_SAFETY_MARGIN_MS, RpcProxyPartsFactory,
     },
-    lease::LeaseId,
+    lease::{LeaseId, RENEW_INTERVAL_MS},
     proxy::{
         BridgeRequest, BridgeWire, ProxyError, ProxyEvent, ProxyPartsFactory, ProxyRoute,
         ProxySessionContext, ValidatedInput,
@@ -67,6 +67,13 @@ struct DelayedRenewRpc {
     response_delay_ms: u64,
 }
 
+struct StrictCadenceRpc {
+    inner: FakeRpc,
+    clock: Arc<AtomicU64>,
+    broker_clock_skew_ms: u64,
+    broker_last_renewed_at_ms: u64,
+}
+
 impl BridgeRpc for DelayedRenewRpc {
     fn call(
         &mut self,
@@ -82,6 +89,36 @@ impl BridgeRpc for DelayedRenewRpc {
                 .fetch_add(self.response_delay_ms, Ordering::Relaxed);
         }
         response
+    }
+
+    fn try_event(&mut self) -> Result<Option<PrivilegedBridgeServerFrame>, ProxyError> {
+        self.inner.try_event()
+    }
+
+    fn fail_closed(&mut self) {
+        self.inner.fail_closed();
+    }
+}
+
+impl BridgeRpc for StrictCadenceRpc {
+    fn call(
+        &mut self,
+        request: PrivilegedBridgeClientFrame,
+    ) -> Result<PrivilegedBridgeServerFrame, ProxyError> {
+        if matches!(
+            request.payload.as_ref(),
+            Some(privileged_bridge_client_frame::Payload::RenewLease(_))
+        ) {
+            let broker_now_ms = self
+                .clock
+                .load(Ordering::Relaxed)
+                .saturating_sub(self.broker_clock_skew_ms);
+            if broker_now_ms.saturating_sub(self.broker_last_renewed_at_ms) < RENEW_INTERVAL_MS {
+                return Err(ProxyError::Rejected);
+            }
+            self.broker_last_renewed_at_ms = broker_now_ms;
+        }
+        self.inner.call(request)
     }
 
     fn try_event(&mut self) -> Result<Option<PrivilegedBridgeServerFrame>, ProxyError> {
@@ -346,7 +383,7 @@ fn factory_acquires_a_route_from_only_the_verified_session_context() {
 }
 
 #[test]
-fn renews_the_lease_at_five_seconds_without_changing_proxy_sequences() {
+fn renews_after_a_clock_safety_margin_without_changing_proxy_sequences() {
     let route = ProxyRoute::new(LeaseId::new([0x62; 16]), 7);
     let calls = Arc::new(Mutex::new(Vec::new()));
     let now_ms = Arc::new(AtomicU64::new(0));
@@ -368,7 +405,19 @@ fn renews_the_lease_at_five_seconds_without_changing_proxy_sequences() {
     .expect("wire");
 
     assert_eq!(wire.try_event(), Ok(None));
-    now_ms.store(5_000, Ordering::Relaxed);
+    now_ms.store(RENEW_INTERVAL_MS, Ordering::Relaxed);
+    assert_eq!(wire.try_event(), Ok(None));
+    assert_eq!(renewal_count(&calls), 0);
+    now_ms.store(
+        RENEW_INTERVAL_MS + RENEW_SAFETY_MARGIN_MS - 1,
+        Ordering::Relaxed,
+    );
+    assert_eq!(wire.try_event(), Ok(None));
+    assert_eq!(renewal_count(&calls), 0);
+    now_ms.store(
+        RENEW_INTERVAL_MS + RENEW_SAFETY_MARGIN_MS,
+        Ordering::Relaxed,
+    );
     assert_eq!(wire.try_event(), Ok(None));
     let response = wire
         .input(
@@ -413,17 +462,55 @@ fn renewal_cadence_starts_after_the_broker_response() {
     )
     .expect("wire");
 
-    now_ms.store(5_000, Ordering::Relaxed);
+    let first_renewal_ms = RENEW_INTERVAL_MS + RENEW_SAFETY_MARGIN_MS;
+    now_ms.store(first_renewal_ms, Ordering::Relaxed);
     assert_eq!(wire.try_event(), Ok(None));
-    assert_eq!(now_ms.load(Ordering::Relaxed), 5_025);
+    assert_eq!(now_ms.load(Ordering::Relaxed), first_renewal_ms + 25);
 
-    now_ms.store(10_000, Ordering::Relaxed);
+    let second_renewal_ms = first_renewal_ms + 25 + RENEW_INTERVAL_MS + RENEW_SAFETY_MARGIN_MS;
+    now_ms.store(second_renewal_ms - 1, Ordering::Relaxed);
     assert_eq!(wire.try_event(), Ok(None));
     assert_eq!(renewal_count(&calls), 1);
 
-    now_ms.store(10_025, Ordering::Relaxed);
+    now_ms.store(second_renewal_ms, Ordering::Relaxed);
     assert_eq!(wire.try_event(), Ok(None));
     assert_eq!(renewal_count(&calls), 2);
+}
+
+#[test]
+fn long_running_renewals_tolerate_cross_process_millisecond_skew() {
+    let route = ProxyRoute::new(LeaseId::new([0x64; 16]), 9);
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let now_ms = Arc::new(AtomicU64::new(0));
+    let rpc = StrictCadenceRpc {
+        inner: FakeRpc {
+            calls: Arc::clone(&calls),
+            failed: Arc::new(Mutex::new(false)),
+            route,
+            mutation: ReplyMutation::None,
+            event: None,
+        },
+        clock: Arc::clone(&now_ms),
+        broker_clock_skew_ms: 1,
+        broker_last_renewed_at_ms: 0,
+    };
+    let mut wire = ProtobufBridgeWire::with_clock(
+        Box::new(rpc),
+        BridgePeerOptions::new(Vec::new()).expect("options"),
+        "Controller".to_owned(),
+        route,
+        1,
+        Box::new(FakeClock(Arc::clone(&now_ms))),
+    )
+    .expect("wire");
+    let renewal_interval_ms = RENEW_INTERVAL_MS + RENEW_SAFETY_MARGIN_MS;
+
+    for cycle in 1..=128 {
+        now_ms.store(cycle * renewal_interval_ms, Ordering::Relaxed);
+        assert_eq!(wire.try_event(), Ok(None));
+    }
+
+    assert_eq!(renewal_count(&calls), 128);
 }
 
 fn renewal_count(calls: &Mutex<Vec<PrivilegedBridgeClientFrame>>) -> usize {
