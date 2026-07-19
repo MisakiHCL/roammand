@@ -291,6 +291,43 @@ void main() {
     expect(fixture.sentOffers, hasLength(1));
   });
 
+  test(
+    'does not replace a verified reconnect while ICE is connecting',
+    () async {
+      final fixture = await _Fixture.create();
+      await fixture.connectFully();
+      fixture.adapter.emit(ControllerPeerEvent.disconnected);
+      await _pumpEvents();
+
+      await fixture.scheduler.fireNext();
+      final restarted = fixture.sentOffers.last;
+      fixture.signaling.route(
+        fixture.envelope(
+          sessionAuthentication: SessionAuthentication(
+            reconnect: await fixture.signedReconnect(restarted, generation: 1),
+          ),
+        ),
+      );
+      fixture.routeAnswerDescription(restarted);
+      await _pumpEvents();
+      expect(fixture.controller.state, RemoteDesktopState.connecting);
+
+      await fixture.scheduler.fireNext();
+      await _pumpEvents();
+
+      expect(fixture.sentOffers, hasLength(2));
+      expect(fixture.adapter.restartCount, 1);
+      expect(fixture.scheduler.pendingDelays, <Duration>[
+        const Duration(seconds: 4),
+      ]);
+
+      fixture.adapter.emit(ControllerPeerEvent.connected);
+      await _pumpEvents();
+      expect(fixture.controller.state, RemoteDesktopState.connected);
+      expect(fixture.scheduler.activeCount, 0);
+    },
+  );
+
   test('recovers signaling and accepts a full Host restart answer', () async {
     final fixture = await _Fixture.create();
     await fixture.connectFully();

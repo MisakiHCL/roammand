@@ -642,8 +642,20 @@ final class RemoteDesktopController extends ChangeNotifier
     }
     _reconnectTimer = _reconnectScheduler.schedule(ticket.delay, () {
       _reconnectTimer = null;
+      if (_state == RemoteDesktopState.connecting) {
+        _waitForCurrentConnection(ticket);
+        return;
+      }
       unawaited(_runReconnectAttempt(ticket));
     });
+  }
+
+  void _waitForCurrentConnection(ReconnectAttemptTicket ticket) {
+    final sequence = _reconnectSequence;
+    if (sequence == null || !sequence.begin(ticket)) {
+      return;
+    }
+    unawaited(_finishReconnectAttempt(sequence, ticket));
   }
 
   Future<void> _runReconnectAttempt(ReconnectAttemptTicket ticket) async {
@@ -684,9 +696,14 @@ final class RemoteDesktopController extends ChangeNotifier
       await _fail(RemoteDesktopErrorCode.peer);
       return;
     }
-    if (!sequence.complete(ticket)) {
-      return;
-    }
+    await _finishReconnectAttempt(sequence, ticket);
+  }
+
+  Future<void> _finishReconnectAttempt(
+    ReconnectAttemptSequence sequence,
+    ReconnectAttemptTicket ticket,
+  ) async {
+    if (!sequence.complete(ticket)) return;
     if (sequence.exhausted) {
       _diagnostics.recordReconnect(
         attempt: ticket.attempt,
