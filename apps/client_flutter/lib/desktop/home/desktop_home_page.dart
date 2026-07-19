@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_back_button.dart';
 import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_brand_mark.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
@@ -818,11 +819,9 @@ final class _DesktopContentHeader extends StatelessWidget {
       child: Row(
         children: <Widget>[
           if (onBack != null)
-            IconButton(
-              key: const Key('desktop-detail-back'),
+            RoammandBackButton(
+              buttonKey: const Key('desktop-detail-back'),
               onPressed: onBack,
-              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-              icon: const Icon(Icons.arrow_back, size: 20),
             )
           else
             const SizedBox(width: 16),

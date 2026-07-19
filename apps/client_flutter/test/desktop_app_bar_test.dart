@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:roammand/design_system/roammand_back_button.dart';
 import 'package:roammand/desktop/desktop_app_bar.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -26,6 +27,7 @@ void main() {
     expect(appBar.toolbarHeight, 40);
     expect(find.byType(DragToMoveArea), findsOneWidget);
     expect(find.byType(BackButton), findsNothing);
+    expect(find.byType(RoammandBackButton), findsNothing);
   });
 
   testWidgets('keeps the remote back action clear of macOS traffic lights', (
@@ -46,7 +48,9 @@ void main() {
 
     final appBar = tester.widget<AppBar>(find.byType(AppBar));
     expect(appBar.leadingWidth, 120);
-    expect(find.byType(BackButton), findsOneWidget);
+    expect(find.byType(BackButton), findsNothing);
+    expect(find.byType(RoammandBackButton), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
   });
 
   testWidgets('keeps the standard app bar geometry on Windows', (tester) async {
@@ -67,6 +71,8 @@ void main() {
     expect(appBar.leadingWidth, isNull);
     expect(appBar.toolbarHeight, kToolbarHeight);
     expect(find.byType(DragToMoveArea), findsNothing);
-    expect(find.byType(BackButton), findsOneWidget);
+    expect(find.byType(BackButton), findsNothing);
+    expect(find.byType(RoammandBackButton), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
   });
 }

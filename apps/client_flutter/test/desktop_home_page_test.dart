@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/desktop/home/desktop_home_page.dart';
 import 'package:roammand/desktop/home/trusted_computers_controller.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
+import 'package:roammand/design_system/roammand_back_button.dart';
 import 'package:roammand/design_system/roammand_theme.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
@@ -297,6 +298,8 @@ void main() {
         greaterThanOrEqualTo(tester.getRect(sidebar).right),
       );
       expect(find.text('Settings'), findsWidgets);
+      expect(find.byType(RoammandBackButton), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('settings-network-services')));
       await tester.pumpAndSettle();

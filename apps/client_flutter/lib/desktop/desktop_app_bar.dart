@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_back_button.dart';
 import 'package:window_manager/window_manager.dart';
 
 const _macosTrafficLightsWidth = 80.0;
@@ -33,7 +34,7 @@ final class RoammandDesktopAppBar extends StatelessWidget
     return AppBar(
       toolbarHeight: toolbarHeight,
       automaticallyImplyLeading: false,
-      leading: _leading(macos, toolbarHeight),
+      leading: _leading(context, macos, toolbarHeight),
       leadingWidth: macos
           ? _macosTrafficLightsWidth + (showBackButton ? toolbarHeight : 0)
           : null,
@@ -51,15 +52,17 @@ final class RoammandDesktopAppBar extends StatelessWidget
     );
   }
 
-  Widget? _leading(bool macos, double toolbarHeight) {
+  Widget? _leading(BuildContext context, bool macos, double toolbarHeight) {
+    final backButton = RoammandBackButton(
+      onPressed: () => Navigator.of(context).maybePop(),
+    );
     if (!macos) {
-      return showBackButton ? const BackButton() : null;
+      return showBackButton ? backButton : null;
     }
     return Row(
       children: <Widget>[
         const SizedBox(width: _macosTrafficLightsWidth),
-        if (showBackButton)
-          SizedBox(width: toolbarHeight, child: const BackButton()),
+        if (showBackButton) SizedBox(width: toolbarHeight, child: backButton),
       ],
     );
   }

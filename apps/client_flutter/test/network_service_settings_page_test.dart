@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:roammand/design_system/roammand_back_button.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 import 'package:roammand/network/network_service_configuration.dart';
@@ -18,6 +19,12 @@ void main() {
     await tester.pumpWidget(_app(controller));
     await tester.tap(find.text('Open settings'));
     await tester.pumpAndSettle();
+    expect(find.byType(RoammandBackButton), findsOneWidget);
+    expect(
+      find.byKey(const Key('desktop-network-settings-back')),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
 
     await tester.tap(find.text('Custom service'));
     await tester.pumpAndSettle();

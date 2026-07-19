@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_back_button.dart';
 import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
@@ -60,6 +61,7 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
     final useMobileHeader = widget.mobileContext && widget.showAppBar;
+    final canPop = ModalRoute.of(context)?.canPop ?? false;
     final pageContent = Align(
       alignment: Alignment.topCenter,
       child: ListView(
@@ -103,7 +105,16 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
     );
     return Scaffold(
       appBar: widget.showAppBar && !widget.mobileContext
-          ? AppBar(title: Text(strings.settingsTitle))
+          ? AppBar(
+              automaticallyImplyLeading: false,
+              leading: canPop
+                  ? RoammandBackButton(
+                      buttonKey: const Key('desktop-settings-back'),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                    )
+                  : null,
+              title: Text(strings.settingsTitle),
+            )
           : null,
       body: useMobileHeader
           ? MobilePageFrame(

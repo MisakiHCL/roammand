@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_back_button.dart';
 import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
@@ -77,9 +78,19 @@ final class _NetworkServiceSettingsPageState
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
+    final canPop = ModalRoute.of(context)?.canPop ?? false;
     return Scaffold(
       appBar: widget.showAppBar && !widget.mobileContext
-          ? AppBar(title: Text(strings.networkSettingsTitle))
+          ? AppBar(
+              automaticallyImplyLeading: false,
+              leading: canPop
+                  ? RoammandBackButton(
+                      buttonKey: const Key('desktop-network-settings-back'),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                    )
+                  : null,
+              title: Text(strings.networkSettingsTitle),
+            )
           : null,
       body: _SettingsPageBody(
         mobileHeader: widget.mobileContext && widget.showAppBar,

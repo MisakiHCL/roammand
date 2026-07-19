@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'package:flutter/material.dart';
-import 'package:roammand/design_system/roammand_colors.dart';
+import 'package:roammand/design_system/roammand_back_button.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 
 const mobilePageHeaderHeight = 48.0;
 const mobilePageHeaderHorizontalPadding = 4.0;
-const mobilePageHeaderActionSize = 40.0;
+const mobilePageHeaderActionSize = roammandBackButtonSize;
 
 final class MobilePageHeader extends StatelessWidget {
   const MobilePageHeader({
@@ -54,20 +54,10 @@ final class MobilePageBackButton extends StatelessWidget {
   final Key? buttonKey;
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    key: buttonKey,
+  Widget build(BuildContext context) => RoammandBackButton(
+    buttonKey: buttonKey,
     onPressed: onPressed,
     tooltip: tooltip,
-    constraints: const BoxConstraints.tightFor(
-      width: mobilePageHeaderActionSize,
-      height: mobilePageHeaderActionSize,
-    ),
-    padding: const EdgeInsets.all(8),
-    icon: const Icon(
-      Icons.arrow_back_ios_new_rounded,
-      color: RoammandColors.textSecondary,
-      size: 24,
-    ),
   );
 }
 
