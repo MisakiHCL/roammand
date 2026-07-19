@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
@@ -52,8 +54,44 @@ void main() {
       findsNothing,
     );
     expect(find.byIcon(Icons.translate_rounded), findsOneWidget);
+    final languageSelector = find.byKey(
+      const Key('settings-language-selector'),
+    );
+    final popupMenu = tester.widget<PopupMenuButton<AppLocalePreference>>(
+      find.descendant(
+        of: languageSelector,
+        matching: find.byType(PopupMenuButton<AppLocalePreference>),
+      ),
+    );
+    expect(popupMenu.borderRadius, BorderRadius.circular(16));
+    final tooltipVisibility = tester.widget<TooltipVisibility>(
+      find.descendant(
+        of: languageSelector,
+        matching: find.byType(TooltipVisibility),
+      ),
+    );
+    expect(tooltipVisibility.visible, isFalse);
 
-    await tester.tap(find.byKey(const Key('settings-language-selector')));
+    final aboutCard = tester.widget<Card>(
+      find
+          .ancestor(
+            of: find.byKey(const Key('settings-about-roammand')),
+            matching: find.byType(Card),
+          )
+          .first,
+    );
+    expect(aboutCard.clipBehavior, Clip.antiAlias);
+
+    final mouse = await tester.createGesture(
+      kind: PointerDeviceKind.mouse,
+      pointer: 1,
+    );
+    await mouse.addPointer(location: tester.getCenter(languageSelector));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Show menu'), findsNothing);
+    await mouse.removePointer();
+
+    await tester.tap(languageSelector);
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.check_rounded), findsOneWidget);
     await tester.tap(find.text('English').last);

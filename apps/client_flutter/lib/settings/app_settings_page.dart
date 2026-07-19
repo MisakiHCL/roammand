@@ -351,12 +351,13 @@ final class _LanguageSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onSelected != null;
-    return PopupMenuButton<AppLocalePreference>(
+    final menu = PopupMenuButton<AppLocalePreference>(
       enabled: enabled,
       initialValue: value,
       onSelected: onSelected,
       position: PopupMenuPosition.under,
       offset: const Offset(0, 8),
+      borderRadius: BorderRadius.circular(16),
       elevation: 20,
       color: RoammandColors.elevatedSurface,
       surfaceTintColor: Colors.transparent,
@@ -435,6 +436,7 @@ final class _LanguageSelector extends StatelessWidget {
         ),
       ),
     );
+    return TooltipVisibility(visible: false, child: menu);
   }
 }
 
@@ -450,7 +452,10 @@ final class _SettingsSection extends StatelessWidget {
     children: <Widget>[
       Text(title, style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: _itemSpacing),
-      Card(child: Column(children: children)),
+      Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: children),
+      ),
     ],
   );
 }
