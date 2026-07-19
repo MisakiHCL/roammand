@@ -425,7 +425,11 @@ impl ProtobufBridgeWire {
         if crate::client::route(lease.lease_id, lease.generation)? != route {
             return self.reject(ProxyError::StaleRoute);
         }
-        self.last_renewed_at_ms = now_ms;
+        // Start the next interval only after the broker has accepted this
+        // renewal. Measuring from before the synchronous RPC can make the next
+        // request arrive a few milliseconds earlier than the broker's strict
+        // cadence and fail-close an otherwise healthy remote session.
+        self.last_renewed_at_ms = self.clock.now_ms();
         Ok(())
     }
 

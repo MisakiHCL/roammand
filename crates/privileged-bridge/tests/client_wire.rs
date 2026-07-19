@@ -61,6 +61,38 @@ impl BridgeClock for FakeClock {
     }
 }
 
+struct DelayedRenewRpc {
+    inner: FakeRpc,
+    clock: Arc<AtomicU64>,
+    response_delay_ms: u64,
+}
+
+impl BridgeRpc for DelayedRenewRpc {
+    fn call(
+        &mut self,
+        request: PrivilegedBridgeClientFrame,
+    ) -> Result<PrivilegedBridgeServerFrame, ProxyError> {
+        let is_renewal = matches!(
+            request.payload.as_ref(),
+            Some(privileged_bridge_client_frame::Payload::RenewLease(_))
+        );
+        let response = self.inner.call(request);
+        if is_renewal {
+            self.clock
+                .fetch_add(self.response_delay_ms, Ordering::Relaxed);
+        }
+        response
+    }
+
+    fn try_event(&mut self) -> Result<Option<PrivilegedBridgeServerFrame>, ProxyError> {
+        self.inner.try_event()
+    }
+
+    fn fail_closed(&mut self) {
+        self.inner.fail_closed();
+    }
+}
+
 impl BridgeRpcConnector for RecordingConnector {
     fn connect(&mut self, context: &ProxySessionContext) -> Result<BridgeConnection, ProxyError> {
         self.observed.lock().expect("observed").push((
@@ -353,6 +385,59 @@ fn renews_the_lease_at_five_seconds_without_changing_proxy_sequences() {
         Some(privileged_bridge_client_frame::Payload::RenewLease(_))
     ));
     assert_eq!(calls[1].sequence, 4);
+}
+
+#[test]
+fn renewal_cadence_starts_after_the_broker_response() {
+    let route = ProxyRoute::new(LeaseId::new([0x63; 16]), 8);
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let now_ms = Arc::new(AtomicU64::new(0));
+    let rpc = DelayedRenewRpc {
+        inner: FakeRpc {
+            calls: Arc::clone(&calls),
+            failed: Arc::new(Mutex::new(false)),
+            route,
+            mutation: ReplyMutation::None,
+            event: None,
+        },
+        clock: Arc::clone(&now_ms),
+        response_delay_ms: 25,
+    };
+    let mut wire = ProtobufBridgeWire::with_clock(
+        Box::new(rpc),
+        BridgePeerOptions::new(Vec::new()).expect("options"),
+        "Controller".to_owned(),
+        route,
+        1,
+        Box::new(FakeClock(Arc::clone(&now_ms))),
+    )
+    .expect("wire");
+
+    now_ms.store(5_000, Ordering::Relaxed);
+    assert_eq!(wire.try_event(), Ok(None));
+    assert_eq!(now_ms.load(Ordering::Relaxed), 5_025);
+
+    now_ms.store(10_000, Ordering::Relaxed);
+    assert_eq!(wire.try_event(), Ok(None));
+    assert_eq!(renewal_count(&calls), 1);
+
+    now_ms.store(10_025, Ordering::Relaxed);
+    assert_eq!(wire.try_event(), Ok(None));
+    assert_eq!(renewal_count(&calls), 2);
+}
+
+fn renewal_count(calls: &Mutex<Vec<PrivilegedBridgeClientFrame>>) -> usize {
+    calls
+        .lock()
+        .expect("calls")
+        .iter()
+        .filter(|request| {
+            matches!(
+                request.payload.as_ref(),
+                Some(privileged_bridge_client_frame::Payload::RenewLease(_))
+            )
+        })
+        .count()
 }
 
 const fn version() -> ProtocolVersion {
