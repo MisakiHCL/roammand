@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -102,6 +104,53 @@ void main() {
       expect(sender.droppedPointerMoves, 1);
     },
   );
+
+  test('drops a failed fast send without surfacing an async error', () async {
+    final scheduler = _ManualFrameScheduler();
+    final fast = _FakeInputChannel(failSend: true);
+    final sender = RemoteInputSender(
+      sessionId: _sessionId,
+      reliable: _FakeInputChannel(),
+      fast: fast,
+      frameScheduler: scheduler,
+    );
+
+    sender.queuePointerMove(x: 10, y: 20, pressedButtonBits: 0);
+
+    await expectLater(scheduler.flush(), completes);
+    await expectLater(sender.sendScroll(deltaX: 0, deltaY: 4), completes);
+    expect(sender.droppedPointerMoves, 1);
+    expect(fast.sendCount, 2);
+  });
+
+  test('serializes fast sends and retains the latest pending move', () async {
+    final scheduler = _ManualFrameScheduler();
+    final sendGate = Completer<void>();
+    final fast = _FakeInputChannel(sendGate: sendGate);
+    final sender = RemoteInputSender(
+      sessionId: _sessionId,
+      reliable: _FakeInputChannel(),
+      fast: fast,
+      frameScheduler: scheduler,
+    );
+
+    sender.queuePointerMove(x: 10, y: 20, pressedButtonBits: 0);
+    final firstFlush = scheduler.flush();
+    sender.queuePointerMove(x: 30, y: 40, pressedButtonBits: 0);
+    sender.queuePointerMove(x: 50, y: 60, pressedButtonBits: 0);
+
+    expect(fast.maximumConcurrentSends, 1);
+    expect(fast.sent, hasLength(1));
+    sendGate.complete();
+    await firstFlush;
+    await scheduler.flush();
+
+    expect(fast.maximumConcurrentSends, 1);
+    expect(fast.sent, hasLength(2));
+    final latest = decodeAndValidatePointerFastEnvelope(fast.sent.last);
+    expect(latest.move.x, 50);
+    expect(latest.move.y, 60);
+  });
 
   test('release-all is sent once and close cancels pending movement', () async {
     final scheduler = _ManualFrameScheduler();
@@ -315,16 +364,37 @@ void main() {
 }
 
 final class _FakeInputChannel implements InputDataChannel {
-  _FakeInputChannel({this.bufferedAmount = 0});
+  _FakeInputChannel({
+    this.bufferedAmount = 0,
+    this.failSend = false,
+    this.sendGate,
+  });
 
   @override
   int bufferedAmount;
 
+  final bool failSend;
+  final Completer<void>? sendGate;
+
   final List<Uint8List> sent = <Uint8List>[];
+  int sendCount = 0;
+  int concurrentSends = 0;
+  int maximumConcurrentSends = 0;
 
   @override
   Future<void> send(Uint8List bytes) async {
+    sendCount += 1;
+    concurrentSends += 1;
+    maximumConcurrentSends = max(maximumConcurrentSends, concurrentSends);
     sent.add(Uint8List.fromList(bytes));
+    try {
+      if (failSend) {
+        throw StateError('fast channel unavailable');
+      }
+      await sendGate?.future;
+    } finally {
+      concurrentSends -= 1;
+    }
   }
 }
 

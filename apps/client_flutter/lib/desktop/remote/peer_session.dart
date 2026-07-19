@@ -411,6 +411,7 @@ final class FlutterWebRtcPeerAdapter
   bool _closed = false;
   bool _peerConnected = false;
   bool _reportedConnected = false;
+  bool _transportFailureReported = false;
 
   @override
   Object get renderer => _renderer;
@@ -471,12 +472,13 @@ final class FlutterWebRtcPeerAdapter
             _reportConnectedWhenReady(callbacks);
           case RTCPeerConnectionState.RTCPeerConnectionStateDisconnected:
             _peerConnected = false;
-            _reportedConnected = false;
-            callbacks.onEvent(ControllerPeerEvent.disconnected);
+            _reportTransportFailure(
+              callbacks,
+              ControllerPeerEvent.disconnected,
+            );
           case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
             _peerConnected = false;
-            _reportedConnected = false;
-            callbacks.onEvent(ControllerPeerEvent.failed);
+            _reportTransportFailure(callbacks, ControllerPeerEvent.failed);
           case RTCPeerConnectionState.RTCPeerConnectionStateClosed:
             _peerConnected = false;
             _reportedConnected = false;
@@ -674,9 +676,29 @@ final class FlutterWebRtcPeerAdapter
     RTCDataChannel channel,
     ControllerPeerCallbacks callbacks,
   ) {
-    channel.onDataChannelState = (_) {
-      if (!_closed) _reportConnectedWhenReady(callbacks);
+    channel.onDataChannelState = (state) {
+      if (_closed) return;
+      switch (state) {
+        case RTCDataChannelState.RTCDataChannelClosing:
+        case RTCDataChannelState.RTCDataChannelClosed:
+          _reportTransportFailure(callbacks, ControllerPeerEvent.disconnected);
+        case RTCDataChannelState.RTCDataChannelConnecting:
+        case RTCDataChannelState.RTCDataChannelOpen:
+          _reportConnectedWhenReady(callbacks);
+      }
     };
+  }
+
+  void _reportTransportFailure(
+    ControllerPeerCallbacks callbacks,
+    ControllerPeerEvent event,
+  ) {
+    _reportedConnected = false;
+    if (_closed || _transportFailureReported) {
+      return;
+    }
+    _transportFailureReported = true;
+    callbacks.onEvent(event);
   }
 
   void _reportConnectedWhenReady(ControllerPeerCallbacks callbacks) {
@@ -687,6 +709,7 @@ final class FlutterWebRtcPeerAdapter
         !_inputChannelIsOpen(_fast)) {
       return;
     }
+    _transportFailureReported = false;
     _reportedConnected = true;
     callbacks.onEvent(ControllerPeerEvent.connected);
   }
@@ -707,6 +730,7 @@ final class FlutterWebRtcPeerAdapter
     _ownedRemoteVideoStream = null;
     _peerConnected = false;
     _reportedConnected = false;
+    _transportFailureReported = false;
     if (reliable != null) reliable.onDataChannelState = null;
     if (fast != null) fast.onDataChannelState = null;
     try {

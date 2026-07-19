@@ -101,6 +101,7 @@ final class RemoteInputSender {
   bool _releaseSent = false;
   bool _suspended = false;
   bool _closed = false;
+  bool _fastSendInFlight = false;
   int _droppedPointerMoves = 0;
 
   int get droppedPointerMoves => _droppedPointerMoves;
@@ -182,14 +183,14 @@ final class RemoteInputSender {
     );
   }
 
-  Future<void> sendScroll({required int deltaX, required int deltaY}) {
+  Future<void> sendScroll({required int deltaX, required int deltaY}) async {
     _ensureOpen();
     if (deltaX.abs() > maxRemoteScrollDelta ||
         deltaY.abs() > maxRemoteScrollDelta) {
       throw const InputSenderException(InputSenderErrorCode.invalidScroll);
     }
     _releaseSent = false;
-    return _sendFast(
+    await _sendFastBestEffort(
       PointerFastEnvelope(
         scroll: PointerScrollEvent(deltaX: deltaX, deltaY: deltaY),
       ),
@@ -208,11 +209,7 @@ final class RemoteInputSender {
       throw const InputSenderException(InputSenderErrorCode.invalidEnum);
     }
     _pendingMove = _PendingPointerMove(x, y, pressedButtonBits);
-    if (_frameScheduled) {
-      return;
-    }
-    _frameScheduled = true;
-    _frameScheduler.schedule(pointerFrameInterval, _flushPointerMove);
+    _schedulePendingPointerMove();
   }
 
   Future<void> releaseAll() async {
@@ -277,11 +274,15 @@ final class RemoteInputSender {
     if (_closed || _suspended || move == null) {
       return;
     }
+    if (_fastSendInFlight) {
+      _pendingMove ??= move;
+      return;
+    }
     if (_fast.bufferedAmount > maxFastBufferedAmount) {
       _droppedPointerMoves += 1;
       return;
     }
-    await _sendFast(
+    final sent = await _sendFastBestEffort(
       PointerFastEnvelope(
         move: PointerMoveEvent(
           x: move.x,
@@ -290,6 +291,43 @@ final class RemoteInputSender {
         ),
       ),
     );
+    if (!sent) {
+      _droppedPointerMoves += 1;
+    }
+  }
+
+  void _schedulePendingPointerMove() {
+    if (_closed ||
+        _suspended ||
+        _pendingMove == null ||
+        _frameScheduled ||
+        _fastSendInFlight) {
+      return;
+    }
+    _frameScheduled = true;
+    _frameScheduler.schedule(pointerFrameInterval, _flushPointerMove);
+  }
+
+  Future<bool> _sendFastBestEffort(PointerFastEnvelope envelope) async {
+    if (_fastSendInFlight || _fast.bufferedAmount > maxFastBufferedAmount) {
+      return false;
+    }
+    _fastSendInFlight = true;
+    try {
+      await _sendFast(envelope);
+      return true;
+    } on InputSenderException catch (error) {
+      if (error.code != InputSenderErrorCode.channel) {
+        rethrow;
+      }
+      // Pointer movement and scrolling use the deliberately lossy channel.
+      // A closed or temporarily unwritable fast channel must not terminate
+      // the reliable input path or surface an unhandled frame-callback error.
+      return false;
+    } finally {
+      _fastSendInFlight = false;
+      _schedulePendingPointerMove();
+    }
   }
 
   Future<void> _sendReliable(ReliableInputEnvelope envelope) async {
