@@ -4,9 +4,9 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
-> Roammand is preparing its first public release. The macOS installer is ready
-> for distribution, but its public download link has not been published. The
-> iPhone and iPad app is not yet available on the App Store.
+> The macOS installer is publicly available through GitHub Releases. The iPhone
+> and iPad app is not yet available on the App Store, and TestFlight remains
+> limited to invited testers.
 
 ## Before you start
 
@@ -18,8 +18,8 @@
 
 ## Install and authorize the Mac
 
-1. Download the signed and notarized `.pkg` from the official download channel
-   after that link is published.
+1. Download the signed and notarized `Roammand.pkg` from
+   [GitHub Releases](https://github.com/MisakiHCL/roammand/releases/latest).
 2. Open the package and approve the administrator prompt to install the app and
    its required Host components.
 3. Start Roammand and open **This computer**.

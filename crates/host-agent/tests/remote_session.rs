@@ -433,9 +433,8 @@ fn revocation_closes_peer_and_releases_input() {
     assert_eq!(outbound.len(), 1);
     let closing = decode_and_validate_signaling_envelope(&outbound[0].opaque_envelope)
         .expect("termination status must validate");
-    let status = match closing.payload {
-        Some(signaling_envelope::Payload::SessionStatus(status)) => status,
-        _ => panic!("expected closing session status"),
+    let Some(signaling_envelope::Payload::SessionStatus(status)) = closing.payload else {
+        panic!("expected closing session status");
     };
     assert_eq!(status.session_id, fixture.session_id);
     assert_eq!(

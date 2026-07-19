@@ -15,18 +15,17 @@ Roammand turns your phone, tablet, or another computer into a trusted control su
 
 Continue desktop work from mobile, supervise long-running tasks, and keep your personal computing environment within reach.
 
-## Download status
-
-Roammand is preparing its first public release. The distributable builds exist,
-but the public download channels are not live yet.
+## Download
 
 | Platform | Current status |
 | --- | --- |
-| macOS 14.4 or later | The signed and notarized `.pkg` installer is ready; its public download link has not been published yet. |
+| macOS 14.4 or later | [Download the signed and notarized `.pkg` installer from GitHub Releases](https://github.com/MisakiHCL/roammand/releases/latest/download/Roammand.pkg). |
 | iPhone and iPad | **Not yet available.** Version 1.0.0 is awaiting App Store release. [View the upcoming App Store listing](https://apps.apple.com/app/id6792014935). |
 
 The App Store link above identifies the upcoming release; it is not currently a
-public download. TestFlight access remains limited to invited testers.
+public download. TestFlight access remains limited to invited testers. See
+[GitHub Releases](https://github.com/MisakiHCL/roammand/releases) for previous
+macOS versions and checksums.
 
 ## Quick start
 

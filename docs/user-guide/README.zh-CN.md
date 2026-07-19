@@ -4,8 +4,8 @@
 
 [English](README.md) · **简体中文**
 
-> Roammand 正在准备首次公开发布。macOS 安装包已经具备分发条件，但公众下载
-> 地址尚未发布；iPhone 和 iPad App 也尚未在 App Store 上线。
+> macOS 安装包已通过 GitHub Releases 公开提供；iPhone 和 iPad App 尚未在
+> App Store 上线，TestFlight 仍仅供受邀测试者使用。
 
 ## 开始之前
 
@@ -16,7 +16,8 @@
 
 ## 安装并授权 Mac
 
-1. 公众下载地址发布后，从官方渠道下载经过签名和公证的 `.pkg`。
+1. 从 [GitHub Releases](https://github.com/MisakiHCL/roammand/releases/latest)
+   下载经过签名和公证的 `Roammand.pkg`。
 2. 打开安装包，并批准管理员提示，以安装 App 和所需的 Host 组件。
 3. 启动 Roammand，打开“**此电脑**”。
 4. 分别点击两项“**去设置**”，在系统设置中授予“屏幕录制”和“辅助功能”权限。
