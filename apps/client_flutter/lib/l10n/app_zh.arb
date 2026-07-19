@@ -212,6 +212,8 @@
   "mobileGestureHint": "轻点、双击、拖动、滚动或双指缩放",
   "mobileKeyboardAction": "键盘",
   "mobileHideKeyboardAction": "隐藏键盘",
+  "mobileLockControlsAction": "锁定控制栏",
+  "mobileUnlockControlsAction": "解锁控制栏",
   "mobileTextInputLabel": "发送文字到电脑",
   "mobileSendTextAction": "发送文字",
   "mobileModifierControl": "Ctrl",

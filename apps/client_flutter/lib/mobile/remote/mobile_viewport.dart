@@ -5,7 +5,8 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:roammand/desktop/remote/input_sender.dart';
 
-const mobileViewportMinimumScale = 1.0;
+const mobileViewportMinimumScale = 0.8;
+const mobileViewportDefaultScale = 1.0;
 const mobileViewportMaximumScale = 4.0;
 
 final class MobileRemotePosition {
@@ -33,12 +34,19 @@ final class MobileViewport {
   factory MobileViewport.initial({
     required Size viewportSize,
     required double videoAspectRatio,
+    double initialScale = mobileViewportDefaultScale,
   }) {
     _validateLayout(viewportSize, videoAspectRatio);
+    if (!initialScale.isFinite) {
+      throw ArgumentError.value(initialScale, 'initialScale');
+    }
     return MobileViewport._(
       viewportSize: viewportSize,
       videoAspectRatio: videoAspectRatio,
-      scale: mobileViewportMinimumScale,
+      scale: initialScale.clamp(
+        mobileViewportMinimumScale,
+        mobileViewportMaximumScale,
+      ),
       pan: Offset.zero,
     );
   }
@@ -172,6 +180,36 @@ final class MobileViewport {
       pan: clampedPan,
     );
   }
+}
+
+double mobileViewportSafeFitScale({
+  required Size viewportSize,
+  required double videoAspectRatio,
+  required EdgeInsets obscuredInsets,
+}) {
+  _validateLayout(viewportSize, videoAspectRatio);
+  final insetValues = <double>[
+    obscuredInsets.left,
+    obscuredInsets.top,
+    obscuredInsets.right,
+    obscuredInsets.bottom,
+  ];
+  if (insetValues.any((value) => !value.isFinite || value < 0)) {
+    throw ArgumentError.value(obscuredInsets, 'obscuredInsets');
+  }
+  final base = _containedVideoRect(viewportSize, videoAspectRatio);
+  final horizontalClearance = math.max(
+    obscuredInsets.left,
+    obscuredInsets.right,
+  );
+  final verticalClearance = math.max(obscuredInsets.top, obscuredInsets.bottom);
+  final safeWidth = math.max(0.0, viewportSize.width - horizontalClearance * 2);
+  final safeHeight = math.max(0.0, viewportSize.height - verticalClearance * 2);
+  final safeScale = math.min(safeWidth / base.width, safeHeight / base.height);
+  return safeScale.clamp(
+    mobileViewportMinimumScale,
+    mobileViewportDefaultScale,
+  );
 }
 
 Rect _containedVideoRect(Size viewportSize, double videoAspectRatio) {

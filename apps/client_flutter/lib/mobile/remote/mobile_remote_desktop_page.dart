@@ -25,11 +25,16 @@ const _statusVerticalPadding = 4.0;
 const _statusRadius = 16.0;
 const _controlBarPadding = 4.0;
 const _controlBarHeight = 40.0;
+const _unlockButtonSize = 48.0;
+const _unlockButtonInset = 8.0;
 const _focusedInputTrayHeight = 56.0;
 const _minimumInputTrayHeight = 120.0;
 const _maximumInputTrayHeight = 200.0;
 const _inputTrayScreenFraction = 0.36;
 const _textInputHideMethod = 'TextInput.hide';
+const _overlayClear = Color(0x00000000);
+const _overlayScrim = Color(0xB3000000);
+const _unlockSurface = Color(0xA6000000);
 const _remoteOrientations = <DeviceOrientation>[
   DeviceOrientation.landscapeLeft,
   DeviceOrientation.landscapeRight,
@@ -75,6 +80,8 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
   MobileKeyboardController? _keyboardController;
   Future<void>? _closeFuture;
   bool _keyboardVisible = false;
+  bool _controlsLocked = false;
+  bool _immersiveSystemUiActive = false;
   bool _closing = false;
   bool _popRequested = false;
   bool _allowPop = false;
@@ -101,9 +108,11 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
+        _exitControlsLock();
         _releaseInput();
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
+        _exitControlsLock();
         _releaseInput();
         unawaited(_closeSession(pop: false));
     }
@@ -113,6 +122,7 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_onControllerChanged);
+    _restoreSystemUiIfNeeded();
     _textInputFocusNode.dispose();
     unawaited(_keyboardController?.close() ?? Future<void>.value());
     final closing = _closeController();
@@ -132,6 +142,13 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
     final inputTrayHeight = (mediaQuery.size.height * _inputTrayScreenFraction)
         .clamp(_minimumInputTrayHeight, _maximumInputTrayHeight);
     final softwareKeyboardVisible = mediaQuery.viewInsets.bottom > 0;
+    final idleInputTrayHeight = inputTrayHeight + mediaQuery.padding.bottom;
+    final visibleInputTrayHeight = softwareKeyboardVisible
+        ? _focusedInputTrayHeight
+        : idleInputTrayHeight;
+    final controlBarSafeBottom = _keyboardVisible
+        ? 0.0
+        : mediaQuery.padding.bottom;
     return Theme(
       data: _compactRemoteTheme(Theme.of(context)),
       child: PopScope<void>(
@@ -147,31 +164,35 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
           body: Stack(
             fit: StackFit.expand,
             children: <Widget>[
-              Column(
-                children: <Widget>[
-                  _buildHeader(context, strings, mediaQuery.padding),
-                  Expanded(
-                    child: RepaintBoundary(
-                      key: const Key('mobile-remote-render-boundary'),
-                      child: _buildRemoteViewport(
-                        context,
-                        dismissKeyboardOnTap:
-                            _keyboardVisible && softwareKeyboardVisible,
-                      ),
-                    ),
-                  ),
-                ],
+              RepaintBoundary(
+                key: const Key('mobile-remote-render-boundary'),
+                child: _buildRemoteViewport(
+                  context,
+                  dismissKeyboardOnTap:
+                      _keyboardVisible && softwareKeyboardVisible,
+                ),
               ),
-              if (!softwareKeyboardVisible)
+              if (!_controlsLocked)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  right: 0,
+                  child: _buildHeader(context, strings, mediaQuery.padding),
+                ),
+              if (!_controlsLocked && !softwareKeyboardVisible)
                 Positioned(
                   key: const Key('mobile-remote-control-bar-position'),
                   left: 0,
                   right: 0,
-                  bottom: _keyboardVisible ? inputTrayHeight : 0,
-                  height: _controlBarHeight,
-                  child: _buildControlBar(context, strings, mediaQuery.padding),
+                  bottom: _keyboardVisible ? idleInputTrayHeight : 0,
+                  height: _controlBarHeight + controlBarSafeBottom,
+                  child: _buildControlBar(
+                    strings,
+                    mediaQuery.padding,
+                    bottomSafePadding: controlBarSafeBottom,
+                  ),
                 ),
-              if (_keyboardVisible)
+              if (!_controlsLocked && _keyboardVisible)
                 Positioned(
                   key: const Key('mobile-input-tray-position'),
                   left: 0,
@@ -179,14 +200,14 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
                   bottom: softwareKeyboardVisible
                       ? mediaQuery.viewInsets.bottom
                       : 0,
-                  height: softwareKeyboardVisible
-                      ? _focusedInputTrayHeight
-                      : inputTrayHeight,
+                  height: visibleInputTrayHeight,
                   child: _buildInputTray(
                     mediaQuery.padding,
                     compact: softwareKeyboardVisible,
                   ),
                 ),
+              if (_controlsLocked)
+                _buildUnlockButton(strings, mediaQuery.padding),
             ],
           ),
         ),
@@ -198,52 +219,63 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
     BuildContext context,
     AppLocalizations strings,
     EdgeInsets safePadding,
-  ) => MobilePageHeader(
-    safePadding: safePadding,
-    backgroundColor: RoammandColors.canvas,
-    surfaceKey: const Key('mobile-remote-header'),
-    child: Row(
-      children: <Widget>[
-        MobilePageBackButton(
-          buttonKey: const Key('mobile-remote-back-action'),
-          onPressed: _closing
-              ? null
-              : () => unawaited(_closeSession(pop: true)),
-          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          flex: 2,
-          child: Text(
-            strings.remoteDesktopTitle(widget.target.hostIdentity.displayName),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium,
+  ) => DecoratedBox(
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: <Color>[_overlayScrim, _overlayClear],
+      ),
+    ),
+    child: MobilePageHeader(
+      safePadding: safePadding,
+      backgroundColor: Colors.transparent,
+      surfaceKey: const Key('mobile-remote-header'),
+      child: Row(
+        children: <Widget>[
+          MobilePageBackButton(
+            buttonKey: const Key('mobile-remote-back-action'),
+            onPressed: _closing
+                ? null
+                : () => unawaited(_closeSession(pop: true)),
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          flex: 3,
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: _buildStatus(context, strings),
+          const SizedBox(width: 4),
+          Expanded(
+            flex: 2,
+            child: Text(
+              strings.remoteDesktopTitle(
+                widget.target.hostIdentity.displayName,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
-        ),
-        const SizedBox(width: 4),
-        IconButton(
-          key: const Key('mobile-remote-diagnostics-action'),
-          onPressed: _closing
-              ? null
-              : () => unawaited(
-                  showDiagnosticsDialog(
-                    context,
-                    report: widget.controller.diagnosticsReport,
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 3,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _buildStatus(context, strings),
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            key: const Key('mobile-remote-diagnostics-action'),
+            onPressed: _closing
+                ? null
+                : () => unawaited(
+                    showDiagnosticsDialog(
+                      context,
+                      report: widget.controller.diagnosticsReport,
+                    ),
                   ),
-                ),
-          tooltip: strings.diagnosticsAction,
-          icon: const Icon(Icons.shield_outlined, size: 20),
-        ),
-      ],
+            tooltip: strings.diagnosticsAction,
+            icon: const Icon(Icons.shield_outlined, size: 20),
+          ),
+        ],
+      ),
     ),
   );
 
@@ -271,25 +303,31 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
       return ListenableBuilder(
         listenable: renderer,
         builder: (context, _) => _remoteSurface(
+          context,
           _rendererAspectRatio(renderer),
           _buildVideo(context, renderer),
         ),
       );
     }
     return _remoteSurface(
+      context,
       _configuredAspectRatio,
       _buildVideo(context, renderer),
     );
   }
 
-  Widget _remoteSurface(double aspectRatio, Widget video) =>
-      MobileGestureSurface(
-        video: video,
-        videoAspectRatio: aspectRatio,
-        sender: _connectedSender,
-        controller: _gestureController,
-        onInputFailure: _handleInputFailure,
-      );
+  Widget _remoteSurface(
+    BuildContext context,
+    double aspectRatio,
+    Widget video,
+  ) => MobileGestureSurface(
+    video: video,
+    videoAspectRatio: aspectRatio,
+    initialObscuredInsets: _remoteOverlayInsets(context),
+    sender: _connectedSender,
+    controller: _gestureController,
+    onInputFailure: _handleInputFailure,
+  );
 
   Widget _buildVideo(BuildContext context, Object renderer) {
     final builder = widget.videoBuilder;
@@ -371,50 +409,87 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
   }
 
   Widget _buildControlBar(
-    BuildContext context,
     AppLocalizations strings,
-    EdgeInsets safePadding,
-  ) => Material(
-    key: const Key('mobile-remote-control-bar'),
-    color: RoammandColors.canvas,
-    child: Padding(
-      padding: EdgeInsets.fromLTRB(
-        safePadding.left + _controlBarPadding,
-        0,
-        safePadding.right + _controlBarPadding,
-        0,
+    EdgeInsets safePadding, {
+    required double bottomSafePadding,
+  }) => DecoratedBox(
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+        colors: <Color>[_overlayScrim, _overlayClear],
       ),
-      child: SizedBox(
-        height: _controlBarHeight,
-        child: Row(
-          children: <Widget>[
-            const Icon(Icons.touch_app_outlined, size: 16),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                strings.mobileGestureHint,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+    ),
+    child: Material(
+      key: const Key('mobile-remote-control-bar'),
+      color: Colors.transparent,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          safePadding.left + _controlBarPadding,
+          0,
+          safePadding.right + _controlBarPadding,
+          bottomSafePadding,
+        ),
+        child: SizedBox(
+          height: _controlBarHeight,
+          child: Row(
+            children: <Widget>[
+              const Icon(Icons.touch_app_outlined, size: 16),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  strings.mobileGestureHint,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            IconButton(
-              key: const Key('mobile-keyboard-toggle'),
-              onPressed: _toggleKeyboardTray,
-              tooltip: _keyboardVisible
-                  ? strings.mobileHideKeyboardAction
-                  : strings.mobileKeyboardAction,
-              icon: Icon(
-                _keyboardVisible
-                    ? Icons.keyboard_hide_outlined
-                    : Icons.keyboard_outlined,
-                size: 20,
+              if (widget.controller.state == RemoteDesktopState.connected)
+                IconButton(
+                  key: const Key('mobile-control-lock'),
+                  onPressed: _enterControlsLock,
+                  tooltip: strings.mobileLockControlsAction,
+                  icon: const Icon(Icons.lock_outline_rounded, size: 20),
+                ),
+              IconButton(
+                key: const Key('mobile-keyboard-toggle'),
+                onPressed: _toggleKeyboardTray,
+                tooltip: _keyboardVisible
+                    ? strings.mobileHideKeyboardAction
+                    : strings.mobileKeyboardAction,
+                icon: Icon(
+                  _keyboardVisible
+                      ? Icons.keyboard_hide_outlined
+                      : Icons.keyboard_outlined,
+                  size: 20,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     ),
   );
+
+  Widget _buildUnlockButton(AppLocalizations strings, EdgeInsets safePadding) =>
+      Positioned(
+        right: safePadding.right + _unlockButtonInset,
+        top: safePadding.top + _unlockButtonInset,
+        width: _unlockButtonSize,
+        height: _unlockButtonSize,
+        child: Material(
+          key: const Key('mobile-control-unlock-surface'),
+          color: _unlockSurface,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: IconButton(
+            key: const Key('mobile-control-unlock'),
+            onPressed: _exitControlsLock,
+            tooltip: strings.mobileUnlockControlsAction,
+            color: Colors.white,
+            icon: const Icon(Icons.lock_open_rounded, size: 20),
+          ),
+        ),
+      );
 
   Widget _buildInputTray(EdgeInsets safePadding, {required bool compact}) =>
       MobileInputTray(
@@ -429,9 +504,19 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
           safePadding.left + 8,
           compact ? 4 : 8,
           safePadding.right + 8,
-          compact ? 4 : 8,
+          compact ? 4 : safePadding.bottom + 8,
         ),
       );
+
+  EdgeInsets _remoteOverlayInsets(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    return EdgeInsets.fromLTRB(
+      mediaQuery.padding.left,
+      mobilePageHeaderHeight + mediaQuery.padding.top,
+      mediaQuery.padding.right,
+      _controlBarHeight + mediaQuery.padding.bottom,
+    );
+  }
 
   void _dismissSoftwareKeyboard() {
     _textInputFocusNode.unfocus();
@@ -450,6 +535,43 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
       _dismissSoftwareKeyboard();
     }
     setState(() => _keyboardVisible = !_keyboardVisible);
+  }
+
+  void _enterControlsLock() {
+    if (_controlsLocked ||
+        _closing ||
+        widget.controller.state != RemoteDesktopState.connected) {
+      return;
+    }
+    _dismissSoftwareKeyboard();
+    _releaseInput();
+    setState(() {
+      _keyboardVisible = false;
+      _controlsLocked = true;
+      _immersiveSystemUiActive = true;
+    });
+    unawaited(_setSystemUiMode(SystemUiMode.immersiveSticky));
+  }
+
+  void _exitControlsLock({bool rebuild = true}) {
+    if (!_controlsLocked && !_immersiveSystemUiActive) {
+      return;
+    }
+    final restoreSystemUi = _immersiveSystemUiActive;
+    _controlsLocked = false;
+    _immersiveSystemUiActive = false;
+    if (rebuild && mounted) {
+      setState(() {});
+    }
+    if (restoreSystemUi) {
+      unawaited(_setSystemUiMode(SystemUiMode.edgeToEdge));
+    }
+  }
+
+  void _restoreSystemUiIfNeeded() {
+    if (!_immersiveSystemUiActive) return;
+    _immersiveSystemUiActive = false;
+    unawaited(_setSystemUiMode(SystemUiMode.edgeToEdge));
   }
 
   String _statusText(AppLocalizations strings) {
@@ -513,6 +635,10 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
   void _onControllerChanged() {
     _syncKeyboardController();
     if (!mounted) return;
+    if (_controlsLocked &&
+        widget.controller.state != RemoteDesktopState.connected) {
+      _exitControlsLock(rebuild: false);
+    }
     if (!_closing && widget.controller.state == RemoteDesktopState.idle) {
       unawaited(_closeSession(pop: true));
       return;
@@ -557,6 +683,7 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
     if (!_closing) {
       _closing = true;
       _dismissSoftwareKeyboard();
+      _exitControlsLock(rebuild: false);
       if (mounted) setState(() {});
       _releaseInput();
     }
@@ -592,6 +719,18 @@ Future<void> _setPreferredOrientations(
       debugPrint(
         '[remote] operation=setPreferredOrientations '
         'cause=${error.runtimeType}',
+      );
+    }
+  }
+}
+
+Future<void> _setSystemUiMode(SystemUiMode mode) async {
+  try {
+    await SystemChrome.setEnabledSystemUIMode(mode);
+  } catch (error) {
+    if (kDebugMode) {
+      debugPrint(
+        '[remote] operation=setSystemUiMode cause=${error.runtimeType}',
       );
     }
   }

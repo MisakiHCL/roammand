@@ -1298,6 +1298,18 @@ abstract class AppLocalizations {
   /// **'Hide keyboard'**
   String get mobileHideKeyboardAction;
 
+  /// No description provided for @mobileLockControlsAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock controls'**
+  String get mobileLockControlsAction;
+
+  /// No description provided for @mobileUnlockControlsAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock controls'**
+  String get mobileUnlockControlsAction;
+
   /// No description provided for @mobileTextInputLabel.
   ///
   /// In en, this message translates to:

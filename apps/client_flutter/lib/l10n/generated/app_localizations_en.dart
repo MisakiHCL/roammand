@@ -715,6 +715,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mobileHideKeyboardAction => 'Hide keyboard';
 
   @override
+  String get mobileLockControlsAction => 'Lock controls';
+
+  @override
+  String get mobileUnlockControlsAction => 'Unlock controls';
+
+  @override
   String get mobileTextInputLabel => 'Text to computer';
 
   @override

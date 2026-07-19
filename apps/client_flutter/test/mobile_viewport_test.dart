@@ -64,7 +64,35 @@ void main() {
     expect(zoomed.scale, 2);
     expect(zoomed.mapLocalToRemote(focal), anchor);
     expect(zoomed.zoomTo(scale: 99, focalPoint: focal).scale, 4);
-    expect(zoomed.zoomTo(scale: 0, focalPoint: focal).scale, 1);
+    expect(zoomed.zoomTo(scale: 0, focalPoint: focal).scale, 0.8);
+  });
+
+  test('supports an 80 percent overview and a safe initial fit', () {
+    final overview = MobileViewport.initial(
+      viewportSize: const Size(844, 390),
+      videoAspectRatio: 16 / 9,
+      initialScale: mobileViewportMinimumScale,
+    );
+
+    expect(overview.scale, 0.8);
+    expect(overview.videoRect.top, closeTo(39, 0.001));
+    expect(overview.videoRect.bottom, closeTo(351, 0.001));
+    expect(
+      mobileViewportSafeFitScale(
+        viewportSize: const Size(844, 390),
+        videoAspectRatio: 16 / 9,
+        obscuredInsets: const EdgeInsets.fromLTRB(0, 48, 0, 40),
+      ),
+      0.8,
+    );
+    expect(
+      mobileViewportSafeFitScale(
+        viewportSize: const Size(800, 400),
+        videoAspectRatio: 2,
+        obscuredInsets: const EdgeInsets.symmetric(vertical: 20),
+      ),
+      0.9,
+    );
   });
 
   test('rotation and keyboard resize preserve the visible remote center', () {
@@ -107,7 +135,7 @@ void main() {
         Size(1024, 768),
       ]) {
         for (final aspect in const <double>[4 / 3, 16 / 10, 16 / 9]) {
-          for (final scale in const <double>[1, 1.5, 2.5, 4]) {
+          for (final scale in const <double>[0.8, 1, 1.5, 2.5, 4]) {
             var viewport = MobileViewport.initial(
               viewportSize: size,
               videoAspectRatio: aspect,
@@ -160,6 +188,22 @@ void main() {
         throwsArgumentError,
       );
     }
+    expect(
+      () => MobileViewport.initial(
+        viewportSize: const Size(100, 100),
+        videoAspectRatio: 1,
+        initialScale: double.nan,
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => mobileViewportSafeFitScale(
+        viewportSize: const Size(100, 100),
+        videoAspectRatio: 1,
+        obscuredInsets: const EdgeInsets.only(top: -1),
+      ),
+      throwsArgumentError,
+    );
   });
 }
 

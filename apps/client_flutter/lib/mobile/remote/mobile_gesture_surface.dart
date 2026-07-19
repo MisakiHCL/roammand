@@ -32,6 +32,8 @@ final class MobileGestureSurface extends StatefulWidget {
     required this.videoAspectRatio,
     this.sender,
     this.controller,
+    this.initialScale = mobileViewportDefaultScale,
+    this.initialObscuredInsets,
     this.scheduler = const TimerMobileGestureScheduler(),
     this.onInputFailure,
     super.key,
@@ -41,6 +43,8 @@ final class MobileGestureSurface extends StatefulWidget {
   final double videoAspectRatio;
   final RemoteInputSender? sender;
   final MobileGestureSurfaceController? controller;
+  final double initialScale;
+  final EdgeInsets? initialObscuredInsets;
   final MobileGestureScheduler scheduler;
   final MobileInputFailureCallback? onInputFailure;
 
@@ -55,6 +59,7 @@ final class _MobileGestureSurfaceState extends State<MobileGestureSurface> {
   MobileRemotePosition? _zoomAnchor;
   double _zoomStartScale = mobileViewportMinimumScale;
   bool _dragActive = false;
+  bool _viewportAdjusted = false;
 
   @override
   void initState() {
@@ -89,12 +94,18 @@ final class _MobileGestureSurfaceState extends State<MobileGestureSurface> {
       if (size.width <= 0 || size.height <= 0) {
         return const ColoredBox(color: Colors.black);
       }
-      _viewport = _viewport == null
+      final viewport = _viewport;
+      final layoutChanged =
+          viewport == null ||
+          viewport.viewportSize != size ||
+          viewport.videoAspectRatio != widget.videoAspectRatio;
+      _viewport = viewport == null || (!_viewportAdjusted && layoutChanged)
           ? MobileViewport.initial(
               viewportSize: size,
               videoAspectRatio: widget.videoAspectRatio,
+              initialScale: _resolvedInitialScale(size),
             )
-          : _viewport!.withLayout(
+          : viewport.withLayout(
               viewportSize: size,
               videoAspectRatio: widget.videoAspectRatio,
             );
@@ -254,6 +265,7 @@ final class _MobileGestureSurfaceState extends State<MobileGestureSurface> {
         final anchor = _zoomAnchor;
         if (anchor == null) return;
         setState(() {
+          _viewportAdjusted = true;
           _viewport = viewport.zoomFromAnchor(
             scale: _zoomStartScale * action.scale,
             focalPoint: action.focalPoint,
@@ -263,6 +275,18 @@ final class _MobileGestureSurfaceState extends State<MobileGestureSurface> {
       case MobileZoomPhase.end:
         _zoomAnchor = null;
     }
+  }
+
+  double _resolvedInitialScale(Size viewportSize) {
+    final obscuredInsets = widget.initialObscuredInsets;
+    if (obscuredInsets == null) {
+      return widget.initialScale;
+    }
+    return mobileViewportSafeFitScale(
+      viewportSize: viewportSize,
+      videoAspectRatio: widget.videoAspectRatio,
+      obscuredInsets: obscuredInsets,
+    );
   }
 
   void _cancel() => _gestureMachine.cancel();

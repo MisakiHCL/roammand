@@ -213,6 +213,8 @@
   "mobileGestureHint": "Tap, double-tap, drag, scroll, or pinch",
   "mobileKeyboardAction": "Keyboard",
   "mobileHideKeyboardAction": "Hide keyboard",
+  "mobileLockControlsAction": "Lock controls",
+  "mobileUnlockControlsAction": "Unlock controls",
   "mobileTextInputLabel": "Text to computer",
   "mobileSendTextAction": "Send text",
   "mobileModifierControl": "Ctrl",

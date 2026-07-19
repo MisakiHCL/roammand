@@ -658,6 +658,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mobileHideKeyboardAction => '隐藏键盘';
 
   @override
+  String get mobileLockControlsAction => '锁定控制栏';
+
+  @override
+  String get mobileUnlockControlsAction => '解锁控制栏';
+
+  @override
   String get mobileTextInputLabel => '发送文字到电脑';
 
   @override

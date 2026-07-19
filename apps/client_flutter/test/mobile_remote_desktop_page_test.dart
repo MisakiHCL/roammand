@@ -6,12 +6,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/diagnostics/diagnostics_collector.dart';
 import 'package:roammand/diagnostics/diagnostics_model.dart';
 import 'package:roammand/desktop/remote/input_sender.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
+import 'package:roammand/mobile/remote/mobile_gesture_surface.dart';
 import 'package:roammand/mobile/remote/mobile_remote_desktop_page.dart';
 import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
@@ -159,10 +159,12 @@ void main() {
     expect(tester.getRect(header).right, 844);
     expect(tester.getRect(surface).left, 0);
     expect(tester.getRect(surface).right, 844);
+    expect(tester.getRect(surface).top, 0);
+    expect(tester.getRect(surface).bottom, 390);
     expect(tester.getRect(controlBar).left, 0);
     expect(tester.getRect(controlBar).right, 844);
     expect(tester.getRect(controlBar).bottom, 390);
-    expect(tester.getSize(controlBar).height, 40);
+    expect(tester.getSize(controlBar).height, 60);
     expect(
       tester.getRect(find.byKey(const Key('mobile-remote-back-action'))).left,
       greaterThanOrEqualTo(44),
@@ -177,9 +179,114 @@ void main() {
       tester.getSize(find.byKey(const Key('mobile-remote-status'))).height,
       32,
     );
-    expect(tester.widget<Material>(header).color, RoammandColors.canvas);
-    expect(tester.widget<Material>(controlBar).color, RoammandColors.canvas);
+    expect(tester.widget<Material>(header).color, Colors.transparent);
+    expect(tester.widget<Material>(controlBar).color, Colors.transparent);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('starts with an edge-to-edge 80 percent overview', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(_app(_PageFixture().page()));
+    await tester.pump();
+
+    final surface = find.byKey(const Key('mobile-remote-gesture-surface'));
+    final video = find.byKey(const Key('mobile-test-video'));
+    expect(tester.getRect(surface), const Rect.fromLTWH(0, 0, 844, 390));
+    expect(
+      tester
+          .widget<MobileGestureSurface>(find.byType(MobileGestureSurface))
+          .initialObscuredInsets,
+      const EdgeInsets.fromLTRB(0, 48, 0, 40),
+    );
+    expect(tester.getRect(video).top, closeTo(39, 0.001));
+    expect(tester.getRect(video).bottom, closeTo(351, 0.001));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('lock mode leaves only unlock and restores immersive chrome', (
+    tester,
+  ) async {
+    final systemUiModes = <Object?>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+          systemUiModes.add(call.arguments);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final fixture = _PageFixture();
+    await tester.pumpWidget(_app(fixture.page(), locale: const Locale('zh')));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('mobile-keyboard-toggle')));
+    await tester.pump();
+    expect(find.byKey(const Key('mobile-input-tray')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('mobile-control-lock')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('mobile-remote-header')), findsNothing);
+    expect(find.byKey(const Key('mobile-remote-control-bar')), findsNothing);
+    expect(find.byKey(const Key('mobile-input-tray')), findsNothing);
+    expect(find.byKey(const Key('mobile-control-lock')), findsNothing);
+    expect(find.byKey(const Key('mobile-control-unlock')), findsOneWidget);
+    expect(find.byType(IconButton), findsOneWidget);
+    expect(systemUiModes, contains('SystemUiMode.immersiveSticky'));
+
+    await tester.tap(find.byKey(const Key('mobile-control-unlock')));
+    await tester.pump();
+    expect(find.byKey(const Key('mobile-control-unlock')), findsNothing);
+    expect(find.byKey(const Key('mobile-remote-header')), findsOneWidget);
+    expect(find.byKey(const Key('mobile-remote-control-bar')), findsOneWidget);
+    expect(find.byKey(const Key('mobile-input-tray')), findsNothing);
+    expect(systemUiModes.last, 'SystemUiMode.edgeToEdge');
+  });
+
+  testWidgets('reconnecting forces immersive controls to unlock', (
+    tester,
+  ) async {
+    final systemUiModes = <Object?>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+          systemUiModes.add(call.arguments);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final fixture = _PageFixture();
+    await tester.pumpWidget(_app(fixture.page()));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('mobile-control-lock')));
+    await tester.pump();
+    fixture.controller
+      ..state = RemoteDesktopState.reconnecting
+      ..notifyListeners();
+    await tester.pump();
+
+    expect(find.byKey(const Key('mobile-control-unlock')), findsNothing);
+    expect(find.byKey(const Key('mobile-remote-header')), findsOneWidget);
+    expect(find.byKey(const Key('mobile-remote-control-bar')), findsOneWidget);
+    expect(find.byKey(const Key('mobile-control-lock')), findsNothing);
+    expect(systemUiModes.last, 'SystemUiMode.edgeToEdge');
   });
 
   testWidgets('avoids overflow when the iOS keyboard reduces landscape space', (
@@ -490,39 +597,46 @@ void main() {
     expect(find.byType(MobileRemoteDesktopPage), findsOneWidget);
   });
 
-  testWidgets('system back waits for session close before popping', (
-    tester,
-  ) async {
-    final fixture = _PageFixture();
-    final closeGate = Completer<void>();
-    fixture.controller.closeGate = closeGate;
-    final navigatorKey = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: navigatorKey,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const Scaffold(body: Text('home')),
-      ),
-    );
-    unawaited(
-      navigatorKey.currentState!.push<void>(
-        MaterialPageRoute<void>(builder: (_) => fixture.page()),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(MobileRemoteDesktopPage), findsOneWidget);
+  testWidgets(
+    'system back unlocks and waits for session close before popping',
+    (tester) async {
+      final fixture = _PageFixture();
+      final closeGate = Completer<void>();
+      fixture.controller.closeGate = closeGate;
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(body: Text('home')),
+        ),
+      );
+      unawaited(
+        navigatorKey.currentState!.push<void>(
+          MaterialPageRoute<void>(builder: (_) => fixture.page()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(MobileRemoteDesktopPage), findsOneWidget);
 
-    await navigatorKey.currentState!.maybePop();
-    await tester.pumpAndSettle();
-    expect(fixture.controller.closeCount, 1);
-    expect(find.byType(MobileRemoteDesktopPage), findsOneWidget);
+      await tester.tap(find.byKey(const Key('mobile-control-lock')));
+      await tester.pump();
+      expect(find.byKey(const Key('mobile-control-unlock')), findsOneWidget);
 
-    closeGate.complete();
-    await tester.pumpAndSettle();
-    expect(find.text('home'), findsOneWidget);
-    expect(fixture.controller.closeCount, 1);
-  });
+      await navigatorKey.currentState!.maybePop();
+      await tester.pumpAndSettle();
+      expect(fixture.controller.closeCount, 1);
+      expect(find.byType(MobileRemoteDesktopPage), findsOneWidget);
+      expect(find.byKey(const Key('mobile-control-unlock')), findsNothing);
+      expect(find.byKey(const Key('mobile-remote-header')), findsOneWidget);
+
+      closeGate.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('home'), findsOneWidget);
+      expect(fixture.controller.closeCount, 1);
+    },
+  );
 
   testWidgets('Host stop closes the mobile page without retrying', (
     tester,
@@ -591,8 +705,11 @@ final class _PageFixture {
     target: _target(),
     controller: controller,
     videoAspectRatio: 16 / 9,
-    videoBuilder: (context, renderer) =>
-        const ColoredBox(color: Colors.blue, child: SizedBox.expand()),
+    videoBuilder: (context, renderer) => const ColoredBox(
+      key: Key('mobile-test-video'),
+      color: Colors.blue,
+      child: SizedBox.expand(),
+    ),
   );
 }
 
