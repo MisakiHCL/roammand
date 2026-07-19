@@ -65,6 +65,41 @@ void main() {
     expect(find.text('无法打开链接，请稍后重试。'), findsOneWidget);
   });
 
+  testWidgets('explains the Mac host role and opens the iOS companion app', (
+    tester,
+  ) async {
+    final opened = <Uri>[];
+    await tester.pumpWidget(
+      _app(
+        RoammandAboutPage(
+          audience: RoammandAboutAudience.desktopHost,
+          linkLauncher: (uri) async {
+            opened.add(uri);
+            return true;
+          },
+          versionLoader: () async => '1.0.0 (3)',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Make this Mac reachable'), findsOneWidget);
+    expect(find.text('Roammand for iPhone and iPad'), findsOneWidget);
+    expect(find.textContaining('Screen Recording'), findsOneWidget);
+    expect(find.byKey(const Key('mobile-about-header')), findsNothing);
+    expect(find.byType(AppBar), findsOneWidget);
+
+    await _tapVisible(tester, const Key('about-download-ios'));
+    await _tapVisible(tester, const Key('about-open-guide'));
+    await _tapVisible(tester, const Key('about-open-github'));
+
+    expect(opened, <Uri>[
+      iosAppStorePageUri,
+      roammandUserGuideUri(const Locale('en')),
+      roammandRepositoryUri,
+    ]);
+  });
+
   testWidgets('remains scrollable on a narrow phone with large Chinese text', (
     tester,
   ) async {

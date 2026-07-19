@@ -34,15 +34,19 @@ void main() {
           beforeUninstall: () async {
             preparedForUninstall = true;
           },
+          linkLauncher: (_) async => true,
+          versionLoader: () async => '1.0.0 (3)',
         ),
+        platform: TargetPlatform.macOS,
       ),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('General'), findsOneWidget);
     expect(find.text('Connection'), findsOneWidget);
+    expect(find.text('About & help'), findsOneWidget);
     expect(find.text('Advanced'), findsOneWidget);
-    expect(find.byKey(const Key('settings-about-roammand')), findsNothing);
+    expect(find.byKey(const Key('settings-about-roammand')), findsOneWidget);
     expect(
       find.byType(DropdownButtonFormField<AppLocalePreference>),
       findsNothing,
@@ -59,6 +63,17 @@ void main() {
     await tester.tap(find.byKey(const Key('settings-network-services')));
     await tester.pumpAndSettle();
     expect(find.text('Connection service'), findsWidgets);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byKey(const Key('settings-about-roammand')),
+    );
+    await tester.tap(find.byKey(const Key('settings-about-roammand')));
+    await tester.pumpAndSettle();
+    expect(find.text('Make this Mac reachable'), findsOneWidget);
+    expect(find.byKey(const Key('about-download-ios')), findsOneWidget);
+    expect(find.byType(MobilePageFrame), findsNothing);
     await tester.pageBack();
     await tester.pumpAndSettle();
 
@@ -134,9 +149,30 @@ void main() {
     );
     expect(tile.enabled, isFalse);
   });
+
+  testWidgets('does not show Mac companion guidance on Windows', (
+    tester,
+  ) async {
+    final networkServices = NetworkServiceController.transient();
+    addTearDown(networkServices.dispose);
+    await tester.pumpWidget(
+      _app(
+        AppSettingsPage(
+          localePreference: AppLocalePreference.system,
+          networkServices: networkServices,
+          mobileContext: false,
+        ),
+        platform: TargetPlatform.windows,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('settings-about-roammand')), findsNothing);
+  });
 }
 
-Widget _app(Widget home) => MaterialApp(
+Widget _app(Widget home, {TargetPlatform? platform}) => MaterialApp(
+  theme: platform == null ? null : ThemeData(platform: platform),
   localizationsDelegates: AppLocalizations.localizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: home,

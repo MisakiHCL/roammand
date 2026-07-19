@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 const macOsDownloadPageUrl =
     'https://github.com/MisakiHCL/roammand/releases/latest';
+const iosAppStorePageUrl = 'https://apps.apple.com/app/id6792014935';
 const roammandRepositoryUrl = 'https://github.com/MisakiHCL/roammand';
 const _englishUserGuideUrl =
     'https://github.com/MisakiHCL/roammand/blob/main/docs/user-guide/README.md';
@@ -17,6 +18,8 @@ Future<bool> launchExternalLink(Uri uri) =>
     launchUrl(uri, mode: LaunchMode.externalApplication);
 
 Uri get macOsDownloadPageUri => Uri.parse(macOsDownloadPageUrl);
+
+Uri get iosAppStorePageUri => Uri.parse(iosAppStorePageUrl);
 
 Uri get roammandRepositoryUri => Uri.parse(roammandRepositoryUrl);
 

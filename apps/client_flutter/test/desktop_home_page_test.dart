@@ -281,6 +281,8 @@ void main() {
             trustedComputersController: _trustedController(persistence),
             signalingEndpoint: _endpoint,
             networkServices: networkServices,
+            linkLauncher: (_) async => true,
+            versionLoader: () async => '1.0.0 (3)',
           ),
         ),
       );
@@ -300,6 +302,17 @@ void main() {
       expect(find.text('Settings'), findsWidgets);
       expect(find.byType(RoammandBackButton), findsOneWidget);
       expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('settings-about-roammand')));
+      await tester.pumpAndSettle();
+      expect(find.text('Make this Mac reachable'), findsOneWidget);
+      expect(find.byKey(const Key('about-download-ios')), findsOneWidget);
+      expect(sidebar, findsOneWidget);
+      expect(detail, findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('desktop-detail-back')));
+      await tester.pumpAndSettle();
+      expect(find.text('General'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('settings-network-services')));
       await tester.pumpAndSettle();

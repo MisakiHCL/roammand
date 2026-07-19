@@ -800,6 +800,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Mac setup, user guide, open-source project, and app version.';
 
   @override
+  String get desktopAboutSettingsBody =>
+      'Set up this Mac, get the iPhone or iPad app, read the user guide, and view the open-source project.';
+
+  @override
   String get aboutPageTitle => 'About Roammand';
 
   @override
@@ -810,11 +814,34 @@ class AppLocalizationsEn extends AppLocalizations {
       'Roammand turns this phone into a trusted controller for your own Mac. The mobile app works together with Roammand installed on the Mac.';
 
   @override
+  String get desktopAboutHeroTitle => 'Make this Mac reachable';
+
+  @override
+  String get desktopAboutHeroBody =>
+      'Roammand lets devices you approve securely view and control this Mac. From Remote control, this Mac can also connect to another paired computer.';
+
+  @override
   String get aboutGettingStartedTitle => 'How to get started';
 
   @override
   String get aboutGettingStartedBody =>
       'Pair the two devices once, then reconnect from My computers whenever you need your Mac.';
+
+  @override
+  String get desktopAboutGettingStartedBody =>
+      'Finish the one-time Mac setup, then pair your phone. Future connections use the permission you approve here.';
+
+  @override
+  String get desktopSetupStepPermissions =>
+      'Allow Screen Recording and Accessibility for Roammand in macOS System Settings.';
+
+  @override
+  String get desktopSetupStepCreateQr =>
+      'Open This computer and choose Show mobile QR code.';
+
+  @override
+  String get desktopSetupStepScanApprove =>
+      'Scan the code with Roammand on your iPhone or iPad, compare all four verification words, then approve the device on this Mac.';
 
   @override
   String get aboutMacAppTitle => 'Roammand for Mac';
@@ -826,6 +853,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get aboutMacDownloadNote =>
       'Open the download page on your Mac, or share the link from this phone.';
+
+  @override
+  String get aboutIosAppTitle => 'Roammand for iPhone and iPad';
+
+  @override
+  String get aboutIosAppBody =>
+      'Install the mobile app on the device you want to use as the controller, then pair it with this Mac by scanning a QR code.';
+
+  @override
+  String get aboutIosDownloadAction => 'View the iPhone & iPad app';
+
+  @override
+  String get aboutIosDownloadNote =>
+      'The App Store listing is reserved for the upcoming public release. TestFlight remains limited to invited testers.';
 
   @override
   String get aboutHelpTitle => 'User guide';
@@ -853,6 +894,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get aboutPrivacyBody =>
       'No account is required. Device identity and pairing permissions are stored locally, and the Mac must approve this phone before it can connect.';
+
+  @override
+  String get desktopAboutPrivacyBody =>
+      'No account is required. Device identity and pairing permissions stay on this Mac. Only devices you approve can connect, and you can revoke access or stop an active session at any time.';
 
   @override
   String aboutVersionLabel(String version) {

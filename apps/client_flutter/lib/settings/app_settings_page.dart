@@ -29,6 +29,7 @@ final class AppSettingsPage extends StatefulWidget {
     this.onLocalePreferenceChanged,
     this.showAppBar = true,
     this.onOpenNetworkSettings,
+    this.onOpenAbout,
     this.uninstaller,
     this.beforeUninstall,
     this.linkLauncher = launchExternalLink,
@@ -43,6 +44,7 @@ final class AppSettingsPage extends StatefulWidget {
   final bool mobileContext;
   final bool showAppBar;
   final VoidCallback? onOpenNetworkSettings;
+  final VoidCallback? onOpenAbout;
   final AppUninstaller? uninstaller;
   final Future<void> Function()? beforeUninstall;
   final ExternalLinkLauncher linkLauncher;
@@ -68,6 +70,9 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
     final useMobileHeader = widget.mobileContext && widget.showAppBar;
+    final showAbout =
+        widget.mobileContext ||
+        Theme.of(context).platform == TargetPlatform.macOS;
     final canPop = ModalRoute.of(context)?.canPop ?? false;
     final pageContent = Align(
       alignment: Alignment.topCenter,
@@ -97,7 +102,7 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
                     ),
                   ],
                 ),
-                if (widget.mobileContext) ...<Widget>[
+                if (showAbout) ...<Widget>[
                   const SizedBox(height: _sectionSpacing),
                   _SettingsSection(
                     title: strings.settingsHelpSection,
@@ -106,7 +111,11 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
                         key: const Key('settings-about-roammand'),
                         leading: const Icon(Icons.info_outline_rounded),
                         title: Text(strings.aboutSettingsTitle),
-                        subtitle: Text(strings.aboutSettingsBody),
+                        subtitle: Text(
+                          widget.mobileContext
+                              ? strings.aboutSettingsBody
+                              : strings.desktopAboutSettingsBody,
+                        ),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: _openAbout,
                       ),
@@ -257,9 +266,17 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
   }
 
   Future<void> _openAbout() async {
+    final openEmbedded = widget.onOpenAbout;
+    if (openEmbedded != null) {
+      openEmbedded();
+      return;
+    }
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => RoammandAboutPage(
+          audience: widget.mobileContext
+              ? RoammandAboutAudience.mobileController
+              : RoammandAboutAudience.desktopHost,
           linkLauncher: widget.linkLauncher,
           versionLoader: widget.versionLoader,
         ),

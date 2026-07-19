@@ -4,6 +4,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:roammand/about/roammand_about_page.dart';
+import 'package:roammand/about/roammand_links.dart';
 import 'package:roammand/design_system/roammand_back_button.dart';
 import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_brand_mark.dart';
@@ -61,7 +63,7 @@ typedef RemoteDesktopLauncher =
 
 enum _DesktopTab { thisComputer, remoteControl }
 
-enum _DesktopDetail { settings, networkSettings }
+enum _DesktopDetail { settings, networkSettings, about }
 
 const _desktopTabOrder = <_DesktopTab>[
   _DesktopTab.thisComputer,
@@ -82,6 +84,8 @@ final class DesktopHomePage extends StatefulWidget {
     this.onLocalePreferenceChanged,
     this.uninstaller,
     this.beforeUninstall,
+    this.linkLauncher = launchExternalLink,
+    this.versionLoader = loadAppVersion,
   });
 
   final Widget? hostPage;
@@ -96,6 +100,8 @@ final class DesktopHomePage extends StatefulWidget {
   onLocalePreferenceChanged;
   final AppUninstaller? uninstaller;
   final Future<void> Function()? beforeUninstall;
+  final ExternalLinkLauncher linkLauncher;
+  final AppVersionLoader versionLoader;
 
   @override
   State<DesktopHomePage> createState() => _DesktopHomePageState();
@@ -288,6 +294,7 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
   String _contentTitle(AppLocalizations strings) => switch (_detail) {
     _DesktopDetail.settings => strings.settingsTitle,
     _DesktopDetail.networkSettings => strings.networkSettingsTitle,
+    _DesktopDetail.about => strings.aboutPageTitle,
     null => switch (_selectedTab) {
       _DesktopTab.thisComputer => strings.thisComputerTab,
       _DesktopTab.remoteControl => strings.remoteControlTab,
@@ -304,14 +311,23 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
         mobileContext: false,
         showAppBar: false,
         onOpenNetworkSettings: _showNetworkSettingsPanel,
+        onOpenAbout: _showAboutPanel,
         uninstaller: widget.uninstaller,
         beforeUninstall: widget.beforeUninstall,
+        linkLauncher: widget.linkLauncher,
+        versionLoader: widget.versionLoader,
       ),
       _DesktopDetail.networkSettings => NetworkServiceSettingsPage(
         controller: networkServices,
         warnAboutHostRestart: true,
         showAppBar: false,
         onComplete: _finishNetworkSettings,
+      ),
+      _DesktopDetail.about => RoammandAboutPage(
+        audience: RoammandAboutAudience.desktopHost,
+        showAppBar: false,
+        linkLauncher: widget.linkLauncher,
+        versionLoader: widget.versionLoader,
       ),
     };
   }
@@ -546,12 +562,20 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
     }
   }
 
+  void _showAboutPanel() {
+    if (_detail != _DesktopDetail.about) {
+      setState(() => _detail = _DesktopDetail.about);
+    }
+  }
+
   void _closeDetail() {
     if (_detail == null) return;
     setState(() {
-      _detail = _detail == _DesktopDetail.networkSettings
-          ? _DesktopDetail.settings
-          : null;
+      _detail = switch (_detail) {
+        _DesktopDetail.networkSettings ||
+        _DesktopDetail.about => _DesktopDetail.settings,
+        _DesktopDetail.settings || null => null,
+      };
     });
   }
 
@@ -652,6 +676,8 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
           mobileContext: false,
           uninstaller: widget.uninstaller,
           beforeUninstall: widget.beforeUninstall,
+          linkLauncher: widget.linkLauncher,
+          versionLoader: widget.versionLoader,
         ),
       ),
     );

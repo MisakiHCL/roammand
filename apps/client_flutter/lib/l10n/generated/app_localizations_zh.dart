@@ -742,6 +742,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutSettingsBody => '查看 Mac 设置、用户指南、开源项目和 App 版本。';
 
   @override
+  String get desktopAboutSettingsBody =>
+      '设置这台 Mac、获取 iPhone 或 iPad App，并查看用户指南和开源项目。';
+
+  @override
   String get aboutPageTitle => '关于 Roammand';
 
   @override
@@ -752,10 +756,32 @@ class AppLocalizationsZh extends AppLocalizations {
       'Roammand 将这台手机变成控制你自己 Mac 的可信控制端。手机 App 需要与安装在 Mac 上的 Roammand 配合使用。';
 
   @override
+  String get desktopAboutHeroTitle => '让这台 Mac 随时可达';
+
+  @override
+  String get desktopAboutHeroBody =>
+      'Roammand 让你批准的设备安全查看和控制这台 Mac；你也可以从“远程控制”连接另一台已配对的电脑。';
+
+  @override
   String get aboutGettingStartedTitle => '如何开始';
 
   @override
   String get aboutGettingStartedBody => '两台设备只需完成一次配对，以后可以随时从“我的电脑”重新连接。';
+
+  @override
+  String get desktopAboutGettingStartedBody =>
+      '先完成一次 Mac 设置，再与手机配对。以后的连接将使用你在这台 Mac 上批准的权限。';
+
+  @override
+  String get desktopSetupStepPermissions =>
+      '在 macOS 系统设置中允许 Roammand 使用屏幕录制和辅助功能。';
+
+  @override
+  String get desktopSetupStepCreateQr => '打开“此电脑”，选择“显示手机二维码”。';
+
+  @override
+  String get desktopSetupStepScanApprove =>
+      '用 iPhone 或 iPad 上的 Roammand 扫码，核对全部四个验证词，然后在这台 Mac 上批准该设备。';
 
   @override
   String get aboutMacAppTitle => 'Roammand Mac 版';
@@ -766,6 +792,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aboutMacDownloadNote => '请在 Mac 上打开下载页面，或从这台手机将链接分享给 Mac。';
+
+  @override
+  String get aboutIosAppTitle => 'Roammand iPhone 与 iPad 版';
+
+  @override
+  String get aboutIosAppBody => '在你想用作控制端的设备上安装移动 App，然后扫描二维码与这台 Mac 配对。';
+
+  @override
+  String get aboutIosDownloadAction => '查看 iPhone 与 iPad App';
+
+  @override
+  String get aboutIosDownloadNote =>
+      'App Store 页面用于即将发布的公开版本；TestFlight 目前仍仅限受邀测试者。';
 
   @override
   String get aboutHelpTitle => '用户指南';
@@ -791,6 +830,10 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get aboutPrivacyBody =>
       '无需注册账号。设备身份和配对权限保存在本机，并且必须先在 Mac 上批准这台手机，才能建立连接。';
+
+  @override
+  String get desktopAboutPrivacyBody =>
+      '无需注册账号。设备身份和配对权限保存在这台 Mac 上；只有你批准的设备才能连接，并且你可以随时撤销权限或停止当前连接。';
 
   @override
   String aboutVersionLabel(String version) {

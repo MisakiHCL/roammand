@@ -1466,6 +1466,12 @@ abstract class AppLocalizations {
   /// **'Mac setup, user guide, open-source project, and app version.'**
   String get aboutSettingsBody;
 
+  /// No description provided for @desktopAboutSettingsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up this Mac, get the iPhone or iPad app, read the user guide, and view the open-source project.'**
+  String get desktopAboutSettingsBody;
+
   /// No description provided for @aboutPageTitle.
   ///
   /// In en, this message translates to:
@@ -1484,6 +1490,18 @@ abstract class AppLocalizations {
   /// **'Roammand turns this phone into a trusted controller for your own Mac. The mobile app works together with Roammand installed on the Mac.'**
   String get aboutHeroBody;
 
+  /// No description provided for @desktopAboutHeroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Make this Mac reachable'**
+  String get desktopAboutHeroTitle;
+
+  /// No description provided for @desktopAboutHeroBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Roammand lets devices you approve securely view and control this Mac. From Remote control, this Mac can also connect to another paired computer.'**
+  String get desktopAboutHeroBody;
+
   /// No description provided for @aboutGettingStartedTitle.
   ///
   /// In en, this message translates to:
@@ -1495,6 +1513,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pair the two devices once, then reconnect from My computers whenever you need your Mac.'**
   String get aboutGettingStartedBody;
+
+  /// No description provided for @desktopAboutGettingStartedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish the one-time Mac setup, then pair your phone. Future connections use the permission you approve here.'**
+  String get desktopAboutGettingStartedBody;
+
+  /// No description provided for @desktopSetupStepPermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Screen Recording and Accessibility for Roammand in macOS System Settings.'**
+  String get desktopSetupStepPermissions;
+
+  /// No description provided for @desktopSetupStepCreateQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Open This computer and choose Show mobile QR code.'**
+  String get desktopSetupStepCreateQr;
+
+  /// No description provided for @desktopSetupStepScanApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the code with Roammand on your iPhone or iPad, compare all four verification words, then approve the device on this Mac.'**
+  String get desktopSetupStepScanApprove;
 
   /// No description provided for @aboutMacAppTitle.
   ///
@@ -1513,6 +1555,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open the download page on your Mac, or share the link from this phone.'**
   String get aboutMacDownloadNote;
+
+  /// No description provided for @aboutIosAppTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Roammand for iPhone and iPad'**
+  String get aboutIosAppTitle;
+
+  /// No description provided for @aboutIosAppBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Install the mobile app on the device you want to use as the controller, then pair it with this Mac by scanning a QR code.'**
+  String get aboutIosAppBody;
+
+  /// No description provided for @aboutIosDownloadAction.
+  ///
+  /// In en, this message translates to:
+  /// **'View the iPhone & iPad app'**
+  String get aboutIosDownloadAction;
+
+  /// No description provided for @aboutIosDownloadNote.
+  ///
+  /// In en, this message translates to:
+  /// **'The App Store listing is reserved for the upcoming public release. TestFlight remains limited to invited testers.'**
+  String get aboutIosDownloadNote;
 
   /// No description provided for @aboutHelpTitle.
   ///
@@ -1561,6 +1627,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No account is required. Device identity and pairing permissions are stored locally, and the Mac must approve this phone before it can connect.'**
   String get aboutPrivacyBody;
+
+  /// No description provided for @desktopAboutPrivacyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'No account is required. Device identity and pairing permissions stay on this Mac. Only devices you approve can connect, and you can revoke access or stop an active session at any time.'**
+  String get desktopAboutPrivacyBody;
 
   /// No description provided for @aboutVersionLabel.
   ///
