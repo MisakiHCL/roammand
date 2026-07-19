@@ -164,34 +164,7 @@ impl IndicatorDelegate {
             NSBackingStoreType::Buffered,
             false,
         );
-        // SAFETY: this panel is retained by the delegate until termination.
-        unsafe { window.setReleasedWhenClosed(false) };
-        window.setTitle(&NSString::from_str(copy.product_name));
-        window.setTitleVisibility(NSWindowTitleVisibility::Hidden);
-        window.setTitlebarAppearsTransparent(true);
-        window.setBackgroundColor(Some(&native_color(SURFACE_COLOR)));
-        window.setLevel(NSStatusWindowLevel);
-        window.setFloatingPanel(true);
-        window.setBecomesKeyOnlyIfNeeded(true);
-        for button_kind in [
-            NSWindowButton::CloseButton,
-            NSWindowButton::MiniaturizeButton,
-            NSWindowButton::ZoomButton,
-        ] {
-            if let Some(button) = window.standardWindowButton(button_kind) {
-                button.setHidden(true);
-                button.removeFromSuperview();
-            }
-        }
-        if let Some(screen) = NSScreen::mainScreen(mtm) {
-            let visible = screen.visibleFrame();
-            window.setFrameOrigin(NSPoint::new(
-                visible.origin.x + visible.size.width - WINDOW_WIDTH - SCREEN_INSET,
-                visible.origin.y + visible.size.height - window_height - SCREEN_INSET,
-            ));
-        } else {
-            window.center();
-        }
+        configure_indicator_window(&window, copy.product_name, window_height, mtm);
 
         let activity = NSTextField::labelWithString(&NSString::from_str("●"), mtm);
         activity.setFrame(NSRect::new(
@@ -258,6 +231,42 @@ impl IndicatorDelegate {
             .window
             .set(window)
             .expect("window initialized once");
+    }
+}
+
+fn configure_indicator_window(
+    window: &NSPanel,
+    product_name: &str,
+    window_height: f64,
+    mtm: MainThreadMarker,
+) {
+    // SAFETY: this panel is retained by the delegate until termination.
+    unsafe { window.setReleasedWhenClosed(false) };
+    window.setTitle(&NSString::from_str(product_name));
+    window.setTitleVisibility(NSWindowTitleVisibility::Hidden);
+    window.setTitlebarAppearsTransparent(true);
+    window.setBackgroundColor(Some(&native_color(SURFACE_COLOR)));
+    window.setLevel(NSStatusWindowLevel);
+    window.setFloatingPanel(true);
+    window.setBecomesKeyOnlyIfNeeded(true);
+    for button_kind in [
+        NSWindowButton::CloseButton,
+        NSWindowButton::MiniaturizeButton,
+        NSWindowButton::ZoomButton,
+    ] {
+        if let Some(button) = window.standardWindowButton(button_kind) {
+            button.setHidden(true);
+            button.removeFromSuperview();
+        }
+    }
+    if let Some(screen) = NSScreen::mainScreen(mtm) {
+        let visible = screen.visibleFrame();
+        window.setFrameOrigin(NSPoint::new(
+            visible.origin.x + visible.size.width - WINDOW_WIDTH - SCREEN_INSET,
+            visible.origin.y + visible.size.height - window_height - SCREEN_INSET,
+        ));
+    } else {
+        window.center();
     }
 }
 
