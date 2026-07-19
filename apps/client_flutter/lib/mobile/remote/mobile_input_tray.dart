@@ -14,6 +14,8 @@ final class MobileInputTray extends StatefulWidget {
   const MobileInputTray({
     required this.controller,
     required this.enabled,
+    required this.textFocusNode,
+    required this.onDismissKeyboard,
     this.onInputFailure,
     this.padding = const EdgeInsets.all(_trayPadding),
     this.compact = false,
@@ -22,6 +24,8 @@ final class MobileInputTray extends StatefulWidget {
 
   final MobileKeyboardController? controller;
   final bool enabled;
+  final FocusNode textFocusNode;
+  final VoidCallback onDismissKeyboard;
   final void Function(Object error)? onInputFailure;
   final EdgeInsetsGeometry padding;
   final bool compact;
@@ -55,6 +59,7 @@ final class _MobileInputTrayState extends State<MobileInputTray> {
                   child: TextField(
                     key: const Key('mobile-text-input'),
                     controller: _textController,
+                    focusNode: widget.textFocusNode,
                     enabled: widget.enabled,
                     decoration: InputDecoration(
                       isDense: true,
@@ -62,10 +67,20 @@ final class _MobileInputTrayState extends State<MobileInputTray> {
                       labelText: strings.mobileTextInputLabel,
                     ),
                     textInputAction: TextInputAction.send,
+                    onTapOutside: (_) => widget.onDismissKeyboard(),
                     onSubmitted: (_) => _sendText(),
                   ),
                 ),
                 const SizedBox(width: _controlSpacing),
+                if (widget.compact) ...<Widget>[
+                  IconButton(
+                    key: const Key('mobile-dismiss-keyboard-action'),
+                    onPressed: widget.onDismissKeyboard,
+                    tooltip: strings.mobileHideKeyboardAction,
+                    icon: const Icon(Icons.keyboard_hide_outlined, size: 20),
+                  ),
+                  const SizedBox(width: _controlSpacing),
+                ],
                 IconButton.filled(
                   key: const Key('mobile-text-send'),
                   onPressed: widget.enabled ? _sendText : null,

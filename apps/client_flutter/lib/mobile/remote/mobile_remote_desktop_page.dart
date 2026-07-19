@@ -28,6 +28,7 @@ const _focusedInputTrayHeight = 56.0;
 const _minimumInputTrayHeight = 120.0;
 const _maximumInputTrayHeight = 200.0;
 const _inputTrayScreenFraction = 0.36;
+const _textInputHideMethod = 'TextInput.hide';
 const _remoteOrientations = <DeviceOrientation>[
   DeviceOrientation.landscapeLeft,
   DeviceOrientation.landscapeRight,
@@ -65,6 +66,9 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
     with WidgetsBindingObserver {
   final MobileGestureSurfaceController _gestureController =
       MobileGestureSurfaceController();
+  final FocusNode _textInputFocusNode = FocusNode(
+    debugLabel: 'mobile-remote-text-input',
+  );
 
   RemoteInputSender? _keyboardSender;
   MobileKeyboardController? _keyboardController;
@@ -108,6 +112,7 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_onControllerChanged);
+    _textInputFocusNode.dispose();
     unawaited(_keyboardController?.close() ?? Future<void>.value());
     final closing = _closeController();
     unawaited(closing.whenComplete(widget.controller.dispose));
@@ -374,9 +379,7 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
             ),
             IconButton(
               key: const Key('mobile-keyboard-toggle'),
-              onPressed: () {
-                setState(() => _keyboardVisible = !_keyboardVisible);
-              },
+              onPressed: _toggleKeyboardTray,
               tooltip: _keyboardVisible
                   ? strings.mobileHideKeyboardAction
                   : strings.mobileKeyboardAction,
@@ -398,6 +401,8 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
         key: const Key('mobile-input-tray'),
         controller: _keyboardController,
         enabled: _inputEnabled,
+        textFocusNode: _textInputFocusNode,
+        onDismissKeyboard: _dismissSoftwareKeyboard,
         onInputFailure: _handleInputFailure,
         compact: compact,
         padding: EdgeInsets.fromLTRB(
@@ -409,7 +414,22 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
       );
 
   void _dismissSoftwareKeyboard() {
-    FocusManager.instance.primaryFocus?.unfocus();
+    _textInputFocusNode.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus(
+      disposition: UnfocusDisposition.scope,
+    );
+    unawaited(
+      SystemChannels.textInput
+          .invokeMethod<void>(_textInputHideMethod)
+          .catchError((_) {}),
+    );
+  }
+
+  void _toggleKeyboardTray() {
+    if (_keyboardVisible) {
+      _dismissSoftwareKeyboard();
+    }
+    setState(() => _keyboardVisible = !_keyboardVisible);
   }
 
   String _statusText(AppLocalizations strings) {
@@ -511,6 +531,7 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
     _popRequested = _popRequested || pop;
     if (!_closing) {
       _closing = true;
+      _dismissSoftwareKeyboard();
       if (mounted) setState(() {});
       _releaseInput();
     }

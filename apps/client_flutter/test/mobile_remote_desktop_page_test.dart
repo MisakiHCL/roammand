@@ -210,6 +210,10 @@ void main() {
       56,
     );
     expect(find.byKey(const Key('mobile-modifier-control')), findsNothing);
+    expect(
+      find.byKey(const Key('mobile-dismiss-keyboard-action')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -309,6 +313,49 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('dismisses the iOS keyboard from the action or outside tap', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() {
+      tester.view.viewInsets = FakeViewPadding.zero;
+      return tester.binding.setSurfaceSize(null);
+    });
+    final fixture = _PageFixture();
+    await tester.pumpWidget(_app(fixture.page()));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('mobile-keyboard-toggle')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('mobile-text-input')));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 240);
+    await tester.pump();
+
+    EditableText editable() =>
+        tester.widget<EditableText>(find.byType(EditableText));
+
+    expect(editable().focusNode.hasFocus, isTrue);
+    final dismissAction = tester.widget<IconButton>(
+      find.byKey(const Key('mobile-dismiss-keyboard-action')),
+    );
+    expect(dismissAction.onPressed, isNotNull);
+    dismissAction.onPressed!();
+    await tester.pump();
+    expect(editable().focusNode.hasFocus, isFalse);
+
+    editable().focusNode.requestFocus();
+    await tester.pump();
+    expect(editable().focusNode.hasFocus, isTrue);
+    final textField = tester.widget<TextField>(
+      find.byKey(const Key('mobile-text-input')),
+    );
+    expect(textField.onTapOutside, isNotNull);
+    textField.onTapOutside!(const PointerDownEvent());
+    await tester.pump();
+    expect(editable().focusNode.hasFocus, isFalse);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('sends text, modifiers and special keys from the mobile tray', (
     tester,
