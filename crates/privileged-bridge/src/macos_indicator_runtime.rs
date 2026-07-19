@@ -21,17 +21,17 @@ use crate::{
 };
 
 const WINDOW_WIDTH: f64 = 400.0;
-const WINDOW_HEIGHT: f64 = 96.0;
 const SCREEN_INSET: f64 = 16.0;
+const VERTICAL_INSET: f64 = 12.0;
 const STATUS_LEFT: f64 = 40.0;
-const STATUS_TOP: f64 = 52.0;
-const DETAIL_TOP: f64 = 28.0;
+const DETAIL_TOP: f64 = VERTICAL_INSET;
 const LABEL_WIDTH: f64 = 252.0;
 const LABEL_HEIGHT: f64 = 24.0;
+const LABEL_SPACING: f64 = 0.0;
+const STATUS_TOP: f64 = DETAIL_TOP + LABEL_HEIGHT + LABEL_SPACING;
 const BUTTON_WIDTH: f64 = 76.0;
-const BUTTON_HEIGHT: f64 = 40.0;
+const BUTTON_HEIGHT: f64 = 32.0;
 const BUTTON_LEFT: f64 = 308.0;
-const BUTTON_TOP: f64 = 28.0;
 const REFRESH_SECONDS: f64 = 0.05;
 const SURFACE_COLOR: (f64, f64, f64, f64) = (0.035, 0.043, 0.122, 0.96);
 const ACTIVE_COLOR: (f64, f64, f64, f64) = (0.196, 0.788, 0.953, 1.0);
@@ -148,9 +148,10 @@ impl IndicatorDelegate {
     fn create_window(&self) {
         let mtm = self.mtm();
         let copy = self.ivars().copy;
+        let window_height = indicator_content_height();
         let frame = NSRect::new(
             NSPoint::new(0.0, 0.0),
-            NSSize::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+            NSSize::new(WINDOW_WIDTH, window_height),
         );
         // SAFETY: released-when-closed is disabled below, and the retained
         // panel remains in the delegate for the complete application run.
@@ -179,13 +180,14 @@ impl IndicatorDelegate {
         ] {
             if let Some(button) = window.standardWindowButton(button_kind) {
                 button.setHidden(true);
+                button.removeFromSuperview();
             }
         }
         if let Some(screen) = NSScreen::mainScreen(mtm) {
             let visible = screen.visibleFrame();
             window.setFrameOrigin(NSPoint::new(
                 visible.origin.x + visible.size.width - WINDOW_WIDTH - SCREEN_INSET,
-                visible.origin.y + visible.size.height - WINDOW_HEIGHT - SCREEN_INSET,
+                visible.origin.y + visible.size.height - window_height - SCREEN_INSET,
             ));
         } else {
             window.center();
@@ -227,9 +229,15 @@ impl IndicatorDelegate {
             )
         };
         stop.setFrame(NSRect::new(
-            NSPoint::new(BUTTON_LEFT, BUTTON_TOP),
+            NSPoint::new(
+                BUTTON_LEFT,
+                ((window_height - BUTTON_HEIGHT) / 2.0).max(0.0),
+            ),
             NSSize::new(BUTTON_WIDTH, BUTTON_HEIGHT),
         ));
+        stop.setBordered(false);
+        stop.setContentTintColor(Some(&NSColor::whiteColor()));
+        stop.setFont(Some(&NSFont::boldSystemFontOfSize(13.0)));
 
         let content = window.contentView().expect("panel content view");
         // SAFETY: all subviews are retained by the panel content hierarchy.
@@ -251,6 +259,12 @@ impl IndicatorDelegate {
             .set(window)
             .expect("window initialized once");
     }
+}
+
+fn indicator_content_height() -> f64 {
+    let label_content_height = STATUS_TOP + LABEL_HEIGHT + VERTICAL_INSET;
+    let button_content_height = BUTTON_HEIGHT + 2.0 * VERTICAL_INSET;
+    label_content_height.max(button_content_height)
 }
 
 fn native_color((red, green, blue, alpha): (f64, f64, f64, f64)) -> Retained<NSColor> {
