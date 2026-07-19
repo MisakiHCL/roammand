@@ -42,9 +42,15 @@ void main() {
     expect(find.text('General'), findsOneWidget);
     expect(find.text('Connection'), findsOneWidget);
     expect(find.text('Advanced'), findsOneWidget);
+    expect(
+      find.byType(DropdownButtonFormField<AppLocalePreference>),
+      findsNothing,
+    );
+    expect(find.byIcon(Icons.translate_rounded), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('settings-language-selector')));
     await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
     await tester.tap(find.text('English').last);
     await tester.pumpAndSettle();
     expect(selectedLocale, AppLocalePreference.english);

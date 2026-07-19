@@ -7,7 +7,8 @@ use std::cell::{Cell, OnceCell};
 use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send, rc::Retained, sel};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate, NSBackingStoreType,
-    NSButton, NSPanel, NSStatusWindowLevel, NSTextAlignment, NSTextField, NSWindowStyleMask,
+    NSButton, NSColor, NSFont, NSPanel, NSScreen, NSStatusWindowLevel, NSTextAlignment,
+    NSTextField, NSWindowButton, NSWindowStyleMask, NSWindowTitleVisibility,
 };
 use objc2_foundation::{
     MainThreadMarker, NSLocale, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect,
@@ -19,16 +20,22 @@ use crate::{
     native_indicator::NativeIndicatorRuntime,
 };
 
-const WINDOW_WIDTH: f64 = 440.0;
-const WINDOW_HEIGHT: f64 = 168.0;
-const HORIZONTAL_INSET: f64 = 24.0;
-const STATUS_TOP: f64 = 108.0;
-const DETAIL_TOP: f64 = 72.0;
-const LABEL_HEIGHT: f64 = 28.0;
-const BUTTON_WIDTH: f64 = 112.0;
-const BUTTON_HEIGHT: f64 = 36.0;
-const BUTTON_TOP: f64 = 20.0;
+const WINDOW_WIDTH: f64 = 400.0;
+const WINDOW_HEIGHT: f64 = 96.0;
+const SCREEN_INSET: f64 = 16.0;
+const STATUS_LEFT: f64 = 40.0;
+const STATUS_TOP: f64 = 52.0;
+const DETAIL_TOP: f64 = 28.0;
+const LABEL_WIDTH: f64 = 252.0;
+const LABEL_HEIGHT: f64 = 24.0;
+const BUTTON_WIDTH: f64 = 76.0;
+const BUTTON_HEIGHT: f64 = 40.0;
+const BUTTON_LEFT: f64 = 308.0;
+const BUTTON_TOP: f64 = 28.0;
 const REFRESH_SECONDS: f64 = 0.05;
+const SURFACE_COLOR: (f64, f64, f64, f64) = (0.035, 0.043, 0.122, 0.96);
+const ACTIVE_COLOR: (f64, f64, f64, f64) = (0.196, 0.788, 0.953, 1.0);
+const SECONDARY_TEXT_COLOR: (f64, f64, f64, f64) = (0.722, 0.733, 0.839, 1.0);
 
 struct DelegateIvars {
     runtime: NativeIndicatorRuntime,
@@ -150,31 +157,64 @@ impl IndicatorDelegate {
         let window = NSPanel::initWithContentRect_styleMask_backing_defer(
             NSPanel::alloc(mtm),
             frame,
-            NSWindowStyleMask::Titled | NSWindowStyleMask::NonactivatingPanel,
+            NSWindowStyleMask::Titled
+                | NSWindowStyleMask::FullSizeContentView
+                | NSWindowStyleMask::NonactivatingPanel,
             NSBackingStoreType::Buffered,
             false,
         );
         // SAFETY: this panel is retained by the delegate until termination.
         unsafe { window.setReleasedWhenClosed(false) };
         window.setTitle(&NSString::from_str(copy.product_name));
+        window.setTitleVisibility(NSWindowTitleVisibility::Hidden);
+        window.setTitlebarAppearsTransparent(true);
+        window.setBackgroundColor(Some(&native_color(SURFACE_COLOR)));
         window.setLevel(NSStatusWindowLevel);
         window.setFloatingPanel(true);
         window.setBecomesKeyOnlyIfNeeded(true);
-        window.center();
+        for button_kind in [
+            NSWindowButton::CloseButton,
+            NSWindowButton::MiniaturizeButton,
+            NSWindowButton::ZoomButton,
+        ] {
+            if let Some(button) = window.standardWindowButton(button_kind) {
+                button.setHidden(true);
+            }
+        }
+        if let Some(screen) = NSScreen::mainScreen(mtm) {
+            let visible = screen.visibleFrame();
+            window.setFrameOrigin(NSPoint::new(
+                visible.origin.x + visible.size.width - WINDOW_WIDTH - SCREEN_INSET,
+                visible.origin.y + visible.size.height - WINDOW_HEIGHT - SCREEN_INSET,
+            ));
+        } else {
+            window.center();
+        }
+
+        let activity = NSTextField::labelWithString(&NSString::from_str("●"), mtm);
+        activity.setFrame(NSRect::new(
+            NSPoint::new(16.0, STATUS_TOP),
+            NSSize::new(16.0, LABEL_HEIGHT),
+        ));
+        activity.setTextColor(Some(&native_color(ACTIVE_COLOR)));
 
         let status = NSTextField::labelWithString(&NSString::from_str(copy.controlled), mtm);
         status.setFrame(NSRect::new(
-            NSPoint::new(HORIZONTAL_INSET, STATUS_TOP),
-            NSSize::new(WINDOW_WIDTH - 2.0 * HORIZONTAL_INSET, LABEL_HEIGHT),
+            NSPoint::new(STATUS_LEFT, STATUS_TOP),
+            NSSize::new(LABEL_WIDTH, LABEL_HEIGHT),
         ));
-        status.setAlignment(NSTextAlignment::Center);
+        status.setAlignment(NSTextAlignment::Left);
+        status.setFont(Some(&NSFont::boldSystemFontOfSize(14.0)));
+        status.setTextColor(Some(&NSColor::whiteColor()));
 
         let detail = NSTextField::labelWithString(&NSString::from_str(""), mtm);
         detail.setFrame(NSRect::new(
-            NSPoint::new(HORIZONTAL_INSET, DETAIL_TOP),
-            NSSize::new(WINDOW_WIDTH - 2.0 * HORIZONTAL_INSET, LABEL_HEIGHT),
+            NSPoint::new(STATUS_LEFT, DETAIL_TOP),
+            NSSize::new(LABEL_WIDTH, LABEL_HEIGHT),
         ));
-        detail.setAlignment(NSTextAlignment::Center);
+        detail.setAlignment(NSTextAlignment::Left);
+        detail.setFont(Some(&NSFont::systemFontOfSize(12.0)));
+        detail.setTextColor(Some(&native_color(SECONDARY_TEXT_COLOR)));
 
         // SAFETY: the target and localStop: selector belong to this retained
         // delegate. No remote IPC command can invoke this AppKit action.
@@ -187,12 +227,13 @@ impl IndicatorDelegate {
             )
         };
         stop.setFrame(NSRect::new(
-            NSPoint::new((WINDOW_WIDTH - BUTTON_WIDTH) / 2.0, BUTTON_TOP),
+            NSPoint::new(BUTTON_LEFT, BUTTON_TOP),
             NSSize::new(BUTTON_WIDTH, BUTTON_HEIGHT),
         ));
 
         let content = window.contentView().expect("panel content view");
         // SAFETY: all subviews are retained by the panel content hierarchy.
+        content.addSubview(&activity);
         content.addSubview(&status);
         content.addSubview(&detail);
         content.addSubview(&stop);
@@ -210,6 +251,10 @@ impl IndicatorDelegate {
             .set(window)
             .expect("window initialized once");
     }
+}
+
+fn native_color((red, green, blue, alpha): (f64, f64, f64, f64)) -> Retained<NSColor> {
+    NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha)
 }
 
 /// Runs the protected `AppKit` indicator on the process main thread until the

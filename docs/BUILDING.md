@@ -16,6 +16,7 @@ Run `make help` at the repository root to see the common commands.
 | Analyze and test the Flutter app | `make app-check` |
 | Build the Debug Host and run the macOS app | `make app-run-macos` |
 | Run a selected iOS target | `make app-run-ios IOS_DEVICE=YOUR_IOS_DEVICE_ID` |
+| Run iOS with production performance | `make app-run-ios-release IOS_DEVICE=YOUR_IOS_DEVICE_ID` |
 | Build the macOS Release app | `make app-build-macos` |
 | Build the iOS Simulator app | `make app-build-ios-simulator` |
 | Build the Android Debug APK | `make app-build-android` |
@@ -100,6 +101,11 @@ flutter run -d YOUR_IOS_DEVICE_ID --no-pub
 `ios` or `android` when selecting a physical device. From the repository root,
 the equivalent iOS command is
 `make app-run-ios IOS_DEVICE=YOUR_IOS_DEVICE_ID`.
+
+The normal run is a Debug build and is intended for hot reload, not performance
+measurement. Validate keyboard, animation, and frame timing on the physical
+device with
+`make app-run-ios-release IOS_DEVICE=YOUR_IOS_DEVICE_ID`.
 
 Physical-device source testing therefore drops from four terminals to two.
 Installed desktop and mobile Release builds launch from their graphical

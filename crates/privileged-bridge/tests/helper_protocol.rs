@@ -9,14 +9,16 @@ use roammand_privileged_bridge::{
 };
 use roammand_protocol::roammand::v1::{
     ClosePrivilegedPeerRequest, IceCandidate, PrivilegedBridgeClientFrame, PrivilegedInputCommand,
-    PrivilegedPeerConfiguration, ProtocolVersion, ReleaseAllInput, ReleasePrivilegedLeaseRequest,
-    SessionDescriptionType, StartPrivilegedPeerRequest, WebRtcSessionDescription,
-    privileged_bridge_client_frame, privileged_bridge_server_frame, privileged_input_command,
+    PrivilegedPeerConfiguration, PrivilegedPeerState, ProtocolVersion, ReleaseAllInput,
+    ReleasePrivilegedLeaseRequest, SessionDescriptionType, StartPrivilegedPeerRequest,
+    WebRtcSessionDescription, privileged_bridge_client_frame, privileged_bridge_server_frame,
+    privileged_input_command,
 };
 
 #[derive(Default)]
 struct FakeBackend {
     operations: Arc<Mutex<Vec<&'static str>>>,
+    local_stop: bool,
 }
 
 impl HelperBackend for FakeBackend {
@@ -65,6 +67,10 @@ impl HelperBackend for FakeBackend {
     }
 
     fn try_event(&mut self) -> Result<Option<ProxyEvent>, HelperProtocolError> {
+        if self.local_stop {
+            self.local_stop = false;
+            return Ok(Some(ProxyEvent::LocalStop));
+        }
         Ok(Some(ProxyEvent::LocalIceCandidate(PeerIceCandidate {
             candidate: "candidate:local".to_owned(),
             sdp_mid: "0".to_owned(),
@@ -80,6 +86,7 @@ fn attaches_one_route_and_executes_only_typed_peer_commands() {
     let operations = Arc::new(Mutex::new(Vec::new()));
     let backend = FakeBackend {
         operations: Arc::clone(&operations),
+        local_stop: false,
     };
     let mut helper = HelperProtocol::new(Box::new(backend));
     let route = ProxyRoute::new(
@@ -137,6 +144,7 @@ fn rejects_stale_commands_after_release_without_touching_the_backend() {
     let operations = Arc::new(Mutex::new(Vec::new()));
     let backend = FakeBackend {
         operations: Arc::clone(&operations),
+        local_stop: false,
     };
     let mut helper = HelperProtocol::new(Box::new(backend));
     let route = ProxyRoute::new(
@@ -163,6 +171,30 @@ fn rejects_stale_commands_after_release_without_touching_the_backend() {
 
     assert_eq!(helper.handle(&stale), Err(HelperProtocolError::StaleRoute));
     assert_eq!(*operations.lock().expect("operations"), ["start", "close"]);
+}
+
+#[test]
+fn encodes_a_local_stop_as_a_terminal_peer_state() {
+    let route = ProxyRoute::new(
+        roammand_privileged_bridge::lease::LeaseId::new([0x31; 16]),
+        9,
+    );
+    let mut helper = HelperProtocol::new(Box::new(FakeBackend {
+        operations: Arc::new(Mutex::new(Vec::new())),
+        local_stop: true,
+    }));
+    helper.handle(&start_request(route, 1)).expect("start");
+
+    let event = helper.try_event().expect("event").expect("local stop");
+
+    let Some(privileged_bridge_server_frame::Payload::PeerStateChanged(state)) = event.payload
+    else {
+        panic!("expected peer state");
+    };
+    assert_eq!(
+        PrivilegedPeerState::try_from(state.state),
+        Ok(PrivilegedPeerState::Closed)
+    );
 }
 
 fn start_request(route: ProxyRoute, sequence: u64) -> PrivilegedBridgeClientFrame {

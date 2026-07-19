@@ -65,6 +65,7 @@ fn map_event(event: ProxyEvent) -> RemotePeerEvent {
         ProxyEvent::Connected => RemotePeerEvent::Connected,
         ProxyEvent::Disconnected => RemotePeerEvent::Disconnected,
         ProxyEvent::Failed => RemotePeerEvent::Failed,
+        ProxyEvent::LocalStop => RemotePeerEvent::LocalStop,
         ProxyEvent::LocalIceCandidate(value) => RemotePeerEvent::LocalIceCandidate(value),
         ProxyEvent::ReliableInput(value) => RemotePeerEvent::ReliableInput(value),
         ProxyEvent::FastPointer(value) => RemotePeerEvent::FastPointer(value),

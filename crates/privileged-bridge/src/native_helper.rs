@@ -236,7 +236,7 @@ impl HelperBackend for NativeHelperBackend {
         {
             log_native_helper_failure("localStop", "requested");
             self.fail_closed();
-            return Err(HelperProtocolError::Backend);
+            return Ok(Some(ProxyEvent::LocalStop));
         }
         let Some(events) = self.events.as_ref() else {
             return Ok(None);

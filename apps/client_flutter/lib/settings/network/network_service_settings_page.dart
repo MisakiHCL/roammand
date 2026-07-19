@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:roammand/design_system/roammand_back_button.dart';
 import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
+import 'package:roammand/design_system/roammand_text_input.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 
@@ -229,6 +230,9 @@ final class _NetworkServiceSettingsPageState
         enabled: !_saving,
         keyboardType: TextInputType.url,
         autocorrect: false,
+        cursorOpacityAnimates: RoammandTextInputPolicy.cursorOpacityAnimates,
+        enableIMEPersonalizedLearning:
+            RoammandTextInputPolicy.enableImePersonalizedLearning,
         decoration: InputDecoration(
           labelText: strings.networkSignalingEndpointLabel,
           hintText: strings.networkSignalingEndpointHint,
@@ -241,6 +245,9 @@ final class _NetworkServiceSettingsPageState
         enabled: !_saving,
         keyboardType: TextInputType.url,
         autocorrect: false,
+        cursorOpacityAnimates: RoammandTextInputPolicy.cursorOpacityAnimates,
+        enableIMEPersonalizedLearning:
+            RoammandTextInputPolicy.enableImePersonalizedLearning,
         minLines: 2,
         maxLines: 4,
         decoration: InputDecoration(

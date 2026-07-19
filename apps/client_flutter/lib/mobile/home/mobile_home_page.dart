@@ -8,6 +8,7 @@ import 'package:roammand/design_system/roammand_brand_mark.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
+import 'package:roammand/design_system/roammand_text_input.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
@@ -30,6 +31,13 @@ const _landscapeLayoutBreakpoint = 680.0;
 const _homeHeadlineFontSize = 24.0;
 const _homeTitleFontSize = 16.0;
 const _homeBodyFontSize = 12.0;
+// Keep the first iOS text-input connection off the dialog transition frames.
+const _renameDialogFocusDelay = Duration(milliseconds: 180);
+const _renameDialogMinWidth = 360.0;
+const _renameDialogMaxWidth = 400.0;
+const _renameDialogPadding = 16.0;
+const _renameDialogFieldHeight = 48.0;
+const _renameDialogButtonHeight = 36.0;
 
 typedef MobilePairingPageBuilder = Widget Function(BuildContext context);
 
@@ -247,37 +255,58 @@ final class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
-  Widget _buildHero(AppLocalizations strings) => RoammandPageHero(
-    eyebrow: strings.brandPrivacyLabel,
-    title: strings.mobileHomeTitle,
-    body: strings.mobileHomeSubtitle,
-    markSize: 72,
-    action: Align(
-      alignment: Alignment.centerLeft,
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: <Widget>[
-          FilledButton.icon(
-            onPressed:
-                widget.identity != null || widget.pairingPageBuilder != null
-                ? _scan
-                : null,
-            icon: const Icon(Icons.qr_code_scanner, size: 20),
-            label: Text(strings.mobileScanQrAction),
-          ),
-          if (widget.networkServices != null)
-            IconButton.filledTonal(
-              key: const Key('mobile-settings'),
-              onPressed: _openSettings,
-              tooltip: strings.settingsTooltip,
-              icon: const Icon(Icons.settings_outlined, size: 20),
+  Widget _buildHero(AppLocalizations strings) {
+    final deviceName = widget.identity?.publicIdentity.displayName;
+    return RoammandPageHero(
+      eyebrow: strings.brandPrivacyLabel,
+      title: strings.mobileHomeTitle,
+      body: strings.mobileHomeSubtitle,
+      markSize: 72,
+      action: Align(
+        alignment: Alignment.centerLeft,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            if (deviceName != null) ...<Widget>[
+              RoammandStatusPill(
+                key: const Key('mobile-device-name'),
+                label: '${strings.mobileDeviceNameLabel}: $deviceName',
+                tone: RoammandStatusTone.neutral,
+                icon: Icons.smartphone_rounded,
+              ),
+              const SizedBox(height: 12),
+            ],
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: <Widget>[
+                FilledButton.icon(
+                  onPressed:
+                      widget.identity != null ||
+                          widget.pairingPageBuilder != null
+                      ? _scan
+                      : null,
+                  icon: const Icon(Icons.qr_code_scanner, size: 20),
+                  label: Text(strings.mobileScanQrAction),
+                ),
+                if (widget.networkServices != null)
+                  IconButton(
+                    key: const Key('mobile-settings'),
+                    onPressed: _openSettings,
+                    tooltip: strings.settingsTooltip,
+                    style: IconButton.styleFrom(
+                      foregroundColor: RoammandColors.textPrimary,
+                    ),
+                    icon: const Icon(Icons.settings_outlined, size: 20),
+                  ),
+              ],
             ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _buildHosts(AppLocalizations strings) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -336,16 +365,30 @@ final class _TrustedHostRenameDialog extends StatefulWidget {
 final class _TrustedHostRenameDialogState
     extends State<_TrustedHostRenameDialog> {
   late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+  Timer? _focusTimer;
   String? _errorText;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialName);
+    _controller.selection = TextSelection.collapsed(
+      offset: widget.initialName.length,
+    );
+    _focusNode = FocusNode();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusTimer = Timer(_renameDialogFocusDelay, () {
+        if (mounted && !_focusNode.hasFocus) _focusNode.requestFocus();
+      });
+    });
   }
 
   @override
   void dispose() {
+    _focusTimer?.cancel();
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -360,36 +403,118 @@ final class _TrustedHostRenameDialogState
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.strings.renameTrustedHostTitle),
-    content: TextField(
-      key: const Key('trusted-host-name-field'),
-      controller: _controller,
-      autofocus: true,
-      textInputAction: TextInputAction.done,
-      decoration: InputDecoration(
-        labelText: widget.strings.trustedHostNameLabel,
-        errorText: _errorText,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final compactButtonStyle = ButtonStyle(
+      minimumSize: const WidgetStatePropertyAll(
+        Size(0, _renameDialogButtonHeight),
       ),
-      onChanged: (_) {
-        if (_errorText != null) {
-          setState(() => _errorText = null);
-        }
-      },
-      onSubmitted: (_) => _submit(),
-    ),
-    actions: <Widget>[
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: Text(widget.strings.cancelAction),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
-      FilledButton(
-        key: const Key('save-trusted-host-name'),
-        onPressed: _submit,
-        child: Text(widget.strings.renameTrustedHostSaveAction),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-    ],
-  );
+    );
+    return Dialog(
+      key: const Key('trusted-host-rename-dialog'),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      backgroundColor: RoammandColors.elevatedSurface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: RoammandColors.outline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: _renameDialogMinWidth,
+          maxWidth: _renameDialogMaxWidth,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(_renameDialogPadding),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Text(
+                widget.strings.renameTrustedHostTitle,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: RoammandColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.strings.trustedHostNameLabel,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: RoammandColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              TextField(
+                key: const Key('trusted-host-name-field'),
+                controller: _controller,
+                focusNode: _focusNode,
+                autocorrect: false,
+                enableSuggestions: false,
+                cursorOpacityAnimates:
+                    RoammandTextInputPolicy.cursorOpacityAnimates,
+                enableIMEPersonalizedLearning:
+                    RoammandTextInputPolicy.enableImePersonalizedLearning,
+                keyboardAppearance: Brightness.dark,
+                textInputAction: TextInputAction.done,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: RoammandColors.textPrimary,
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  filled: true,
+                  fillColor: RoammandColors.deepSurface,
+                  errorText: _errorText,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  constraints: const BoxConstraints(
+                    minHeight: _renameDialogFieldHeight,
+                  ),
+                ),
+                onChanged: (_) {
+                  if (_errorText != null) {
+                    setState(() => _errorText = null);
+                  }
+                },
+                onSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: compactButtonStyle.copyWith(
+                      foregroundColor: const WidgetStatePropertyAll(
+                        RoammandColors.textSecondary,
+                      ),
+                    ),
+                    child: Text(widget.strings.cancelAction),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const Key('save-trusted-host-name'),
+                    onPressed: _submit,
+                    style: compactButtonStyle,
+                    child: Text(widget.strings.renameTrustedHostSaveAction),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 final class _MobileTrustedHostCard extends StatelessWidget {

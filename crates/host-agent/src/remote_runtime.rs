@@ -591,9 +591,18 @@ async fn run_registered_connection(
             }
             termination = terminations.recv() => {
                 match termination {
-                    Ok(event) => coordinator
-                        .handle_termination(&event, now_unix_ms()?)
-                        .map_err(|_| RuntimeError::RemoteSession)?,
+                    Ok(event) => {
+                        let outbound = coordinator
+                            .handle_termination(&event, now_unix_ms()?)
+                            .map_err(|_| RuntimeError::RemoteSession)?;
+                        send_remote_outbound(
+                            protocol,
+                            transport,
+                            outbound,
+                            generation,
+                            request_counter,
+                        ).await?;
+                    }
                     Err(
                         tokio::sync::broadcast::error::RecvError::Lagged(_)
                         | tokio::sync::broadcast::error::RecvError::Closed,

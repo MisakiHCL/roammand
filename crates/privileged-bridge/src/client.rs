@@ -590,10 +590,9 @@ impl BridgeWire for ProtobufBridgeWire {
             Some(privileged_bridge_server_frame::Payload::PeerStateChanged(value)) => {
                 let event = match PrivilegedPeerState::try_from(value.state) {
                     Ok(PrivilegedPeerState::Connected) => ProxyEvent::Connected,
-                    Ok(PrivilegedPeerState::Disconnected | PrivilegedPeerState::Closed) => {
-                        ProxyEvent::Disconnected
-                    }
+                    Ok(PrivilegedPeerState::Disconnected) => ProxyEvent::Disconnected,
                     Ok(PrivilegedPeerState::Failed) => ProxyEvent::Failed,
+                    Ok(PrivilegedPeerState::Closed) => ProxyEvent::LocalStop,
                     _ => return self.reject(ProxyError::InvalidMessage),
                 };
                 Ok((value.lease_id, value.generation, event))

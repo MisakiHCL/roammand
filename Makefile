@@ -7,7 +7,7 @@ HOST_AGENT_DEBUG := $(abspath target/debug/roammand-host-agent)
 MACOS_RELEASE_PKG := dist/apple-release/Roammand.pkg
 ROAMMAND_NOTARY_KEYCHAIN_PROFILE ?= roammand-notary
 
-.PHONY: help bootstrap bootstrap-steps app-check app-check-steps app-prepare-host-macos app-run-macos app-run-ios app-build-macos app-build-ios-simulator app-build-android package-macos package-macos-signed release-macos release-macos-steps test-product test-product-steps doctor boundary check-libwebrtc fetch-libwebrtc format format-check generate generate-failure-check generate-check schema-lint schema-build schema-breaking test test-conformance test-dart test-host test-m4 test-m4-config test-m4-lifecycle test-m5 test-m5-config test-m5-lifecycle test-m6 test-m6-config test-m6-lifecycle test-m7 test-m7-config test-m7-fuzz test-m7-privacy test-m7-reconnect test-m8 test-m8-config test-m8-privacy test-native-webrtc test-rust test-go test-schema test-schema-contract test-signaling test-signaling-race
+.PHONY: help bootstrap bootstrap-steps app-check app-check-steps app-prepare-host-macos app-run-macos app-run-ios app-run-ios-release app-build-macos app-build-ios-simulator app-build-android package-macos package-macos-signed release-macos release-macos-steps test-product test-product-steps doctor boundary check-libwebrtc fetch-libwebrtc format format-check generate generate-failure-check generate-check schema-lint schema-build schema-breaking test test-conformance test-dart test-host test-m4 test-m4-config test-m4-lifecycle test-m5 test-m5-config test-m5-lifecycle test-m6 test-m6-config test-m6-lifecycle test-m7 test-m7-config test-m7-fuzz test-m7-privacy test-m7-reconnect test-m8 test-m8-config test-m8-privacy test-native-webrtc test-rust test-go test-schema test-schema-contract test-signaling test-signaling-race
 
 define run-product-workflow
 	@if [ "$(VERBOSE)" = "1" ]; then \
@@ -26,6 +26,8 @@ help:
 		'  make app-run-macos            Build the Debug Host and run the macOS app' \
 		'  make app-run-ios IOS_DEVICE=device-id' \
 		'                                Run a selected iOS target' \
+		'  make app-run-ios-release IOS_DEVICE=device-id' \
+		'                                Run iOS with production performance' \
 		'  make app-build-macos          Build the macOS release app' \
 		'  make app-build-ios-simulator  Build the iOS simulator app' \
 		'  make app-build-android        Build the Android debug APK' \
@@ -72,6 +74,13 @@ app-run-ios:
 		exit 2; \
 	fi
 	cd $(FLUTTER_APP_DIR) && flutter run -d "$(IOS_DEVICE)" --no-pub $(FLUTTER_ARGS)
+
+app-run-ios-release:
+	@if [ -z "$(strip $(IOS_DEVICE))" ]; then \
+		printf 'IOS_DEVICE is required; run flutter devices and pass its device ID\n' >&2; \
+		exit 2; \
+	fi
+	cd $(FLUTTER_APP_DIR) && flutter run --release -d "$(IOS_DEVICE)" --no-pub $(FLUTTER_ARGS)
 
 app-build-macos:
 	cd $(FLUTTER_APP_DIR) && flutter build macos --release --no-pub $(FLUTTER_ARGS)

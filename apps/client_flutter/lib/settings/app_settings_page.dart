@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:roammand/design_system/roammand_back_button.dart';
+import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
@@ -153,30 +154,19 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
           ],
         ),
         const SizedBox(height: 16),
-        DropdownButtonFormField<AppLocalePreference>(
+        _LanguageSelector(
           key: const Key('settings-language-selector'),
-          initialValue: _localePreference,
-          decoration: InputDecoration(labelText: strings.settingsLanguageTitle),
-          items: <DropdownMenuItem<AppLocalePreference>>[
-            DropdownMenuItem(
-              value: AppLocalePreference.system,
-              child: Text(strings.languageSystemOption),
-            ),
-            DropdownMenuItem(
-              value: AppLocalePreference.english,
-              child: Text(strings.languageEnglishOption),
-            ),
-            DropdownMenuItem(
-              value: AppLocalePreference.simplifiedChinese,
-              child: Text(strings.languageSimplifiedChineseOption),
-            ),
-          ],
-          onChanged: widget.onLocalePreferenceChanged == null
+          value: _localePreference,
+          labels: <AppLocalePreference, String>{
+            AppLocalePreference.system: strings.languageSystemOption,
+            AppLocalePreference.english: strings.languageEnglishOption,
+            AppLocalePreference.simplifiedChinese:
+                strings.languageSimplifiedChineseOption,
+          },
+          onSelected: widget.onLocalePreferenceChanged == null
               ? null
               : (preference) {
-                  if (preference == null || preference == _localePreference) {
-                    return;
-                  }
+                  if (preference == _localePreference) return;
                   setState(() => _localePreference = preference);
                   unawaited(widget.onLocalePreferenceChanged!(preference));
                 },
@@ -293,6 +283,108 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
         );
       }
     }
+  }
+}
+
+final class _LanguageSelector extends StatelessWidget {
+  const _LanguageSelector({
+    required this.value,
+    required this.labels,
+    required this.onSelected,
+    super.key,
+  });
+
+  final AppLocalePreference value;
+  final Map<AppLocalePreference, String> labels;
+  final ValueChanged<AppLocalePreference>? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onSelected != null;
+    return PopupMenuButton<AppLocalePreference>(
+      enabled: enabled,
+      initialValue: value,
+      onSelected: onSelected,
+      position: PopupMenuPosition.under,
+      offset: const Offset(0, 8),
+      elevation: 20,
+      color: RoammandColors.elevatedSurface,
+      surfaceTintColor: Colors.transparent,
+      constraints: const BoxConstraints(minWidth: 240, maxWidth: 360),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: RoammandColors.outline),
+      ),
+      itemBuilder: (context) => <PopupMenuEntry<AppLocalePreference>>[
+        for (final preference in AppLocalePreference.values)
+          PopupMenuItem<AppLocalePreference>(
+            key: Key('settings-language-${preference.storageValue}'),
+            value: preference,
+            height: 48,
+            child: Row(
+              children: <Widget>[
+                SizedBox(
+                  width: 24,
+                  child: preference == value
+                      ? const Icon(
+                          Icons.check_rounded,
+                          size: 20,
+                          color: RoammandColors.signalCyan,
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    labels[preference]!,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: RoammandColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 160),
+        opacity: enabled ? 1 : 0.48,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: RoammandColors.elevatedSurface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: RoammandColors.outline),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: <Widget>[
+                const Icon(
+                  Icons.translate_rounded,
+                  size: 20,
+                  color: RoammandColors.auroraSoft,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    labels[value]!,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: RoammandColors.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 24,
+                  color: RoammandColors.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

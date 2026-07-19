@@ -10,6 +10,7 @@ readonly TARGETS=(
   app-check
   app-run-macos
   app-run-ios
+  app-run-ios-release
   app-build-macos
   app-build-ios-simulator
   app-build-android
@@ -53,6 +54,11 @@ rg --quiet '^IOS_DEVICE \?=$' Makefile || {
 
 rg --quiet 'flutter run -d "\$\(IOS_DEVICE\)" --no-pub' Makefile || {
   printf 'iOS development target does not use the selected device ID\n' >&2
+  exit 1
+}
+
+rg --quiet 'flutter run --release -d "\$\(IOS_DEVICE\)" --no-pub' Makefile || {
+  printf 'iOS performance target is not a Release run\n' >&2
   exit 1
 }
 
@@ -118,8 +124,8 @@ rg --quiet 'popUpContextMenu' \
   exit 1
 }
 
-if [[ "$(rg -c 'flutter run .*--no-pub' Makefile)" -ne 2 ]]; then
-  printf 'development app targets should reuse bootstrapped Flutter packages\n' >&2
+if [[ "$(rg -c 'flutter run .*--no-pub' Makefile)" -ne 3 ]]; then
+  printf 'app run targets should reuse bootstrapped Flutter packages\n' >&2
   exit 1
 fi
 

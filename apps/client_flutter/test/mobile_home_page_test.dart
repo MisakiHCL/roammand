@@ -5,16 +5,54 @@ import 'dart:async';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/home/mobile_home_page.dart';
+import 'package:roammand/mobile/identity/mobile_device_identity.dart';
 import 'package:roammand/network/network_service_controller.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
 import 'package:roammand/pairing/trusted_host_store.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 void main() {
+  testWidgets('shows the saved mobile device name and a plain settings icon', (
+    tester,
+  ) async {
+    final repository = TrustedHostRepository(persistence: _MemoryHosts());
+    await repository.initialize();
+    final networkServices = NetworkServiceController.transient();
+    addTearDown(networkServices.dispose);
+    final identity = await MobileDeviceIdentity.fromSeed(
+      seed: List<int>.generate(mobileIdentitySeedBytes, (index) => index),
+      displayName: 'Pocket iPhone',
+      platform: DevicePlatform.DEVICE_PLATFORM_IOS,
+    );
+
+    await tester.pumpWidget(
+      _app(
+        MobileHomePage(
+          trustedHosts: repository,
+          identity: identity,
+          networkServices: networkServices,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('mobile-device-name')), findsOneWidget);
+    expect(find.text('Device name: Pocket iPhone'), findsOneWidget);
+    final settings = tester.widget<IconButton>(
+      find.byKey(const Key('mobile-settings')),
+    );
+    expect(settings.style?.backgroundColor?.resolve(<WidgetState>{}), isNull);
+    expect(
+      settings.style?.foregroundColor?.resolve(<WidgetState>{}),
+      RoammandColors.textPrimary,
+    );
+  });
+
   testWidgets('keeps the empty state usable on a narrow localized phone', (
     tester,
   ) async {
@@ -181,6 +219,11 @@ void main() {
   testWidgets('renames one paired computer only on this device', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() {
+      tester.view.viewInsets = FakeViewPadding.zero;
+      return tester.binding.setSurfaceSize(null);
+    });
     final first = _host(1)..hostIdentity.displayName = 'Roammand Host';
     final second = _host(2)..hostIdentity.displayName = 'Roammand Host';
     final persistence = _MemoryHosts()
@@ -200,11 +243,29 @@ void main() {
 
     expect(find.text('Roammand Host'), findsNWidgets(2));
     await tester.tap(find.byKey(const Key('rename-trusted-host')).first);
+    await tester.pump();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 180);
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('trusted-host-rename-dialog')), findsOneWidget);
+    final renameField = tester.widget<TextField>(
+      find.byKey(const Key('trusted-host-name-field')),
+    );
+    expect(renameField.cursorOpacityAnimates, isFalse);
+    expect(renameField.enableIMEPersonalizedLearning, isFalse);
+    expect(
+      tester.getSize(find.byKey(const Key('trusted-host-name-field'))).height,
+      48,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('save-trusted-host-name'))).height,
+      36,
+    );
+    expect(tester.takeException(), isNull);
     await tester.enterText(
       find.byKey(const Key('trusted-host-name-field')),
       'Studio Mac',
     );
+    await tester.ensureVisible(find.byKey(const Key('save-trusted-host-name')));
     await tester.tap(find.byKey(const Key('save-trusted-host-name')));
     await tester.pumpAndSettle();
 

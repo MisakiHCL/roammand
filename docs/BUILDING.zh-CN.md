@@ -16,6 +16,7 @@
 | 分析和测试 Flutter App | `make app-check` |
 | 构建 Debug Host 并运行 macOS App | `make app-run-macos` |
 | 运行指定的 iOS 目标 | `make app-run-ios IOS_DEVICE=YOUR_IOS_DEVICE_ID` |
+| 以生产性能运行 iOS | `make app-run-ios-release IOS_DEVICE=YOUR_IOS_DEVICE_ID` |
 | 构建 macOS Release App | `make app-build-macos` |
 | 构建 iOS 模拟器 App | `make app-build-ios-simulator` |
 | 构建 Android Debug APK | `make app-build-android` |
@@ -89,6 +90,10 @@ flutter run -d YOUR_IOS_DEVICE_ID --no-pub
 `-d` 必须接收 `flutter devices` 返回的准确 ID。选择真机时不要传平台名称
 `ios` 或 `android`。在仓库根目录运行 iOS 的等价命令是
 `make app-run-ios IOS_DEVICE=YOUR_IOS_DEVICE_ID`。
+
+常规运行是用于热重载的 Debug 构建，不能代表正式性能。请在实体设备上使用
+`make app-run-ios-release IOS_DEVICE=YOUR_IOS_DEVICE_ID`
+验证键盘、动画和帧耗时。
 
 源码真机测试因此从四个终端缩减为两个。安装后的桌面与移动 Release 都直接从图形界面启动，不需要终端。依赖文件改变后重新运行 `make bootstrap`；平时的运行目标会直接使用锁定并已缓存的依赖。
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
+import 'package:roammand/design_system/roammand_text_input.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 
 import 'device_name_provider.dart';
@@ -242,6 +243,10 @@ final class _MobileIdentityOnboardingState
               maxLength: 128,
               textInputAction: TextInputAction.done,
               autocorrect: false,
+              cursorOpacityAnimates:
+                  RoammandTextInputPolicy.cursorOpacityAnimates,
+              enableIMEPersonalizedLearning:
+                  RoammandTextInputPolicy.enableImePersonalizedLearning,
               decoration: InputDecoration(
                 labelText: strings.mobileDeviceNameLabel,
                 prefixIcon: const Icon(Icons.phone_iphone),

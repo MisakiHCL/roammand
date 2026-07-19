@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#[cfg(feature = "native-webrtc")]
+use roammand_privileged_bridge::{
+    helper::HelperBackend, native_helper::NativeHelperBackend, proxy::ProxyEvent,
+};
 use roammand_privileged_bridge::{
     indicator::IndicatorStatusKey, native_indicator::native_indicator_channel,
 };
@@ -48,4 +52,19 @@ fn repeated_controlled_state_does_not_republish_the_surface() {
         .expect("repeat show");
 
     assert_eq!(runtime.snapshot().revision, revision);
+}
+
+#[test]
+#[cfg(feature = "native-webrtc")]
+fn protected_local_stop_reaches_the_host_as_a_terminal_event() {
+    let (client, runtime) = native_indicator_channel();
+    client.show_controlled("Controller phone").expect("show");
+    let mut backend = NativeHelperBackend::new().with_indicator(client);
+
+    assert!(runtime.local_stop());
+    assert_eq!(
+        backend.try_event().expect("terminal event"),
+        Some(ProxyEvent::LocalStop)
+    );
+    assert_eq!(backend.try_event().expect("event consumed"), None);
 }

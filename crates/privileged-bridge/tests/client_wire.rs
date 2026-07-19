@@ -20,9 +20,9 @@ use roammand_privileged_bridge::{
 use roammand_protocol::roammand::v1::{
     IceCandidate, PrivilegedBridgeClientFrame, PrivilegedBridgeServerFrame,
     PrivilegedCommandAccepted, PrivilegedLease, PrivilegedLocalIceCandidate, PrivilegedPeerAnswer,
-    ProtocolVersion, SessionDescriptionType, SessionPermission, TextInputEvent,
-    WebRtcSessionDescription, privileged_bridge_client_frame, privileged_bridge_server_frame,
-    privileged_input_command,
+    PrivilegedPeerState, PrivilegedPeerStateChanged, ProtocolVersion, SessionDescriptionType,
+    SessionPermission, TextInputEvent, WebRtcSessionDescription, privileged_bridge_client_frame,
+    privileged_bridge_server_frame, privileged_input_command,
 };
 
 const OFFER_SDP: &str = concat!(
@@ -306,6 +306,50 @@ fn maps_typed_peer_input_and_event_messages_without_exposing_credentials() {
         input.input,
         Some(privileged_input_command::Input::Text(TextInputEvent { ref text })) if text == "hello"
     ));
+}
+
+#[test]
+fn maps_the_terminal_peer_state_to_a_local_stop() {
+    let route = ProxyRoute::new(LeaseId::new([0x49; 16]), 10);
+    let rpc = FakeRpc {
+        calls: Arc::new(Mutex::new(Vec::new())),
+        failed: Arc::new(Mutex::new(false)),
+        route,
+        mutation: ReplyMutation::None,
+        event: Some(PrivilegedBridgeServerFrame {
+            protocol_version: Some(version()),
+            request_id: "event-stop".to_owned(),
+            sequence: 1,
+            payload: Some(privileged_bridge_server_frame::Payload::PeerStateChanged(
+                PrivilegedPeerStateChanged {
+                    lease_id: route.lease_id.into_bytes().to_vec(),
+                    generation: route.generation,
+                    state: PrivilegedPeerState::Closed as i32,
+                },
+            )),
+        }),
+    };
+    let mut wire = ProtobufBridgeWire::new(
+        Box::new(rpc),
+        BridgePeerOptions::new(Vec::new()).expect("options"),
+        "Controller".to_owned(),
+    )
+    .expect("wire");
+    wire.start(
+        BridgeRequest { route, sequence: 1 },
+        &SessionConfig::new(IceTransportPolicy::All),
+        OFFER_SDP,
+    )
+    .expect("start");
+
+    assert_eq!(
+        wire.try_event().expect("event"),
+        Some(roammand_privileged_bridge::proxy::BridgeResponse {
+            route,
+            sequence: 1,
+            value: ProxyEvent::LocalStop,
+        })
+    );
 }
 
 #[test]

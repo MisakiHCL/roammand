@@ -230,6 +230,32 @@ void main() {
   });
 
   test(
+    'Host close ends the session without reconnecting or echoing close',
+    () async {
+      final fixture = await _Fixture.create();
+      await fixture.connectFully();
+      final sessionId = fixture.sentOffers.single.sessionId;
+      final sentBeforeClose = fixture.signaling.sent.length;
+
+      fixture.signaling.route(
+        fixture.envelope(
+          sessionStatus: SessionStatus(
+            sessionId: sessionId,
+            state: SessionState.SESSION_STATE_CLOSING,
+          ),
+        ),
+      );
+      await _pumpEvents();
+
+      expect(fixture.controller.state, RemoteDesktopState.idle);
+      expect(fixture.scheduler.activeCount, 0);
+      expect(fixture.adapter.closeCount, 1);
+      expect(fixture.signaling.closeCount, 1);
+      expect(fixture.signaling.sent, hasLength(sentBeforeClose));
+    },
+  );
+
+  test(
     'reconnects with a fresh signed offer and Host reconnect proof',
     () async {
       final fixture = await _Fixture.create();
@@ -634,6 +660,7 @@ final class _Fixture {
   SignalingEnvelope envelope({
     SessionAuthentication? sessionAuthentication,
     WebRtcNegotiation? webrtcNegotiation,
+    SessionStatus? sessionStatus,
     UnifiedError? error,
   }) => SignalingEnvelope(
     protocolVersion: ProtocolVersion(major: 1, minor: 0),
@@ -643,6 +670,7 @@ final class _Fixture {
     sentAtUnixMs: Int64(_nowUnixMs),
     sessionAuthentication: sessionAuthentication,
     webrtcNegotiation: webrtcNegotiation,
+    sessionStatus: sessionStatus,
     error: error,
   );
 

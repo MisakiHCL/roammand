@@ -20,15 +20,16 @@ use roammand_protocol::{
     canonical_transcript::sha256,
     identity_derivation::derive_device_id_v1,
     roammand::v1::{
-        DeviceIdentity, DevicePlatform, ErrorCode, GetRemoteSessionStatusRequest, IceCandidate,
-        LocalIpcClientFrame, ProtocolVersion, PublicKeyAlgorithm, ReliableInputEnvelope,
-        RevokeControllerGrantRequest, SessionAuthentication, SessionControlAction,
-        SessionControlEvent, SessionDescriptionType, SessionOfferAuthentication, SessionPermission,
-        SessionReconnectAuthentication, SessionState, SessionStatus, SignalingEnvelope,
-        WebRtcNegotiation, WebRtcSessionDescription, local_ipc_client_frame,
-        local_ipc_server_frame, reliable_input_envelope, session_authentication,
-        signaling_envelope, web_rtc_negotiation,
+        DeviceIdentity, DevicePlatform, EmergencyStopRemoteSessionRequest, ErrorCode,
+        GetRemoteSessionStatusRequest, IceCandidate, LocalIpcClientFrame, ProtocolVersion,
+        PublicKeyAlgorithm, ReliableInputEnvelope, RevokeControllerGrantRequest,
+        SessionAuthentication, SessionControlAction, SessionControlEvent, SessionDescriptionType,
+        SessionOfferAuthentication, SessionPermission, SessionReconnectAuthentication,
+        SessionState, SessionStatus, SignalingEnvelope, WebRtcNegotiation,
+        WebRtcSessionDescription, local_ipc_client_frame, local_ipc_server_frame,
+        reliable_input_envelope, session_authentication, signaling_envelope, web_rtc_negotiation,
     },
+    validation::decode_and_validate_signaling_envelope,
 };
 
 const NOW_UNIX_MS: u64 = 1_900_000_000_000;
@@ -425,10 +426,93 @@ fn revocation_closes_peer_and_releases_input() {
     let termination = terminations
         .try_recv()
         .expect("revocation must broadcast termination");
-    fixture
+    let outbound = fixture
         .coordinator
         .handle_termination(&termination, NOW_UNIX_MS)
         .expect("revocation must close the session");
+    assert_eq!(outbound.len(), 1);
+    let closing = decode_and_validate_signaling_envelope(&outbound[0].opaque_envelope)
+        .expect("termination status must validate");
+    let status = match closing.payload {
+        Some(signaling_envelope::Payload::SessionStatus(status)) => status,
+        _ => panic!("expected closing session status"),
+    };
+    assert_eq!(status.session_id, fixture.session_id);
+    assert_eq!(
+        SessionState::try_from(status.state),
+        Ok(SessionState::Closing)
+    );
+    assert_eq!(
+        fixture.operations(),
+        vec!["peer-start", "input-release-all", "peer-close"]
+    );
+}
+
+#[test]
+fn local_emergency_stop_notifies_controller_and_finishes_idle() {
+    let mut fixture = Fixture::new();
+    fixture.connect();
+    let mut terminations = fixture.service.subscribe_session_terminations();
+
+    let response = fixture.service.handle_frame(
+        &local_frame(local_ipc_client_frame::Payload::EmergencyStopRemoteSession(
+            EmergencyStopRemoteSessionRequest {},
+        )),
+        NOW_UNIX_MS,
+    );
+    let Some(local_ipc_server_frame::Payload::EmergencyStopRemoteSessionResult(result)) =
+        response.payload
+    else {
+        panic!("expected emergency-stop result");
+    };
+    assert_eq!(result.terminated_session_count, 1);
+    let termination = terminations
+        .try_recv()
+        .expect("emergency stop must broadcast termination");
+
+    let outbound = fixture
+        .coordinator
+        .handle_termination(&termination, NOW_UNIX_MS)
+        .expect("emergency stop must close the session");
+
+    assert_eq!(outbound.len(), 1);
+    let closing = decode_and_validate_signaling_envelope(&outbound[0].opaque_envelope)
+        .expect("termination status must validate");
+    assert!(matches!(
+        closing.payload,
+        Some(signaling_envelope::Payload::SessionStatus(SessionStatus {
+            state,
+            ..
+        })) if SessionState::try_from(state) == Ok(SessionState::Closing)
+    ));
+    assert_eq!(fixture.status_state(), SessionState::Idle);
+    assert_eq!(
+        fixture.operations(),
+        vec!["peer-start", "input-release-all", "peer-close"]
+    );
+}
+
+#[test]
+fn protected_indicator_stop_notifies_controller_without_reconnecting() {
+    let mut fixture = Fixture::new();
+    fixture.connect();
+
+    let outbound = fixture
+        .coordinator
+        .handle_peer_event(RemotePeerEvent::LocalStop, NOW_UNIX_MS)
+        .expect("protected stop must close the session");
+
+    assert_eq!(outbound.len(), 1);
+    let closing = decode_and_validate_signaling_envelope(&outbound[0].opaque_envelope)
+        .expect("termination status must validate");
+    assert!(matches!(
+        closing.payload,
+        Some(signaling_envelope::Payload::SessionStatus(SessionStatus {
+            state,
+            ..
+        })) if SessionState::try_from(state) == Ok(SessionState::Closing)
+    ));
+    assert_eq!(fixture.status_state(), SessionState::Idle);
     assert_eq!(
         fixture.operations(),
         vec!["peer-start", "input-release-all", "peer-close"]

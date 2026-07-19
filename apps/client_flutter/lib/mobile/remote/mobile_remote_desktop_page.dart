@@ -512,7 +512,12 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
 
   void _onControllerChanged() {
     _syncKeyboardController();
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    if (!_closing && widget.controller.state == RemoteDesktopState.idle) {
+      unawaited(_closeSession(pop: true));
+      return;
+    }
+    setState(() {});
   }
 
   void _syncKeyboardController() {

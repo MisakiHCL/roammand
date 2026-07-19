@@ -427,10 +427,17 @@ final class RemoteDesktopController extends ChangeNotifier
           }
           throw const RemoteDesktopException(RemoteDesktopErrorCode.remote);
         case SignalingEnvelope_Payload.sessionStatus:
-          if (envelope.sessionStatus.state ==
-                  SessionState.SESSION_STATE_FAILED ||
-              envelope.sessionStatus.state ==
-                  SessionState.SESSION_STATE_CLOSING) {
+          final status = envelope.sessionStatus;
+          if (!_bytesEqual(status.sessionId, sessionId)) {
+            throw const RemoteDesktopException(
+              RemoteDesktopErrorCode.authentication,
+            );
+          }
+          if (status.state == SessionState.SESSION_STATE_CLOSING) {
+            await _closeResources(setIdle: true, notifyRemote: false);
+            return;
+          }
+          if (status.state == SessionState.SESSION_STATE_FAILED) {
             throw const RemoteDesktopException(RemoteDesktopErrorCode.remote);
           }
         case SignalingEnvelope_Payload.capabilityNegotiation:
@@ -788,7 +795,10 @@ final class RemoteDesktopController extends ChangeNotifier
     _setState(RemoteDesktopState.failed);
   }
 
-  Future<void> _closeResources({required bool setIdle}) async {
+  Future<void> _closeResources({
+    required bool setIdle,
+    bool notifyRemote = true,
+  }) async {
     if (_resourcesClosed) {
       if (setIdle) {
         _errorCode = null;
@@ -810,7 +820,7 @@ final class RemoteDesktopController extends ChangeNotifier
     try {
       await input?.close();
     } catch (_) {}
-    if (_offerSent) {
+    if (_offerSent && notifyRemote) {
       try {
         await _relay(
           sessionStatus: SessionStatus(

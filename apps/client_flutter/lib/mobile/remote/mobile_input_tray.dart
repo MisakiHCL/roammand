@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_text_input.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/remote/mobile_keyboard_controller.dart';
 
@@ -61,6 +62,10 @@ final class _MobileInputTrayState extends State<MobileInputTray> {
                     controller: _textController,
                     focusNode: widget.textFocusNode,
                     enabled: widget.enabled,
+                    cursorOpacityAnimates:
+                        RoammandTextInputPolicy.cursorOpacityAnimates,
+                    enableIMEPersonalizedLearning:
+                        RoammandTextInputPolicy.enableImePersonalizedLearning,
                     decoration: InputDecoration(
                       isDense: true,
                       border: const OutlineInputBorder(),

@@ -384,6 +384,7 @@ fn event_frame(route: ProxyRoute, sequence: u64, event: ProxyEvent) -> Privilege
         ProxyEvent::Connected => state_event(route, PrivilegedPeerState::Connected),
         ProxyEvent::Disconnected => state_event(route, PrivilegedPeerState::Disconnected),
         ProxyEvent::Failed => state_event(route, PrivilegedPeerState::Failed),
+        ProxyEvent::LocalStop => state_event(route, PrivilegedPeerState::Closed),
         ProxyEvent::LocalIceCandidate(candidate) => {
             privileged_bridge_server_frame::Payload::LocalIceCandidate(
                 PrivilegedLocalIceCandidate {

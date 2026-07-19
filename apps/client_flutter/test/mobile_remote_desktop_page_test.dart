@@ -207,6 +207,11 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('mobile-text-input')), findsOneWidget);
+    final textInput = tester.widget<TextField>(
+      find.byKey(const Key('mobile-text-input')),
+    );
+    expect(textInput.cursorOpacityAnimates, isFalse);
+    expect(textInput.enableIMEPersonalizedLearning, isFalse);
     expect(find.byKey(const Key('mobile-remote-header')), findsOneWidget);
     expect(
       find.byKey(const Key('mobile-remote-gesture-surface')),
@@ -517,6 +522,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('home'), findsOneWidget);
     expect(fixture.controller.closeCount, 1);
+  });
+
+  testWidgets('Host stop closes the mobile page without retrying', (
+    tester,
+  ) async {
+    final fixture = _PageFixture();
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(body: Text('home')),
+      ),
+    );
+    unawaited(
+      navigatorKey.currentState!.push<void>(
+        MaterialPageRoute<void>(builder: (_) => fixture.page()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    fixture.controller
+      ..state = RemoteDesktopState.idle
+      ..notifyListeners();
+    await tester.pumpAndSettle();
+
+    expect(find.text('home'), findsOneWidget);
+    expect(find.byType(MobileRemoteDesktopPage), findsNothing);
+    expect(fixture.controller.closeCount, 1);
+    expect(fixture.controller.retryCount, 0);
   });
 
   testWidgets('opens the localized diagnostics preview', (tester) async {

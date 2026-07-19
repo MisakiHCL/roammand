@@ -28,11 +28,14 @@ use crate::{
     service::RemoteServiceError,
 };
 
+const LOCAL_TERMINATION_REQUEST_ID: &str = "host-termination";
+
 #[derive(Clone, Eq, PartialEq)]
 pub enum RemotePeerEvent {
     Connected,
     Disconnected,
     Failed,
+    LocalStop,
     LocalIceCandidate(PeerIceCandidate),
     ReliableInput(Vec<u8>),
     FastPointer(Vec<u8>),
@@ -44,6 +47,7 @@ impl fmt::Debug for RemotePeerEvent {
             Self::Connected => ("connected", 0),
             Self::Disconnected => ("disconnected", 0),
             Self::Failed => ("failed", 0),
+            Self::LocalStop => ("local_stop", 0),
             Self::LocalIceCandidate(_) => ("local_ice_candidate", 0),
             Self::ReliableInput(encoded) => ("reliable_input", encoded.len()),
             Self::FastPointer(encoded) => ("fast_pointer", encoded.len()),
@@ -416,6 +420,9 @@ impl RemoteSessionCoordinator {
                 self.begin_active_reconnect(now_unix_ms)?;
                 Ok(Vec::new())
             }
+            RemotePeerEvent::LocalStop => {
+                self.close_active_with_remote_notification(now_unix_ms, None)
+            }
         }
     }
 
@@ -441,7 +448,7 @@ impl RemoteSessionCoordinator {
         )
     }
 
-    /// Closes an active session when a persisted grant is revoked.
+    /// Closes an active session after a trusted local termination request.
     ///
     /// # Errors
     ///
@@ -450,15 +457,45 @@ impl RemoteSessionCoordinator {
         &mut self,
         event: &SessionTerminatedEvent,
         now_unix_ms: u64,
-    ) -> Result<(), RemoteSessionError> {
+    ) -> Result<Vec<RemoteSessionOutbound>, RemoteSessionError> {
         let matches = self.active.as_ref().is_some_and(|active| {
             active.session_id == event.session_id
                 && active.controller_device_id == event.controller_device_id
         });
-        if matches {
-            self.close_active(Some(session_error(ErrorCode::AuthRevoked)), now_unix_ms)?;
+        if !matches {
+            return Ok(Vec::new());
         }
-        Ok(())
+
+        let final_error = match ErrorCode::try_from(event.reason) {
+            Ok(ErrorCode::LocalEmergencyStop) => None,
+            Ok(ErrorCode::Unspecified) | Err(_) => Some(session_error(ErrorCode::AuthRevoked)),
+            Ok(reason) => Some(session_error(reason)),
+        };
+        self.close_active_with_remote_notification(now_unix_ms, final_error)
+    }
+
+    fn close_active_with_remote_notification(
+        &mut self,
+        now_unix_ms: u64,
+        final_error: Option<UnifiedError>,
+    ) -> Result<Vec<RemoteSessionOutbound>, RemoteSessionError> {
+        let Some(active) = self.active.as_ref() else {
+            return Ok(Vec::new());
+        };
+        let outbound = self.outbound(
+            &active.controller_device_id,
+            LOCAL_TERMINATION_REQUEST_ID,
+            now_unix_ms,
+            signaling_envelope::Payload::SessionStatus(
+                roammand_protocol::roammand::v1::SessionStatus {
+                    session_id: active.session_id.clone(),
+                    state: SessionState::Closing as i32,
+                    error: None,
+                },
+            ),
+        )?;
+        self.close_active(final_error, now_unix_ms)?;
+        Ok(vec![outbound])
     }
 
     /// Suspends input and starts the bounded retained-session reconnect window.

@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:roammand/design_system/roammand_progress_indicator.dart';
+import 'package:roammand/design_system/roammand_text_input.dart';
 import 'package:roammand/desktop/host_agent/host_agent_client.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/pairing/controller_pairing_engine.dart';
@@ -151,6 +152,9 @@ final class _DesktopPairingDialogState extends State<DesktopPairingDialog> {
         autofocus: true,
         autocorrect: false,
         enableSuggestions: false,
+        cursorOpacityAnimates: RoammandTextInputPolicy.cursorOpacityAnimates,
+        enableIMEPersonalizedLearning:
+            RoammandTextInputPolicy.enableImePersonalizedLearning,
         textCapitalization: TextCapitalization.characters,
         inputFormatters: <TextInputFormatter>[_DesktopPairingCodeFormatter()],
         decoration: InputDecoration(
