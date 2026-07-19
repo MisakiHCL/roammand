@@ -69,7 +69,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('activity indicator is compact and gradient masked', (
+  testWidgets('activity indicator is compact and paints inside its bounds', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -80,8 +80,17 @@ void main() {
       tester.getSize(find.byType(RoammandProgressIndicator)),
       const Size.square(roammandProgressIndicatorSize),
     );
-    expect(find.byType(ShaderMask), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNWidgets(2));
+    expect(find.byType(ShaderMask), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(RoammandProgressIndicator),
+        matching: find.byType(CustomPaint),
+      ),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(tester.takeException(), isNull);
   });
 }
 
