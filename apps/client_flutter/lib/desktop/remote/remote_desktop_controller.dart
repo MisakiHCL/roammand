@@ -235,6 +235,12 @@ final class RemoteDesktopController extends ChangeNotifier
         (event) => unawaited(_handleRouted(event)),
         onError: (Object error) {
           _debugRemoteFailure(_RemoteDebugOperation.signalingStream, error);
+          if (error is SignalingRemoteException) {
+            _diagnostics.recordError(
+              DiagnosticsErrorCategory.signaling,
+              _diagnosticSignalingRemoteError(error.code),
+            );
+          }
           unawaited(_handleRecoverableFailure(signaling: true));
         },
         onDone: () {
@@ -946,6 +952,7 @@ void _debugRemoteFailure(_RemoteDebugOperation operation, Object error) {
   final cause = switch (error) {
     RemoteDesktopException(:final code) => code.name,
     SignalingClientException(:final code) => code.name,
+    SignalingRemoteException(:final code) => code.name,
     SessionAnswerAuthenticationException(:final code) => code.name,
     SessionReconnectAuthenticationException(:final code) => code.name,
     PeerSessionException(:final code) => code.name,
@@ -1018,6 +1025,15 @@ DiagnosticsErrorCode _diagnosticErrorCode(
   RemoteDesktopErrorCode.peer => DiagnosticsErrorCode.iceFailed,
   RemoteDesktopErrorCode.remote => DiagnosticsErrorCode.remoteFailed,
 };
+
+DiagnosticsErrorCode _diagnosticSignalingRemoteError(ErrorCode code) =>
+    switch (code) {
+      ErrorCode.ERROR_CODE_DEVICE_OFFLINE => DiagnosticsErrorCode.deviceOffline,
+      ErrorCode.ERROR_CODE_DEVICE_BUSY => DiagnosticsErrorCode.deviceBusy,
+      ErrorCode.ERROR_CODE_SERVER_UNAVAILABLE =>
+        DiagnosticsErrorCode.serverUnavailable,
+      _ => DiagnosticsErrorCode.signalingRejected,
+    };
 
 bool _bytesEqual(List<int> left, List<int> right) {
   if (left.length != right.length) {

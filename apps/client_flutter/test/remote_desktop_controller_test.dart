@@ -172,6 +172,38 @@ void main() {
     },
   );
 
+  test('saved diagnostics preserve a stable signaling server code', () async {
+    final logs = <String>[];
+    final originalDebugPrint = debugPrint;
+    debugPrint = (message, {wrapWidth}) {
+      if (message != null) logs.add(message);
+    };
+    addTearDown(() => debugPrint = originalDebugPrint);
+    final fixture = await _Fixture.create();
+
+    await fixture.controller.connect(fixture.target);
+    fixture.signaling.fail(
+      const SignalingRemoteException(
+        code: ErrorCode.ERROR_CODE_DEVICE_OFFLINE,
+        retryable: true,
+      ),
+    );
+    await _pumpEvents();
+
+    final errorCodes = fixture.controller.diagnosticsReport.events
+        .whereType<DiagnosticsErrorEvent>()
+        .map((event) => event.code)
+        .toList();
+    expect(errorCodes, contains(DiagnosticsErrorCode.deviceOffline));
+    expect(
+      logs,
+      contains(
+        '[remote] operation=signalingStream '
+        'cause=ERROR_CODE_DEVICE_OFFLINE',
+      ),
+    );
+  });
+
   test('normal close notifies Host before releasing resources', () async {
     final fixture = await _Fixture.create();
     await fixture.connectFully();
@@ -761,10 +793,12 @@ final class _FakeSignalingLink implements ControllerSignalingLink {
     );
   }
 
-  void fail() {
-    _routed.addError(
-      const SignalingClientException(SignalingClientErrorCode.transport),
-    );
+  void fail([
+    Object error = const SignalingClientException(
+      SignalingClientErrorCode.transport,
+    ),
+  ]) {
+    _routed.addError(error);
   }
 
   @override
