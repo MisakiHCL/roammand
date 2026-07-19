@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
@@ -339,10 +340,7 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
                 const SizedBox(width: 8),
               ],
               if (_isProgressState(widget.controller.state)) ...<Widget>[
-                const SizedBox.square(
-                  dimension: 12,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                const RoammandProgressIndicator(size: 12),
                 const SizedBox(width: 4),
               ],
               Flexible(

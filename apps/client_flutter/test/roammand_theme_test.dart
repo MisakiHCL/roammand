@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/design_system/roammand_brand_mark.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_theme.dart';
 
 void main() {
@@ -66,6 +67,21 @@ void main() {
 
     expect(find.bySemanticsLabel('Roammand'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('activity indicator is compact and gradient masked', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Center(child: RoammandProgressIndicator())),
+    );
+
+    expect(
+      tester.getSize(find.byType(RoammandProgressIndicator)),
+      const Size.square(roammandProgressIndicatorSize),
+    );
+    expect(find.byType(ShaderMask), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNWidgets(2));
   });
 }
 

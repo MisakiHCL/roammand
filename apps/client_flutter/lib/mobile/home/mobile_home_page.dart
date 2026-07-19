@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:roammand/design_system/roammand_brand_mark.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
@@ -17,6 +18,7 @@ import 'package:roammand/mobile/remote/mobile_remote_launcher.dart';
 import 'package:roammand/network/network_service_controller.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
 import 'package:roammand/pairing/device_identity_validator.dart';
+import 'package:roammand/pairing/device_fingerprint.dart';
 import 'package:roammand/settings/app_settings_page.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
@@ -28,7 +30,6 @@ const _landscapeLayoutBreakpoint = 680.0;
 const _homeHeadlineFontSize = 24.0;
 const _homeTitleFontSize = 16.0;
 const _homeBodyFontSize = 12.0;
-const _fingerprintBytes = 8;
 
 typedef MobilePairingPageBuilder = Widget Function(BuildContext context);
 
@@ -470,10 +471,7 @@ final class _MobileTrustedHostCard extends StatelessWidget {
                   onPressed: connecting || deleting ? null : onDelete,
                   tooltip: strings.deleteTrustedHostAction,
                   icon: deleting
-                      ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const RoammandProgressIndicator()
                       : const Icon(Icons.delete_outline, size: 20),
                 ),
               ],
@@ -488,16 +486,17 @@ final class _MobileTrustedHostCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               strings.hostShortFingerprint(
-                _shortFingerprint(devicePublicKeyFingerprintSha256(identity)),
+                formatShortDeviceFingerprint(
+                  devicePublicKeyFingerprintSha256(identity),
+                ),
               ),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: enabled ? onConnect : null,
               icon: connecting
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                  ? const RoammandProgressIndicator(
+                      size: roammandCompactProgressIndicatorSize,
                     )
                   : const Icon(Icons.arrow_forward, size: 20),
               label: Text(
@@ -547,11 +546,6 @@ String _platformLabel(AppLocalizations strings, DevicePlatform platform) =>
       DevicePlatform.DEVICE_PLATFORM_WINDOWS => strings.devicePlatformWindows,
       _ => strings.devicePlatformUnknown,
     };
-
-String _shortFingerprint(List<int> fingerprint) => fingerprint
-    .take(_fingerprintBytes)
-    .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
-    .join(' ');
 
 String _formatDateTime(BuildContext context, int unixMs) {
   final value = DateTime.fromMillisecondsSinceEpoch(unixMs).toLocal();

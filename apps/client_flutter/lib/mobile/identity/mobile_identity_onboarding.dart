@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 
@@ -270,10 +271,7 @@ final class _MobileIdentityOnboardingState
             FilledButton.icon(
               onPressed: _saving ? null : _confirm,
               icon: _saving
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                  ? const RoammandProgressIndicator()
                   : const Icon(Icons.arrow_forward, size: 20),
               label: Text(strings.mobileConfirmIdentityAction),
             ),

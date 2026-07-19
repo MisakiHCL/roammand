@@ -3,10 +3,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/network/network_service_controller.dart';
+import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 import 'package:roammand/settings/network/network_service_settings_page.dart';
 import 'package:roammand/settings/uninstall/app_uninstaller.dart';
 
@@ -57,57 +59,61 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
-    return Scaffold(
-      appBar: widget.showAppBar
-          ? AppBar(title: Text(strings.settingsTitle))
-          : null,
-      body: RoammandBackdrop(
-        child: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ListView(
-              padding: const EdgeInsets.all(_pagePadding),
+    final useMobileHeader = widget.mobileContext && widget.showAppBar;
+    final pageContent = Align(
+      alignment: Alignment.topCenter,
+      child: ListView(
+        padding: const EdgeInsets.all(_pagePadding),
+        children: <Widget>[
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _maximumContentWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: _maximumContentWidth,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      _SettingsSection(
-                        title: strings.settingsGeneralSection,
-                        children: <Widget>[_languageTile(strings)],
-                      ),
-                      const SizedBox(height: _sectionSpacing),
-                      _SettingsSection(
-                        title: strings.settingsConnectionSection,
-                        children: <Widget>[
-                          ListTile(
-                            key: const Key('settings-network-services'),
-                            leading: const Icon(Icons.settings_ethernet),
-                            title: Text(strings.networkSettingsTitle),
-                            subtitle: Text(strings.networkSettingsBody),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: _openNetworkSettings,
-                          ),
-                        ],
-                      ),
-                      if (widget.uninstaller != null) ...<Widget>[
-                        const SizedBox(height: _sectionSpacing),
-                        _SettingsSection(
-                          title: strings.settingsAdvancedSection,
-                          children: <Widget>[_uninstallTile(strings)],
-                        ),
-                      ],
-                    ],
-                  ),
+                _SettingsSection(
+                  title: strings.settingsGeneralSection,
+                  children: <Widget>[_languageTile(strings)],
                 ),
+                const SizedBox(height: _sectionSpacing),
+                _SettingsSection(
+                  title: strings.settingsConnectionSection,
+                  children: <Widget>[
+                    ListTile(
+                      key: const Key('settings-network-services'),
+                      leading: const Icon(Icons.settings_ethernet),
+                      title: Text(strings.networkSettingsTitle),
+                      subtitle: Text(strings.networkSettingsBody),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _openNetworkSettings,
+                    ),
+                  ],
+                ),
+                if (widget.uninstaller != null) ...<Widget>[
+                  const SizedBox(height: _sectionSpacing),
+                  _SettingsSection(
+                    title: strings.settingsAdvancedSection,
+                    children: <Widget>[_uninstallTile(strings)],
+                  ),
+                ],
               ],
             ),
           ),
-        ),
+        ],
       ),
+    );
+    return Scaffold(
+      appBar: widget.showAppBar && !widget.mobileContext
+          ? AppBar(title: Text(strings.settingsTitle))
+          : null,
+      body: useMobileHeader
+          ? MobilePageFrame(
+              title: strings.settingsTitle,
+              headerKey: const Key('mobile-settings-header'),
+              backButtonKey: const Key('mobile-settings-back'),
+              onBack: () => Navigator.of(context).maybePop(),
+              child: pageContent,
+            )
+          : RoammandBackdrop(child: SafeArea(child: pageContent)),
     );
   }
 
@@ -191,10 +197,7 @@ final class _AppSettingsPageState extends State<AppSettingsPage> {
             title: Text(strings.uninstallSettingsTitle),
             subtitle: Text(subtitle),
             trailing: _uninstalling
-                ? const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const RoammandProgressIndicator()
                 : const Icon(Icons.chevron_right),
             enabled: available && !_uninstalling,
             onTap: available && !_uninstalling ? _confirmUninstall : null,

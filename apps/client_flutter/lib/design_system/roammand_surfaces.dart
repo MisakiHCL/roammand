@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'roammand_brand_mark.dart';
 import 'roammand_colors.dart';
+import 'roammand_progress_indicator.dart';
 
 final class RoammandBackdrop extends StatelessWidget {
   const RoammandBackdrop({required this.child, super.key});
@@ -55,7 +56,7 @@ final class RoammandStatusPage extends StatelessWidget {
                 const RoammandBrandMark(size: 88),
                 const SizedBox(height: 24),
                 if (progress) ...<Widget>[
-                  const CircularProgressIndicator(),
+                  const RoammandProgressIndicator(),
                   const SizedBox(height: 16),
                 ],
                 Text(message, textAlign: TextAlign.center),

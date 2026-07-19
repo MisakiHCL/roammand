@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
@@ -304,9 +305,8 @@ final class _RemoteDesktopPageState extends State<RemoteDesktopPage>
               const SizedBox(width: 8),
             ],
             if (_isProgressState(widget.controller.state)) ...<Widget>[
-              const SizedBox.square(
-                dimension: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
+              const RoammandProgressIndicator(
+                size: roammandCompactProgressIndicatorSize,
               ),
               const SizedBox(width: 8),
             ],

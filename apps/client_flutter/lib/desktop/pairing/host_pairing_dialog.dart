@@ -4,18 +4,19 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/desktop/host_agent/host_agent_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/pairing/desktop_pairing_code.dart';
+import 'package:roammand/pairing/device_fingerprint.dart';
 import 'package:roammand/pairing/qr_pairing_uri.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-const _dialogMaximumWidth = 560.0;
+const _dialogMaximumWidth = 520.0;
 const _dialogSpacing = 16.0;
 const _compactSpacing = 8.0;
-const _qrSize = 240.0;
-const _fingerprintBytes = 8;
+const _qrSize = 200.0;
 const _countdownTick = Duration(seconds: 1);
 
 Future<void> showHostPairingDialog(
@@ -133,31 +134,53 @@ final class _HostPairingDialogState extends State<HostPairingDialog> {
     }
 
     final invitation = displayStatus.invitation;
+    if (status.state ==
+        HostPairingState.HOST_PAIRING_STATE_WAITING_LOCAL_DECISION) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          _buildControllerDecision(context, strings, status, invitation.kind),
+          const SizedBox(height: _compactSpacing),
+          _buildCountdown(context, strings, displayStatus),
+        ],
+      );
+    }
+    if (status.state ==
+        HostPairingState.HOST_PAIRING_STATE_VERIFYING_CONTROLLER) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          _ProgressBody(text: strings.hostPairingVerifyingController),
+          const SizedBox(height: _dialogSpacing),
+          _buildCountdown(context, strings, displayStatus),
+        ],
+      );
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         _buildInvitation(strings, invitation),
         const SizedBox(height: _dialogSpacing),
-        Text(
-          strings.hostPairingExpiresIn(
-            _formatRemaining(displayStatus.expiresAtUnixMs.toInt()),
-          ),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        _buildCountdown(context, strings, displayStatus),
         const SizedBox(height: _dialogSpacing),
-        if (status.state ==
-            HostPairingState.HOST_PAIRING_STATE_VERIFYING_CONTROLLER)
-          _ProgressBody(text: strings.hostPairingVerifyingController)
-        else if (status.state ==
-            HostPairingState.HOST_PAIRING_STATE_WAITING_LOCAL_DECISION)
-          _buildControllerDecision(context, strings, status, invitation.kind)
-        else
-          _ProgressBody(text: strings.hostPairingWaitingController),
+        _ProgressBody(text: strings.hostPairingWaitingController),
       ],
     );
   }
+
+  Widget _buildCountdown(
+    BuildContext context,
+    AppLocalizations strings,
+    HostPairingStatusSnapshot status,
+  ) => Text(
+    strings.hostPairingExpiresIn(
+      _formatRemaining(status.expiresAtUnixMs.toInt()),
+    ),
+    textAlign: TextAlign.center,
+    style: Theme.of(context).textTheme.titleMedium,
+  );
 
   Widget _buildInvitation(
     AppLocalizations strings,
@@ -240,8 +263,10 @@ final class _HostPairingDialogState extends State<HostPairingDialog> {
             Text(_platformName(strings, controller.platform)),
             const SizedBox(height: 4),
             SelectableText(
-              strings.hostPairingControllerFingerprint(
-                _shortFingerprint(status.pendingControllerFingerprintSha256),
+              strings.deviceFingerprintLabel(
+                formatShortDeviceFingerprint(
+                  status.pendingControllerFingerprintSha256,
+                ),
               ),
             ),
             if (kind ==
@@ -384,10 +409,7 @@ final class _ProgressBody extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: <Widget>[
-      const SizedBox.square(
-        dimension: 24,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
+      const RoammandProgressIndicator(),
       const SizedBox(width: _compactSpacing),
       Flexible(child: Text(text)),
     ],
@@ -447,13 +469,3 @@ String _platformName(AppLocalizations strings, DevicePlatform platform) =>
       DevicePlatform.DEVICE_PLATFORM_WINDOWS => strings.devicePlatformWindows,
       _ => strings.devicePlatformUnknown,
     };
-
-String _shortFingerprint(List<int> fingerprint) {
-  final visible = fingerprint.take(_fingerprintBytes);
-  if (visible.isEmpty) {
-    return '—';
-  }
-  return visible
-      .map((byte) => byte.toRadixString(16).padLeft(2, '0').toUpperCase())
-      .join();
-}

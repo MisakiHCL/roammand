@@ -403,8 +403,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hostPairingPendingControllerTitle => 'Device requesting access';
 
   @override
-  String hostPairingControllerFingerprint(String fingerprint) {
-    return 'Safety code: $fingerprint';
+  String deviceFingerprintLabel(String fingerprint) {
+    return 'Device fingerprint: $fingerprint';
   }
 
   @override

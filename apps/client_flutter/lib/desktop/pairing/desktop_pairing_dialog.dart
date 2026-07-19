@@ -5,11 +5,13 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/desktop/host_agent/host_agent_client.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/pairing/controller_pairing_engine.dart';
 import 'package:roammand/pairing/controller_pairing_models.dart';
 import 'package:roammand/pairing/desktop_pairing_code.dart';
+import 'package:roammand/pairing/device_fingerprint.dart';
 import 'package:roammand/pairing/pairing_signaling_client.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
 
@@ -18,7 +20,6 @@ import 'desktop_controller_pairing_identity.dart';
 const _dialogWidth = 520.0;
 const _spacing = 16.0;
 const _compactSpacing = 8.0;
-const _fingerprintBytes = 8;
 const _wordListAsset = 'assets/bip39-english.txt';
 
 abstract interface class DesktopPairingSession {
@@ -214,8 +215,8 @@ final class _DesktopPairingDialogState extends State<DesktopPairingDialog> {
         ),
         const SizedBox(height: 4),
         SelectableText(
-          strings.hostPairingControllerFingerprint(
-            _shortFingerprint(_snapshot.hostFingerprintSha256),
+          strings.hostShortFingerprint(
+            formatShortDeviceFingerprint(_snapshot.hostFingerprintSha256),
           ),
         ),
         const SizedBox(height: _spacing),
@@ -410,10 +411,7 @@ final class _ProgressMessage extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: <Widget>[
-      const SizedBox.square(
-        dimension: 24,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
+      const RoammandProgressIndicator(),
       const SizedBox(width: _compactSpacing),
       Flexible(child: Text(text)),
     ],
@@ -434,16 +432,6 @@ final class _TerminalMessage extends StatelessWidget {
       Flexible(child: Text(text)),
     ],
   );
-}
-
-String _shortFingerprint(List<int> fingerprint) {
-  if (fingerprint.isEmpty) {
-    return '—';
-  }
-  return fingerprint
-      .take(_fingerprintBytes)
-      .map((byte) => byte.toRadixString(16).padLeft(2, '0').toUpperCase())
-      .join();
 }
 
 String _formatRemaining(int expiresAtUnixMs) {

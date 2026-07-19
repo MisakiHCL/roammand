@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
@@ -95,9 +96,8 @@ final class TrustedHostCard extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: deleting || connecting ? null : onDelete,
                   icon: deleting
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                      ? const RoammandProgressIndicator(
+                          size: roammandCompactProgressIndicatorSize,
                         )
                       : const Icon(Icons.delete_outline, size: 20),
                   label: Text(strings.deleteTrustedHostAction),
@@ -105,9 +105,8 @@ final class TrustedHostCard extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: deleting || connecting ? null : onConnect,
                   icon: connecting
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                      ? const RoammandProgressIndicator(
+                          size: roammandCompactProgressIndicatorSize,
                         )
                       : const Icon(Icons.arrow_forward, size: 20),
                   label: Text(

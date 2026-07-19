@@ -2,7 +2,7 @@
 
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart' as crypto;
+import 'package:roammand/pairing/device_fingerprint.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 final class DeviceIdentityValidationException implements Exception {
@@ -33,7 +33,7 @@ void validateDesktopHostIdentity(DeviceIdentity identity) {
 
 Uint8List devicePublicKeyFingerprintSha256(DeviceIdentity identity) {
   validateDesktopHostIdentity(identity);
-  return Uint8List.fromList(crypto.sha256.convert(identity.publicKey).bytes);
+  return computeDevicePublicKeyFingerprintSha256(identity);
 }
 
 void validateHostFingerprint(

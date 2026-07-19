@@ -746,11 +746,11 @@ abstract class AppLocalizations {
   /// **'Device requesting access'**
   String get hostPairingPendingControllerTitle;
 
-  /// No description provided for @hostPairingControllerFingerprint.
+  /// No description provided for @deviceFingerprintLabel.
   ///
   /// In en, this message translates to:
-  /// **'Safety code: {fingerprint}'**
-  String hostPairingControllerFingerprint(String fingerprint);
+  /// **'Device fingerprint: {fingerprint}'**
+  String deviceFingerprintLabel(String fingerprint);
 
   /// No description provided for @hostPairingCompareSas.
   ///

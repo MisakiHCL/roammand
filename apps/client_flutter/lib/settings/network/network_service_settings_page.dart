@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
+import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 
 import 'package:roammand/network/network_service_configuration.dart';
 import 'package:roammand/network/network_service_controller.dart';
@@ -76,136 +78,131 @@ final class _NetworkServiceSettingsPageState
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
     return Scaffold(
-      appBar: widget.showAppBar
+      appBar: widget.showAppBar && !widget.mobileContext
           ? AppBar(title: Text(strings.networkSettingsTitle))
           : null,
-      body: RoammandBackdrop(
-        child: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ListView(
-              padding: const EdgeInsets.all(_pagePadding),
-              children: <Widget>[
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: _maximumContentWidth,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        strings.networkSettingsBody,
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                      if (widget.mobileContext) ...<Widget>[
-                        const SizedBox(height: 12),
-                        Text(strings.networkMobileHostBindingNotice),
-                      ],
-                      const SizedBox(height: _sectionSpacing),
-                      Text(
-                        strings.networkProfileLabel,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
+      body: _SettingsPageBody(
+        mobileHeader: widget.mobileContext && widget.showAppBar,
+        title: strings.networkSettingsTitle,
+        headerKey: const Key('mobile-network-settings-header'),
+        backButtonKey: const Key('mobile-network-settings-back'),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ListView(
+            padding: const EdgeInsets.all(_pagePadding),
+            children: <Widget>[
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: _maximumContentWidth,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Text(
+                      strings.networkSettingsBody,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    if (widget.mobileContext) ...<Widget>[
                       const SizedBox(height: 12),
-                      Wrap(
-                        key: const Key('network-profile-selector'),
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: <Widget>[
-                          ChoiceChip(
-                            key: const Key('network-profile-official'),
-                            avatar: const Icon(
-                              Icons.verified_outlined,
-                              size: 20,
-                            ),
-                            label: Text(strings.networkOfficialProfile),
-                            selected:
-                                _kind == NetworkServiceProfileKind.official,
-                            onSelected: _saving
-                                ? null
-                                : (_) => setState(() {
-                                    _kind = NetworkServiceProfileKind.official;
-                                    _error = null;
-                                  }),
-                          ),
-                          ChoiceChip(
-                            key: const Key('network-profile-custom'),
-                            avatar: const Icon(Icons.dns_outlined, size: 20),
-                            label: Text(strings.networkCustomProfile),
-                            selected: _kind == NetworkServiceProfileKind.custom,
-                            onSelected: _saving
-                                ? null
-                                : (_) => setState(() {
-                                    _kind = NetworkServiceProfileKind.custom;
-                                    _error = null;
-                                  }),
-                          ),
-                        ],
-                      ),
+                      Text(strings.networkMobileHostBindingNotice),
+                    ],
+                    const SizedBox(height: _sectionSpacing),
+                    Text(
+                      strings.networkProfileLabel,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      key: const Key('network-profile-selector'),
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        ChoiceChip(
+                          key: const Key('network-profile-official'),
+                          avatar: const Icon(Icons.verified_outlined, size: 20),
+                          label: Text(strings.networkOfficialProfile),
+                          selected: _kind == NetworkServiceProfileKind.official,
+                          onSelected: _saving
+                              ? null
+                              : (_) => setState(() {
+                                  _kind = NetworkServiceProfileKind.official;
+                                  _error = null;
+                                }),
+                        ),
+                        ChoiceChip(
+                          key: const Key('network-profile-custom'),
+                          avatar: const Icon(Icons.dns_outlined, size: 20),
+                          label: Text(strings.networkCustomProfile),
+                          selected: _kind == NetworkServiceProfileKind.custom,
+                          onSelected: _saving
+                              ? null
+                              : (_) => setState(() {
+                                  _kind = NetworkServiceProfileKind.custom;
+                                  _error = null;
+                                }),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: _fieldSpacing),
+                    Text(
+                      _kind == NetworkServiceProfileKind.official
+                          ? strings.networkOfficialProfileBody
+                          : strings.networkCustomProfileBody,
+                    ),
+                    const SizedBox(height: _sectionSpacing),
+                    if (_kind == NetworkServiceProfileKind.official)
+                      _OfficialConfigurationCard(
+                        configuration: NetworkServiceConfiguration.official(),
+                      )
+                    else
+                      _buildCustomForm(strings),
+                    if (_error case final error?) ...<Widget>[
                       const SizedBox(height: _fieldSpacing),
                       Text(
-                        _kind == NetworkServiceProfileKind.official
-                            ? strings.networkOfficialProfileBody
-                            : strings.networkCustomProfileBody,
+                        error,
+                        key: const Key('network-settings-error'),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
-                      const SizedBox(height: _sectionSpacing),
-                      if (_kind == NetworkServiceProfileKind.official)
-                        _OfficialConfigurationCard(
-                          configuration: NetworkServiceConfiguration.official(),
-                        )
-                      else
-                        _buildCustomForm(strings),
-                      if (_error case final error?) ...<Widget>[
-                        const SizedBox(height: _fieldSpacing),
-                        Text(
-                          error,
-                          key: const Key('network-settings-error'),
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
+                    ],
+                    const SizedBox(height: _sectionSpacing),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.end,
+                      children: <Widget>[
+                        if (widget.controller.configuration.kind ==
+                            NetworkServiceProfileKind.custom)
+                          OutlinedButton(
+                            key: const Key('network-restore-defaults'),
+                            onPressed: _saving
+                                ? null
+                                : () => _commit(
+                                    NetworkServiceConfiguration.official(),
+                                  ),
+                            child: Text(strings.networkRestoreAction),
+                          ),
+                        FilledButton.icon(
+                          key: const Key('network-save'),
+                          onPressed: _saving ? null : _save,
+                          icon: _saving
+                              ? const RoammandProgressIndicator(
+                                  size: roammandCompactProgressIndicatorSize,
+                                )
+                              : const Icon(Icons.save_outlined, size: 20),
+                          label: Text(
+                            _saving
+                                ? strings.networkSavingAction
+                                : strings.networkSaveAction,
                           ),
                         ),
                       ],
-                      const SizedBox(height: _sectionSpacing),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        alignment: WrapAlignment.end,
-                        children: <Widget>[
-                          if (widget.controller.configuration.kind ==
-                              NetworkServiceProfileKind.custom)
-                            OutlinedButton(
-                              key: const Key('network-restore-defaults'),
-                              onPressed: _saving
-                                  ? null
-                                  : () => _commit(
-                                      NetworkServiceConfiguration.official(),
-                                    ),
-                              child: Text(strings.networkRestoreAction),
-                            ),
-                          FilledButton.icon(
-                            key: const Key('network-save'),
-                            onPressed: _saving ? null : _save,
-                            icon: _saving
-                                ? const SizedBox.square(
-                                    dimension: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.save_outlined, size: 20),
-                            label: Text(
-                              _saving
-                                  ? strings.networkSavingAction
-                                  : strings.networkSaveAction,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -357,6 +354,33 @@ final class _NetworkServiceSettingsPageState
         strings.networkInvalidConfiguration,
     };
   }
+}
+
+final class _SettingsPageBody extends StatelessWidget {
+  const _SettingsPageBody({
+    required this.mobileHeader,
+    required this.title,
+    required this.headerKey,
+    required this.backButtonKey,
+    required this.child,
+  });
+
+  final bool mobileHeader;
+  final String title;
+  final Key headerKey;
+  final Key backButtonKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => mobileHeader
+      ? MobilePageFrame(
+          title: title,
+          headerKey: headerKey,
+          backButtonKey: backButtonKey,
+          onBack: () => Navigator.of(context).maybePop(),
+          child: child,
+        )
+      : RoammandBackdrop(child: SafeArea(child: child));
 }
 
 final class _OfficialConfigurationCard extends StatelessWidget {

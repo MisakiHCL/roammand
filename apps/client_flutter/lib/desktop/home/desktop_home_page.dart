@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_brand_mark.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/app_locale_controller.dart';
@@ -467,7 +468,7 @@ final class _DesktopHomePageState extends State<DesktopHomePage> {
     required bool compact,
   }) => switch (_trustedComputers.state) {
     TrustedComputersState.loading => <Widget>[
-      const Center(child: CircularProgressIndicator()),
+      const Center(child: RoammandProgressIndicator()),
     ],
     TrustedComputersState.error => <Widget>[
       Card(

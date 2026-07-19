@@ -30,7 +30,7 @@ void main() {
     session.waitingForDecision();
     await tester.pump();
     expect(find.text('Office Mac'), findsOneWidget);
-    expect(find.textContaining('51515151'), findsOneWidget);
+    expect(find.textContaining('51 51 51 51 51 51 51 51'), findsOneWidget);
     expect(find.text('Compare these four words'), findsOneWidget);
     for (final word in session.words) {
       expect(find.text(word), findsOneWidget);

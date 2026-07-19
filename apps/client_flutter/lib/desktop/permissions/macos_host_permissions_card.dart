@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'package:flutter/material.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 
@@ -34,11 +35,7 @@ final class MacOsHostPermissionsCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
-                if (controller.checking)
-                  const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
+                if (controller.checking) const RoammandProgressIndicator(),
               ],
             ),
             const SizedBox(height: _itemSpacing),
@@ -135,10 +132,7 @@ final class _PermissionRow extends StatelessWidget {
           FilledButton(
             onPressed: enabled && !pending ? onPressed : null,
             child: pending
-                ? const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const RoammandProgressIndicator()
                 : Text(strings.macOsPermissionSetUpAction),
           ),
       ],

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
+import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 import 'package:roammand/network/network_service_configuration.dart';
 import 'package:roammand/network/network_service_controller.dart';
 import 'package:roammand/settings/network/network_service_settings_page.dart';
@@ -117,6 +118,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.byType(MobilePageNavigationHeader), findsOneWidget);
+    expect(
+      find.byKey(const Key('mobile-network-settings-back')),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const Key('network-profile-custom')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('network-save')));

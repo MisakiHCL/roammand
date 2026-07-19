@@ -239,7 +239,7 @@ void main() {
     );
     expect(find.byKey(const Key('mobile-scanner-close')), findsOneWidget);
     expect(find.byType(MobilePageBackButton), findsOneWidget);
-    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
     expect(find.byIcon(Icons.close), findsNothing);
     expect(find.byKey(const Key('mobile-scanner-torch')), findsOneWidget);
     expect(
@@ -444,6 +444,50 @@ void main() {
     await scanner.close();
     await repository.close();
   });
+
+  testWidgets('uses the shared mobile header and canonical Host safety code', (
+    tester,
+  ) async {
+    const now = 1_000_000;
+    final scanner = _FakeScanner();
+    final session = _FakeSession();
+    final identity = await MobileDeviceIdentity.fromSeed(
+      seed: List<int>.filled(32, 13),
+      displayName: 'Phone',
+      platform: DevicePlatform.DEVICE_PLATFORM_IOS,
+    );
+    final repository = TrustedHostRepository(persistence: _MemoryHosts());
+    await repository.initialize();
+    final invitation = _invitation(now);
+
+    await tester.pumpWidget(
+      _app(
+        MobilePairingPage(
+          identity: identity,
+          trustedHosts: repository,
+          scanner: scanner,
+          sessionFactory: () async => session,
+          nowUnixMs: () => now,
+        ),
+      ),
+    );
+    await tester.pump();
+    scanner.emit(QrScannerCode(encodeQrPairingUri(invitation)));
+    await tester.pump();
+    await tester.pump();
+    session.waiting(invitation);
+    await tester.pump();
+
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.byKey(const Key('mobile-pairing-header')), findsOneWidget);
+    expect(find.byKey(const Key('mobile-pairing-back')), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
+    expect(find.text('Safety code: AE 21 6C 2E F5 24 7A 37'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await scanner.close();
+    await repository.close();
+  });
 }
 
 Widget _app(Widget home) => MaterialApp(
@@ -517,6 +561,17 @@ final class _FakeSession implements MobileControllerPairingSession {
   final Completer<ControllerPairingSnapshot> result =
       Completer<ControllerPairingSnapshot>();
   int pairCalls = 0;
+  void waiting(HostPairingInvitation invitation) {
+    _states.add(
+      ControllerPairingSnapshot(
+        state: ControllerPairingState.waitingHostDecision,
+        hostIdentity: invitation.hostIdentity,
+        hostFingerprintSha256: invitation.hostPublicKeyFingerprintSha256,
+        expiresAtUnixMs: invitation.expiresAtUnixMs.toInt(),
+      ),
+    );
+  }
+
   void complete() {
     if (!result.isCompleted) {
       final accepted = ControllerPairingSnapshot(

@@ -367,8 +367,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hostPairingPendingControllerTitle => '请求访问的设备';
 
   @override
-  String hostPairingControllerFingerprint(String fingerprint) {
-    return '安全校验码：$fingerprint';
+  String deviceFingerprintLabel(String fingerprint) {
+    return '设备指纹：$fingerprint';
   }
 
   @override

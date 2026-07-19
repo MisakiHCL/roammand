@@ -4,8 +4,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:roammand/design_system/roammand_brand_mark.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
+import 'package:roammand/pairing/device_fingerprint.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
 import '../pairing/host_pairing_section.dart';
@@ -21,7 +23,6 @@ const _sectionSpacing = 24.0;
 const _itemSpacing = 12.0;
 const _cardPadding = 20.0;
 const _maximumContentWidth = 960.0;
-const _fingerprintBytes = 8;
 const _permissionReadyRetryDelay = Duration(seconds: 1);
 
 final class HostStatusPage extends StatefulWidget {
@@ -227,9 +228,8 @@ final class _HostStatusPageState extends State<HostStatusPage>
                         ? null
                         : () => _confirmEmergencyStop(context, strings),
                     icon: _controller.isEmergencyStopPending
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                        ? const RoammandProgressIndicator(
+                            size: roammandCompactProgressIndicatorSize,
                           )
                         : const Icon(Icons.stop_circle_outlined, size: 20),
                     label: Text(
@@ -293,10 +293,7 @@ final class _HostStatusPageState extends State<HostStatusPage>
         padding: const EdgeInsets.all(_cardPadding),
         child: switch (_controller.state) {
           HostAgentViewState.connecting => _MessageState(
-            icon: const SizedBox.square(
-              dimension: 32,
-              child: CircularProgressIndicator(strokeWidth: 3),
-            ),
+            icon: const RoammandProgressIndicator(),
             title: strings.hostAgentConnectingTitle,
             body: strings.hostAgentConnectingBody,
           ),
@@ -371,7 +368,9 @@ final class _HostStatusPageState extends State<HostStatusPage>
                   const SizedBox(height: 4),
                   SelectableText(
                     strings.hostShortFingerprint(
-                      _shortFingerprint(identity.deviceId),
+                      formatShortDeviceFingerprint(
+                        computeDevicePublicKeyFingerprintSha256(identity),
+                      ),
                     ),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
@@ -388,9 +387,8 @@ final class _HostStatusPageState extends State<HostStatusPage>
             OutlinedButton.icon(
               onPressed: _controller.isRefreshing ? null : _controller.refresh,
               icon: _controller.isRefreshing
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                  ? const RoammandProgressIndicator(
+                      size: roammandCompactProgressIndicatorSize,
                     )
                   : const Icon(Icons.refresh, size: 20),
               label: Text(strings.refreshAction),
@@ -486,9 +484,8 @@ final class _HostStatusPageState extends State<HostStatusPage>
                       grantId,
                     ),
               icon: revoking
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                  ? const RoammandProgressIndicator(
+                      size: roammandCompactProgressIndicatorSize,
                     )
                   : const Icon(Icons.link_off, size: 20),
               label: Text(
@@ -685,16 +682,6 @@ final class _MessageState extends StatelessWidget {
       ],
     );
   }
-}
-
-String _shortFingerprint(List<int> deviceId) {
-  final visible = deviceId.take(_fingerprintBytes);
-  if (visible.isEmpty) {
-    return '—';
-  }
-  return visible
-      .map((byte) => byte.toRadixString(16).padLeft(2, '0').toUpperCase())
-      .join();
 }
 
 String _formatDateTime(BuildContext context, int unixMs) {

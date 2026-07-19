@@ -29,7 +29,7 @@ void main() {
 
     expect(find.text('This Mac'), findsOneWidget);
     expect(find.text('Test Host'), findsOneWidget);
-    expect(find.textContaining('00010203'), findsOneWidget);
+    expect(find.text('Safety code: 63 0D CD 29 66 C4 33 66'), findsOneWidget);
     expect(find.text('Add a new device'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('My Phone'),
@@ -373,7 +373,10 @@ class WidgetFakeHostAgentApi implements HostAgentApi {
     return HostStatus(
       identity: DeviceIdentity(
         deviceId: List<int>.generate(32, (index) => index),
+        publicKeyAlgorithm: PublicKeyAlgorithm.PUBLIC_KEY_ALGORITHM_ED25519,
+        publicKey: List<int>.generate(32, (index) => index),
         displayName: 'Test Host',
+        platform: DevicePlatform.DEVICE_PLATFORM_MACOS,
       ),
       agentInstanceId: List<int>.filled(16, 0x11),
       controllerGrantCount: revoked ? 0 : 2,

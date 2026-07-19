@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:roammand/design_system/roammand_colors.dart';
+import 'package:roammand/design_system/roammand_progress_indicator.dart';
 import 'package:roammand/design_system/roammand_surfaces.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/mobile/identity/mobile_device_identity.dart';
@@ -13,6 +14,7 @@ import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 import 'package:roammand/network/network_service_controller.dart';
 import 'package:roammand/pairing/controller_pairing_engine.dart';
 import 'package:roammand/pairing/controller_pairing_models.dart';
+import 'package:roammand/pairing/device_fingerprint.dart';
 import 'package:roammand/pairing/pairing_signaling_client.dart';
 import 'package:roammand/pairing/qr_pairing_uri.dart';
 import 'package:roammand/pairing/trusted_host_repository.dart';
@@ -23,7 +25,6 @@ import 'qr_scanner.dart';
 const _wordListAsset = 'assets/bip39-english.txt';
 const _pagePadding = 16.0;
 const _sectionSpacing = 16.0;
-const _fingerprintBytes = 8;
 const _scannerMessageWidth = 440.0;
 const _scannerOverlayPadding = 12.0;
 const _scannerElementSpacing = 8.0;
@@ -313,15 +314,29 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
         },
         child: _claimedCode
             ? Scaffold(
-                appBar: AppBar(),
                 body: RoammandBackdrop(
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.all(_pagePadding),
-                      child: Builder(
-                        builder: (context) => _buildPairing(context, strings),
+                  child: Column(
+                    children: <Widget>[
+                      MobilePageNavigationHeader(
+                        safePadding: MediaQuery.paddingOf(context),
+                        title: strings.mobileScanQrAction,
+                        surfaceKey: const Key('mobile-pairing-header'),
+                        backButtonKey: const Key('mobile-pairing-back'),
+                        onBack: () => unawaited(_cancel()),
                       ),
-                    ),
+                      Expanded(
+                        child: SafeArea(
+                          top: false,
+                          child: Padding(
+                            padding: const EdgeInsets.all(_pagePadding),
+                            child: Builder(
+                              builder: (context) =>
+                                  _buildPairing(context, strings),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               )
@@ -551,11 +566,14 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
             ),
             if (_snapshot.hostFingerprintSha256.isNotEmpty)
               SelectableText(
-                _shortFingerprint(_snapshot.hostFingerprintSha256),
+                strings.hostShortFingerprint(
+                  formatShortDeviceFingerprint(_snapshot.hostFingerprintSha256),
+                ),
+                textAlign: TextAlign.center,
               ),
           ],
           const SizedBox(height: _sectionSpacing),
-          if (!_snapshot.isTerminal) const CircularProgressIndicator(),
+          if (!_snapshot.isTerminal) const RoammandProgressIndicator(),
           const SizedBox(height: _sectionSpacing),
           Text(text, textAlign: TextAlign.center),
           if (!_snapshot.isTerminal && _remainingSeconds > 0) ...<Widget>[
@@ -578,7 +596,7 @@ final class _MobilePairingPageState extends State<MobilePairingPage>
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        const CircularProgressIndicator(),
+        const RoammandProgressIndicator(),
         const SizedBox(height: _sectionSpacing),
         Text(text, textAlign: TextAlign.center),
       ],
@@ -619,12 +637,6 @@ String _scannerFailureText(
   QrScannerFailure.noCamera => strings.mobileScannerNoCamera,
   QrScannerFailure.initialization => strings.mobileScannerInitializationFailed,
 };
-
-String _shortFingerprint(List<int> fingerprint) => fingerprint
-    .take(_fingerprintBytes)
-    .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
-    .join(':')
-    .toUpperCase();
 
 final class _EngineMobilePairingSession
     implements MobileControllerPairingSession {

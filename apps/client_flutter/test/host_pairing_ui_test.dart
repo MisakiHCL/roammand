@@ -54,6 +54,12 @@ void main() {
       isNull,
     );
 
+    api.emitVerifyingController();
+    await tester.pump();
+    expect(find.byType(HostPairingQrCode), findsNothing);
+    expect(find.text('Checking the other device…'), findsOneWidget);
+    expect(find.textContaining('Expires in'), findsOneWidget);
+
     await tester.tap(find.text('Cancel pairing'));
     await tester.pumpAndSettle();
     expect(api.cancelCount, 1);
@@ -87,7 +93,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('iPhone or iPad'), findsOneWidget);
-    expect(find.textContaining('51515151'), findsOneWidget);
+    expect(find.textContaining('51 51 51 51 51 51 51 51'), findsOneWidget);
+    expect(find.textContaining('Device fingerprint:'), findsOneWidget);
     expect(find.text('Compare these four words'), findsOneWidget);
     for (final word in api.sasWords) {
       expect(find.text(word), findsOneWidget);
@@ -312,6 +319,16 @@ final class PairingUiFakeHostAgentApi implements HostAgentApi {
       pendingController: _controllerIdentity,
       pendingControllerFingerprintSha256: List<int>.filled(32, 0x51),
       sasWords: sasWords,
+      expiresAtUnixMs: pairingStatus.expiresAtUnixMs,
+    );
+    _pairingEvents.add(pairingStatus);
+  }
+
+  void emitVerifyingController() {
+    pairingStatus = HostPairingStatusSnapshot(
+      state: HostPairingState.HOST_PAIRING_STATE_VERIFYING_CONTROLLER,
+      revision: Int64(++_revision),
+      invitation: pairingStatus.invitation,
       expiresAtUnixMs: pairingStatus.expiresAtUnixMs,
     );
     _pairingEvents.add(pairingStatus);
