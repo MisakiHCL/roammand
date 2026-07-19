@@ -23,7 +23,7 @@ impl RemoteSessionCoordinator {
         active
             .session
             .begin_reconnect()
-            .map_err(|_| RemoteSessionError::Peer)?;
+            .map_err(super::remote_session::map_peer_error)?;
         active
             .reconnect_deadline_unix_ms
             .get_or_insert(now_unix_ms.saturating_add(PENDING_SESSION_LIFETIME_MS));

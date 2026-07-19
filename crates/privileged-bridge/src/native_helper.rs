@@ -234,6 +234,7 @@ impl HelperBackend for NativeHelperBackend {
             .as_ref()
             .is_some_and(NativeIndicatorClient::take_local_stop)
         {
+            log_native_helper_failure("localStop", "requested");
             self.fail_closed();
             return Err(HelperProtocolError::Backend);
         }
@@ -259,14 +260,22 @@ impl HelperBackend for NativeHelperBackend {
             Ok(NativePeerEvent::FastPointer(encoded)) => Ok(Some(ProxyEvent::FastPointer(encoded))),
             Err(NativePeerEventReceiveError::Empty) => Ok(None),
             Err(
-                NativePeerEventReceiveError::Disconnected | NativePeerEventReceiveError::Overflow,
-            ) => Err(HelperProtocolError::Backend),
+                error @ (NativePeerEventReceiveError::Disconnected
+                | NativePeerEventReceiveError::Overflow),
+            ) => {
+                log_native_helper_failure("eventQueue", error);
+                Err(HelperProtocolError::Backend)
+            }
         }
     }
 
     fn fail_closed(&mut self) {
         let _ = self.close();
     }
+}
+
+fn log_native_helper_failure(operation: &str, cause: impl fmt::Debug) {
+    eprintln!("[remote] helper_operation={operation} cause={cause:?}");
 }
 
 fn session_config(

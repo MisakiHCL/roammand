@@ -6,9 +6,9 @@ use std::{
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
-        mpsc::{Receiver, RecvTimeoutError, SyncSender, TrySendError, sync_channel},
+        mpsc::{Receiver, RecvTimeoutError, SyncSender, TryRecvError, TrySendError, sync_channel},
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use futures::executor::block_on;
@@ -41,6 +41,7 @@ use crate::{
 };
 
 const EVENT_QUEUE_CAPACITY: usize = 256;
+const FAST_EVENT_POLL_INTERVAL: Duration = Duration::from_millis(5);
 const VIDEO_STREAM_ID: &str = "roammand-screen";
 const VIDEO_TRACK_ID: &str = "roammand-main-display";
 
@@ -125,6 +126,7 @@ pub enum NativePeerEventReceiveError {
 
 pub struct NativePeerEvents {
     receiver: Receiver<NativePeerEvent>,
+    latest_fast_pointer: Arc<Mutex<Option<Vec<u8>>>>,
     overflowed: Arc<AtomicBool>,
 }
 
@@ -138,21 +140,49 @@ impl NativePeerEvents {
         &self,
         timeout: Duration,
     ) -> Result<NativePeerEvent, NativePeerEventReceiveError> {
-        if self.overflowed.swap(false, Ordering::AcqRel) {
-            return Err(NativePeerEventReceiveError::Overflow);
+        let deadline = Instant::now().checked_add(timeout);
+        loop {
+            if self.overflowed.swap(false, Ordering::AcqRel) {
+                return Err(NativePeerEventReceiveError::Overflow);
+            }
+            match self.receiver.try_recv() {
+                Ok(event) => return Ok(event),
+                Err(TryRecvError::Disconnected) => {
+                    return Err(NativePeerEventReceiveError::Disconnected);
+                }
+                Err(TryRecvError::Empty) => {}
+            }
+            match self.latest_fast_pointer.lock() {
+                Ok(mut latest) => {
+                    if let Some(payload) = latest.take() {
+                        return Ok(NativePeerEvent::FastPointer(payload));
+                    }
+                }
+                Err(_) => return Err(NativePeerEventReceiveError::Overflow),
+            }
+            let Some(remaining) =
+                deadline.and_then(|value| value.checked_duration_since(Instant::now()))
+            else {
+                return Err(NativePeerEventReceiveError::Empty);
+            };
+            match self
+                .receiver
+                .recv_timeout(remaining.min(FAST_EVENT_POLL_INTERVAL))
+            {
+                Ok(event) => return Ok(event),
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err(NativePeerEventReceiveError::Disconnected);
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+            }
         }
-        self.receiver
-            .recv_timeout(timeout)
-            .map_err(|error| match error {
-                RecvTimeoutError::Timeout => NativePeerEventReceiveError::Empty,
-                RecvTimeoutError::Disconnected => NativePeerEventReceiveError::Disconnected,
-            })
     }
 }
 
 #[derive(Clone)]
 struct EventPublisher {
     sender: SyncSender<NativePeerEvent>,
+    latest_fast_pointer: Arc<Mutex<Option<Vec<u8>>>>,
     overflowed: Arc<AtomicBool>,
 }
 
@@ -166,7 +196,11 @@ impl EventPublisher {
     }
 
     fn fast_pointer(&self, payload: Vec<u8>) {
-        let _ = self.sender.try_send(NativePeerEvent::FastPointer(payload));
+        if let Ok(mut latest) = self.latest_fast_pointer.lock() {
+            *latest = Some(payload);
+        } else {
+            self.overflowed.store(true, Ordering::Release);
+        }
     }
 }
 
@@ -180,18 +214,21 @@ impl NativePeerBackend {
     #[must_use]
     pub fn new(options: NativePeerOptions) -> (Self, NativePeerEvents) {
         let (sender, receiver) = sync_channel(EVENT_QUEUE_CAPACITY);
+        let latest_fast_pointer = Arc::new(Mutex::new(None));
         let overflowed = Arc::new(AtomicBool::new(false));
         (
             Self {
                 options,
                 publisher: EventPublisher {
                     sender,
+                    latest_fast_pointer: Arc::clone(&latest_fast_pointer),
                     overflowed: Arc::clone(&overflowed),
                 },
                 resources: None,
             },
             NativePeerEvents {
                 receiver,
+                latest_fast_pointer,
                 overflowed,
             },
         )
@@ -586,4 +623,48 @@ pub fn parse_dtls_sha256_fingerprint(sdp: &str) -> Option<Vec<u8>> {
         .into_iter()
         .map(|part| u8::from_str_radix(part, 16).ok())
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fast_pointer_events_coalesce_without_filling_the_critical_queue() {
+        let (peer, events) = NativePeerBackend::new(NativePeerOptions::default());
+        for value in 0..(EVENT_QUEUE_CAPACITY * 2) {
+            peer.publisher.fast_pointer(value.to_be_bytes().to_vec());
+        }
+        peer.publisher.critical(NativePeerEvent::Connection(
+            NativeConnectionState::Connected,
+        ));
+
+        assert_eq!(
+            events.recv_timeout(Duration::ZERO),
+            Ok(NativePeerEvent::Connection(
+                NativeConnectionState::Connected
+            ))
+        );
+        assert_eq!(
+            events.recv_timeout(Duration::ZERO),
+            Ok(NativePeerEvent::FastPointer(
+                ((EVENT_QUEUE_CAPACITY * 2) - 1).to_be_bytes().to_vec()
+            ))
+        );
+    }
+
+    #[test]
+    fn critical_queue_overflow_remains_fail_closed() {
+        let (peer, events) = NativePeerBackend::new(NativePeerOptions::default());
+        for _ in 0..=EVENT_QUEUE_CAPACITY {
+            peer.publisher.critical(NativePeerEvent::Connection(
+                NativeConnectionState::Connected,
+            ));
+        }
+
+        assert_eq!(
+            events.recv_timeout(Duration::ZERO),
+            Err(NativePeerEventReceiveError::Overflow)
+        );
+    }
 }

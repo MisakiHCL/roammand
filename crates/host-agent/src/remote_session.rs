@@ -1048,7 +1048,7 @@ pub(super) const fn map_service_error(error: RemoteServiceError) -> RemoteSessio
     }
 }
 
-const fn map_peer_error(error: HostWebRtcError) -> RemoteSessionError {
+pub(super) const fn map_peer_error(error: HostWebRtcError) -> RemoteSessionError {
     match error {
         HostWebRtcError::InputPermissionDenied => RemoteSessionError::InputPermission,
         HostWebRtcError::InputFailure => RemoteSessionError::Input,

@@ -475,7 +475,7 @@ fn signaling_loss_reconnects_for_thirty_seconds_before_failing_closed() {
 }
 
 #[test]
-fn signaling_loss_with_a_failed_bridge_clears_only_the_active_session() {
+fn signaling_loss_with_an_input_failure_clears_only_the_active_session() {
     let mut fixture = Fixture::with_input_release_failures(1);
     fixture.connect();
     fixture
@@ -485,7 +485,7 @@ fn signaling_loss_with_a_failed_bridge_clears_only_the_active_session() {
 
     assert_eq!(
         fixture.coordinator.signaling_lost(NOW_UNIX_MS),
-        Err(RemoteSessionError::Peer)
+        Err(RemoteSessionError::Input)
     );
     assert_eq!(fixture.status_state(), SessionState::Failed);
     assert_eq!(

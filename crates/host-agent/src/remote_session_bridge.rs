@@ -53,7 +53,10 @@ impl RemotePeerEventSource for BridgeEventSource {
         self.0
             .try_recv()
             .map(|event| event.map(map_event))
-            .map_err(|_| RemoteSessionError::Peer)
+            .map_err(|error| {
+                eprintln!("[remote] bridge_operation=peerEvent cause={error:?}");
+                RemoteSessionError::Peer
+            })
     }
 }
 
