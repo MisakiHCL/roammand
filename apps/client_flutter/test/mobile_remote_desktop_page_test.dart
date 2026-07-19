@@ -195,6 +195,14 @@ void main() {
 
     await tester.tap(find.byKey(const Key('mobile-keyboard-toggle')));
     await tester.pump();
+    final viewportBeforeKeyboard = tester.getRect(
+      find.byKey(const Key('mobile-remote-gesture-surface')),
+    );
+    tester.view.viewInsets = const FakeViewPadding(bottom: 120);
+    await tester.pump();
+    final viewportDuringKeyboardAnimation = tester.getRect(
+      find.byKey(const Key('mobile-remote-gesture-surface')),
+    );
     tester.view.viewInsets = const FakeViewPadding(bottom: 240);
     await tester.pump();
 
@@ -208,6 +216,19 @@ void main() {
     expect(
       tester.getSize(find.byKey(const Key('mobile-input-tray'))).height,
       56,
+    );
+    expect(viewportDuringKeyboardAnimation, viewportBeforeKeyboard);
+    expect(
+      tester.getRect(find.byKey(const Key('mobile-remote-gesture-surface'))),
+      viewportBeforeKeyboard,
+    );
+    expect(
+      tester.getRect(find.byKey(const Key('mobile-input-tray'))).bottom,
+      390 - (240 / tester.view.devicePixelRatio),
+    );
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)).resizeToAvoidBottomInset,
+      isFalse,
     );
     expect(find.byKey(const Key('mobile-modifier-control')), findsNothing);
     expect(

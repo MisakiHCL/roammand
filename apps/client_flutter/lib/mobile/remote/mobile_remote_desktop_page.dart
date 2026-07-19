@@ -142,20 +142,42 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
         },
         child: Scaffold(
           backgroundColor: RoammandColors.canvas,
-          body: Column(
+          resizeToAvoidBottomInset: false,
+          body: Stack(
+            fit: StackFit.expand,
             children: <Widget>[
-              _buildHeader(context, strings, mediaQuery.padding),
-              Expanded(
-                child: _buildRemoteViewport(
-                  context,
-                  dismissKeyboardOnTap:
-                      _keyboardVisible && softwareKeyboardVisible,
-                ),
+              Column(
+                children: <Widget>[
+                  _buildHeader(context, strings, mediaQuery.padding),
+                  Expanded(
+                    child: RepaintBoundary(
+                      key: const Key('mobile-remote-render-boundary'),
+                      child: _buildRemoteViewport(
+                        context,
+                        dismissKeyboardOnTap:
+                            _keyboardVisible && softwareKeyboardVisible,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               if (!softwareKeyboardVisible)
-                _buildControlBar(context, strings, mediaQuery.padding),
+                Positioned(
+                  key: const Key('mobile-remote-control-bar-position'),
+                  left: 0,
+                  right: 0,
+                  bottom: _keyboardVisible ? inputTrayHeight : 0,
+                  height: _controlBarHeight,
+                  child: _buildControlBar(context, strings, mediaQuery.padding),
+                ),
               if (_keyboardVisible)
-                SizedBox(
+                Positioned(
+                  key: const Key('mobile-input-tray-position'),
+                  left: 0,
+                  right: 0,
+                  bottom: softwareKeyboardVisible
+                      ? mediaQuery.viewInsets.bottom
+                      : 0,
                   height: softwareKeyboardVisible
                       ? _focusedInputTrayHeight
                       : inputTrayHeight,
@@ -407,9 +429,9 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
         compact: compact,
         padding: EdgeInsets.fromLTRB(
           safePadding.left + 8,
-          8,
+          compact ? 4 : 8,
           safePadding.right + 8,
-          8,
+          compact ? 4 : 8,
         ),
       );
 
