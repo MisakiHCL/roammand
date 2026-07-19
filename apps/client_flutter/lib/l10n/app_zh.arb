@@ -168,6 +168,7 @@
   "@deleteTrustedHostTitle": {"placeholders": {"hostName": {"type": "String"}}},
   "deleteTrustedHostBody": "这会从当前设备的列表中移除该电脑。若要彻底取消访问权限，还需要在对方电脑上撤销当前设备。",
   "confirmDeleteAction": "仅在本机删除",
+  "deleteTrustedHostFailed": "无法从当前设备删除这台电脑。",
   "mobileDeviceFallbackName": "我的手机",
   "mobileOnboardingTitle": "为此手机命名",
   "mobileOnboardingBody": "此名称只会显示给你配对的电脑，配对信息始终保存在本机。",

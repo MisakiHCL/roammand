@@ -1040,6 +1040,12 @@ abstract class AppLocalizations {
   /// **'Delete locally'**
   String get confirmDeleteAction;
 
+  /// No description provided for @deleteTrustedHostFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The computer could not be deleted from this device.'**
+  String get deleteTrustedHostFailed;
+
   /// No description provided for @mobileDeviceFallbackName.
   ///
   /// In en, this message translates to:

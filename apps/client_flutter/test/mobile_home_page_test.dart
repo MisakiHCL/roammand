@@ -216,6 +216,38 @@ void main() {
     expect(find.text('Mac'), findsNWidgets(2));
     expect(find.textContaining('Safety code:'), findsNWidgets(2));
   });
+
+  testWidgets('deletes a paired computer only after confirmation', (
+    tester,
+  ) async {
+    final persistence = _MemoryHosts()
+      ..bindings = <TrustedHostBinding>[_host(1), _host(2)];
+    final repository = TrustedHostRepository(persistence: persistence);
+    await repository.initialize();
+
+    await tester.pumpWidget(
+      _app(
+        MobileHomePage(
+          trustedHosts: repository,
+          launchRemote: (context, target) async => false,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('delete-trusted-host')).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Delete Office Mac 1 from this device?'), findsOneWidget);
+    expect(repository.hosts, hasLength(2));
+
+    await tester.tap(find.byKey(const Key('confirm-delete-trusted-host')));
+    await tester.pumpAndSettle();
+
+    expect(repository.hosts, hasLength(1));
+    expect(repository.hosts.single.displayName, 'Office Mac 2');
+    expect(persistence.bindings.single.displayOrder, 0);
+    expect(find.text('Office Mac 1'), findsNothing);
+  });
 }
 
 Future<void> _pumpUntilConnectReady(

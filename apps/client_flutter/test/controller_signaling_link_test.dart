@@ -64,6 +64,44 @@ void main() {
     await subscription.cancel();
     expect(second.closeCount, 1);
   });
+
+  test('preserves a stable remote signaling error for diagnostics', () async {
+    final transport = _FakeSignalingTransport()
+      ..enqueue(_registered('request-1'));
+    var requestSequence = 0;
+    final link = WebSocketControllerSignalingLink(
+      endpoint: Uri.parse('wss://signal.example.test/v1/connect'),
+      requestIdFactory: () => 'request-${++requestSequence}',
+      transportFactory: (_) async => transport,
+    );
+    final errors = <Object>[];
+    final subscription = link.routedSessions.listen(
+      (_) {},
+      onError: errors.add,
+    );
+
+    await link.connect(_controllerId);
+    transport.emit(
+      SignalingServerFrame(
+        protocolVersion: ProtocolVersion(major: 1, minor: 0),
+        requestId: 'relay-1',
+        error: UnifiedError(
+          code: ErrorCode.ERROR_CODE_DEVICE_OFFLINE,
+          retryable: true,
+        ),
+      ),
+    );
+    await pumpEventQueue();
+
+    expect(errors, hasLength(1));
+    final error = errors.single as SignalingRemoteException;
+    expect(error.code, ErrorCode.ERROR_CODE_DEVICE_OFFLINE);
+    expect(error.retryable, isTrue);
+    expect(error.toString(), contains('ERROR_CODE_DEVICE_OFFLINE'));
+
+    await link.close();
+    await subscription.cancel();
+  });
 }
 
 SignalingServerFrame _registered(String requestId) => SignalingServerFrame(

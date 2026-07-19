@@ -159,7 +159,13 @@ final class WebSocketControllerSignalingLink
           case SignalingRoutedSession():
             _routed.add(event);
           case SignalingRemoteError():
-            _reportFailure(generation);
+            _reportFailure(
+              generation,
+              SignalingRemoteException(
+                code: event.code,
+                retryable: event.retryable,
+              ),
+            );
           case SignalingRegistered():
           case SignalingHeartbeatAcknowledged():
             break;
@@ -190,13 +196,14 @@ final class WebSocketControllerSignalingLink
     }
   }
 
-  void _reportFailure(int generation) {
+  void _reportFailure(int generation, [Object? cause]) {
     if (_reportedFailureGeneration == generation || _routed.isClosed) {
       return;
     }
     _reportedFailureGeneration = generation;
     _routed.addError(
-      const SignalingClientException(SignalingClientErrorCode.transport),
+      cause ??
+          const SignalingClientException(SignalingClientErrorCode.transport),
     );
   }
 

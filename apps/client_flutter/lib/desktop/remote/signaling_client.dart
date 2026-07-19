@@ -49,6 +49,17 @@ final class SignalingClientException implements Exception {
   String toString() => 'SignalingClientException(${code.name})';
 }
 
+final class SignalingRemoteException implements Exception {
+  const SignalingRemoteException({required this.code, required this.retryable});
+
+  final ErrorCode code;
+  final bool retryable;
+
+  @override
+  String toString() =>
+      'SignalingRemoteException(${code.name}, retryable=$retryable)';
+}
+
 sealed class SignalingEvent {
   const SignalingEvent();
 }

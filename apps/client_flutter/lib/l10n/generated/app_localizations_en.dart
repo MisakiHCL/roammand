@@ -564,6 +564,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get confirmDeleteAction => 'Delete locally';
 
   @override
+  String get deleteTrustedHostFailed =>
+      'The computer could not be deleted from this device.';
+
+  @override
   String get mobileDeviceFallbackName => 'My phone';
 
   @override

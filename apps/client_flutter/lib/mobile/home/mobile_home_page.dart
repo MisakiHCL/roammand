@@ -63,6 +63,7 @@ final class _MobileHomePageState extends State<MobileHomePage> {
   StreamSubscription<List<TrustedHostRecord>>? _subscription;
   late List<TrustedHostRecord> _hosts;
   String? _connectingHostKey;
+  String? _deletingHostKey;
 
   @override
   void initState() {
@@ -160,6 +161,43 @@ final class _MobileHomePageState extends State<MobileHomePage> {
     }
   }
 
+  Future<void> _confirmDelete(TrustedHostRecord host) async {
+    final hostKey = _hostKey(host);
+    if (_deletingHostKey != null || _connectingHostKey == hostKey) return;
+    final strings = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.deleteTrustedHostTitle(host.displayName)),
+        content: Text(strings.deleteTrustedHostBody),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(strings.cancelAction),
+          ),
+          FilledButton(
+            key: const Key('confirm-delete-trusted-host'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(strings.confirmDeleteAction),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _deletingHostKey = hostKey);
+    try {
+      await widget.trustedHosts.deleteLocal(host.hostIdentity.deviceId);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(strings.deleteTrustedHostFailed)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deletingHostKey = null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
@@ -250,11 +288,14 @@ final class _MobileHomePageState extends State<MobileHomePage> {
           _MobileTrustedHostCard(
             host: host,
             connecting: _connectingHostKey == _hostKey(host),
+            deleting: _deletingHostKey == _hostKey(host),
             enabled:
                 _connectingHostKey == null &&
+                _deletingHostKey == null &&
                 (widget.identity != null || widget.launchRemote != null),
             onConnect: () => _connect(host),
             onRename: () => _rename(host),
+            onDelete: () => _confirmDelete(host),
           ),
           const SizedBox(height: _itemSpacing),
         ],
@@ -354,16 +395,20 @@ final class _MobileTrustedHostCard extends StatelessWidget {
   const _MobileTrustedHostCard({
     required this.host,
     required this.connecting,
+    required this.deleting,
     required this.enabled,
     required this.onConnect,
     required this.onRename,
+    required this.onDelete,
   });
 
   final TrustedHostRecord host;
   final bool connecting;
+  final bool deleting;
   final bool enabled;
   final VoidCallback onConnect;
   final VoidCallback onRename;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -416,9 +461,20 @@ final class _MobileTrustedHostCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   key: const Key('rename-trusted-host'),
-                  onPressed: onRename,
+                  onPressed: deleting ? null : onRename,
                   tooltip: strings.renameTrustedHostAction,
                   icon: const Icon(Icons.edit_outlined, size: 20),
+                ),
+                IconButton(
+                  key: const Key('delete-trusted-host'),
+                  onPressed: connecting || deleting ? null : onDelete,
+                  tooltip: strings.deleteTrustedHostAction,
+                  icon: deleting
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.delete_outline, size: 20),
                 ),
               ],
             ),

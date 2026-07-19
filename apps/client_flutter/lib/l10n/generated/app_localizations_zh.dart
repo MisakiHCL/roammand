@@ -525,6 +525,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get confirmDeleteAction => '仅在本机删除';
 
   @override
+  String get deleteTrustedHostFailed => '无法从当前设备删除这台电脑。';
+
+  @override
   String get mobileDeviceFallbackName => '我的手机';
 
   @override

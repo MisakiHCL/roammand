@@ -169,6 +169,7 @@
   "@deleteTrustedHostTitle": {"placeholders": {"hostName": {"type": "String"}}},
   "deleteTrustedHostBody": "This removes the computer from this device's list. To fully remove access, also revoke this device on the other computer.",
   "confirmDeleteAction": "Delete locally",
+  "deleteTrustedHostFailed": "The computer could not be deleted from this device.",
   "mobileDeviceFallbackName": "My phone",
   "mobileOnboardingTitle": "Name this phone",
   "mobileOnboardingBody": "This name is shown only to computers you pair with. Pairing information stays on this device.",
