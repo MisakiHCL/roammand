@@ -232,6 +232,9 @@ void main() {
     await tester.tap(find.byKey(const Key('mobile-keyboard-toggle')));
     await tester.pump();
     expect(find.byKey(const Key('mobile-input-tray')), findsOneWidget);
+    final lockRect = tester.getRect(
+      find.byKey(const Key('mobile-control-lock')),
+    );
     await tester.tap(find.byKey(const Key('mobile-control-lock')));
     await tester.pump();
 
@@ -241,6 +244,10 @@ void main() {
     expect(find.byKey(const Key('mobile-control-lock')), findsNothing);
     expect(find.byKey(const Key('mobile-control-unlock')), findsOneWidget);
     expect(find.byType(IconButton), findsOneWidget);
+    expect(
+      tester.getRect(find.byKey(const Key('mobile-control-unlock'))),
+      lockRect,
+    );
     expect(systemUiModes, contains('SystemUiMode.immersiveSticky'));
 
     await tester.tap(find.byKey(const Key('mobile-control-unlock')));
@@ -345,7 +352,7 @@ void main() {
     expect(find.byKey(const Key('mobile-modifier-control')), findsNothing);
     expect(
       find.byKey(const Key('mobile-dismiss-keyboard-action')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(tester.takeException(), isNull);
   });
@@ -447,9 +454,7 @@ void main() {
     },
   );
 
-  testWidgets('dismisses the iOS keyboard from the action or outside tap', (
-    tester,
-  ) async {
+  testWidgets('dismisses the iOS keyboard from an outside tap', (tester) async {
     await tester.binding.setSurfaceSize(const Size(844, 390));
     addTearDown(() {
       tester.view.viewInsets = FakeViewPadding.zero;
@@ -469,17 +474,10 @@ void main() {
         tester.widget<EditableText>(find.byType(EditableText));
 
     expect(editable().focusNode.hasFocus, isTrue);
-    final dismissAction = tester.widget<IconButton>(
+    expect(
       find.byKey(const Key('mobile-dismiss-keyboard-action')),
+      findsNothing,
     );
-    expect(dismissAction.onPressed, isNotNull);
-    dismissAction.onPressed!();
-    await tester.pump();
-    expect(editable().focusNode.hasFocus, isFalse);
-
-    editable().focusNode.requestFocus();
-    await tester.pump();
-    expect(editable().focusNode.hasFocus, isTrue);
     final textField = tester.widget<TextField>(
       find.byKey(const Key('mobile-text-input')),
     );
@@ -525,12 +523,25 @@ void main() {
     expect(keyboard.last.modifierBits, 0x01);
   });
 
-  testWidgets('background releases input and pause closes without reconnect', (
+  testWidgets('background closes and leaves the remote page after resume', (
     tester,
   ) async {
     final fixture = _PageFixture();
-    await tester.pumpWidget(_app(fixture.page()));
-    await tester.pump();
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(body: Text('home')),
+      ),
+    );
+    unawaited(
+      navigatorKey.currentState!.push<void>(
+        MaterialPageRoute<void>(builder: (_) => fixture.page()),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     await tester.pump();
@@ -541,11 +552,16 @@ void main() {
     expect(fixture.controller.closeCount, 0);
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.byType(MobileRemoteDesktopPage), findsOneWidget);
+    expect(fixture.controller.state, RemoteDesktopState.idle);
+
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(fixture.controller.closeCount, 1);
     expect(fixture.controller.connectCount, 1);
+    expect(find.text('home'), findsOneWidget);
+    expect(find.byType(MobileRemoteDesktopPage), findsNothing);
   });
 
   testWidgets('renders localized failure and remains usable when narrow', (

@@ -77,15 +77,6 @@ final class _MobileInputTrayState extends State<MobileInputTray> {
                   ),
                 ),
                 const SizedBox(width: _controlSpacing),
-                if (widget.compact) ...<Widget>[
-                  IconButton(
-                    key: const Key('mobile-dismiss-keyboard-action'),
-                    onPressed: widget.onDismissKeyboard,
-                    tooltip: strings.mobileHideKeyboardAction,
-                    icon: const Icon(Icons.keyboard_hide_outlined, size: 20),
-                  ),
-                  const SizedBox(width: _controlSpacing),
-                ],
                 IconButton.filled(
                   key: const Key('mobile-text-send'),
                   onPressed: widget.enabled ? _sendText : null,

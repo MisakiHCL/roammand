@@ -26,7 +26,6 @@ const _statusRadius = 16.0;
 const _controlBarPadding = 4.0;
 const _controlBarHeight = 40.0;
 const _unlockButtonSize = 48.0;
-const _unlockButtonInset = 8.0;
 const _focusedInputTrayHeight = 56.0;
 const _minimumInputTrayHeight = 120.0;
 const _maximumInputTrayHeight = 200.0;
@@ -105,6 +104,9 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        if (_closing) {
+          unawaited(_closeSession(pop: true));
+        }
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
@@ -274,6 +276,16 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
             tooltip: strings.diagnosticsAction,
             icon: const Icon(Icons.shield_outlined, size: 20),
           ),
+          if (widget.controller.state == RemoteDesktopState.connected)
+            SizedBox.square(
+              dimension: _unlockButtonSize,
+              child: IconButton(
+                key: const Key('mobile-control-lock'),
+                onPressed: _enterControlsLock,
+                tooltip: strings.mobileLockControlsAction,
+                icon: const Icon(Icons.lock_outline_rounded, size: 20),
+              ),
+            ),
         ],
       ),
     ),
@@ -443,13 +455,6 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (widget.controller.state == RemoteDesktopState.connected)
-                IconButton(
-                  key: const Key('mobile-control-lock'),
-                  onPressed: _enterControlsLock,
-                  tooltip: strings.mobileLockControlsAction,
-                  icon: const Icon(Icons.lock_outline_rounded, size: 20),
-                ),
               IconButton(
                 key: const Key('mobile-keyboard-toggle'),
                 onPressed: _toggleKeyboardTray,
@@ -472,8 +477,8 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
 
   Widget _buildUnlockButton(AppLocalizations strings, EdgeInsets safePadding) =>
       Positioned(
-        right: safePadding.right + _unlockButtonInset,
-        top: safePadding.top + _unlockButtonInset,
+        right: safePadding.right + mobilePageHeaderHorizontalPadding,
+        top: safePadding.top,
         width: _unlockButtonSize,
         height: _unlockButtonSize,
         child: Material(
@@ -674,7 +679,7 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
       debugPrint('[remote] input_operation=send cause=$cause');
     }
     if (!_closing) {
-      unawaited(_closeSession(pop: false));
+      unawaited(_closeSession(pop: true));
     }
   }
 
