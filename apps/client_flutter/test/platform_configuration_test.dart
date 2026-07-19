@@ -51,6 +51,12 @@ void main() {
 
     final iosInfo = File('ios/Runner/Info.plist').readAsStringSync();
     expect(iosInfo, contains('<key>NSCameraUsageDescription</key>'));
+    expect(
+      RegExp(
+        r'<key>ITSAppUsesNonExemptEncryption</key>\s*<false/>',
+      ).hasMatch(iosInfo),
+      isTrue,
+    );
     expect(iosInfo, contains('<key>NSAppTransportSecurity</key>'));
     expect(
       RegExp(r'<key>NSAllowsLocalNetworking</key>\s*<true/>').hasMatch(iosInfo),
