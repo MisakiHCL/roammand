@@ -215,6 +215,7 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
   PairingSignalingJoin? _active;
   Timer? _heartbeatTimer;
   Future<void>? _closeFuture;
+  int _connectionGeneration = 0;
   int _requestSequence = 0;
 
   @override
@@ -229,10 +230,17 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
       );
     }
     validateSignalingEndpoint(endpoint);
+    final generation = ++_connectionGeneration;
     _state = _ClientState.connecting;
     _controllerDeviceId = Uint8List.fromList(controllerDeviceId);
     try {
       final transport = await _connector(endpoint);
+      if (!_connectionIsCurrent(generation)) {
+        try {
+          await transport.close();
+        } catch (_) {}
+        throw const PairingSignalingException(PairingSignalingErrorCode.closed);
+      }
       _transport = transport;
       _subscription = transport.frames.listen(
         _onFrame,
@@ -245,20 +253,24 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
       );
       final requestId = _nextRequestId();
       _registrationRequestId = requestId;
-      _registration = Completer<void>();
-      await _send(
-        SignalingClientFrame(
-          protocolVersion: _version(),
-          requestId: requestId,
-          register: RegisterDevice(deviceId: _controllerDeviceId),
+      final registration = Completer<void>();
+      _registration = registration;
+      await Future.wait<void>(<Future<void>>[
+        _send(
+          SignalingClientFrame(
+            protocolVersion: _version(),
+            requestId: requestId,
+            register: RegisterDevice(deviceId: _controllerDeviceId),
+          ),
         ),
-      );
-      await _registration!.future.timeout(
-        requestTimeout,
-        onTimeout: () => throw const PairingSignalingException(
-          PairingSignalingErrorCode.timeout,
+        registration.future.timeout(
+          requestTimeout,
+          onTimeout: () => throw const PairingSignalingException(
+            PairingSignalingErrorCode.timeout,
+          ),
         ),
-      );
+      ], eagerError: true);
+      _requireCurrentConnection(generation);
       _state = _ClientState.ready;
       _heartbeatTimer = Timer.periodic(
         heartbeatInterval,
@@ -306,25 +318,41 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
         PairingSignalingErrorCode.invalidState,
       );
     }
+    final generation = _connectionGeneration;
     _state = _ClientState.joining;
     final requestId = _nextRequestId();
     _joinRequestId = requestId;
     _expectedRendezvousId = expectedRendezvousId;
-    _join = Completer<PairingSignalingJoin>();
+    final join = Completer<PairingSignalingJoin>();
+    _join = join;
     try {
-      await _send(
-        SignalingClientFrame(
-          protocolVersion: _version(),
-          requestId: requestId,
-          joinRendezvous: request,
-        ),
+      final results = await Future.wait<PairingSignalingJoin?>(
+        <Future<PairingSignalingJoin?>>[
+          _send(
+            SignalingClientFrame(
+              protocolVersion: _version(),
+              requestId: requestId,
+              joinRendezvous: request,
+            ),
+          ).then<PairingSignalingJoin?>((_) => null),
+          join.future
+              .timeout(
+                requestTimeout,
+                onTimeout: () => throw const PairingSignalingException(
+                  PairingSignalingErrorCode.timeout,
+                ),
+              )
+              .then<PairingSignalingJoin?>((value) => value),
+        ],
+        eagerError: true,
       );
-      final joined = await _join!.future.timeout(
-        requestTimeout,
-        onTimeout: () => throw const PairingSignalingException(
-          PairingSignalingErrorCode.timeout,
-        ),
-      );
+      final joined = results.last!;
+      _requireCurrentConnection(generation);
+      if (_state != _ClientState.joining) {
+        throw const PairingSignalingException(
+          PairingSignalingErrorCode.invalidState,
+        );
+      }
       _active = joined;
       _state = _ClientState.joined;
       return joined;
@@ -627,21 +655,52 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
   Future<void> close() => _closeFuture ??= _close();
 
   Future<void> _close() async {
+    _connectionGeneration += 1;
     _state = _ClientState.closed;
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
-    await _subscription?.cancel();
+    final closedError = const PairingSignalingException(
+      PairingSignalingErrorCode.closed,
+    );
+    if (!(_registration?.isCompleted ?? true)) {
+      _registration?.completeError(closedError);
+    }
+    if (!(_join?.isCompleted ?? true)) {
+      _join?.completeError(closedError);
+    }
+    final subscription = _subscription;
     _subscription = null;
-    await _transport?.close();
+    final transport = _transport;
     _transport = null;
     _active = null;
-    _controllerDeviceId?.fillRange(0, _controllerDeviceId!.length, 0);
+    final controllerDeviceId = _controllerDeviceId;
     _controllerDeviceId = null;
+    controllerDeviceId?.fillRange(0, controllerDeviceId.length, 0);
     _issuedRequestIds.clear();
     _issuedRequestOrder.clear();
     _heartbeatRequestIds.clear();
+    try {
+      await subscription?.cancel();
+    } catch (_) {
+      // Closing the remaining resources is more important than surfacing a
+      // transport-specific cancellation failure.
+    }
+    try {
+      await transport?.close();
+    } catch (_) {
+      // The client still has to close its public event stream and stay closed.
+    }
     if (!_events.isClosed) {
       await _events.close();
+    }
+  }
+
+  bool _connectionIsCurrent(int generation) =>
+      _state != _ClientState.closed && generation == _connectionGeneration;
+
+  void _requireCurrentConnection(int generation) {
+    if (!_connectionIsCurrent(generation)) {
+      throw const PairingSignalingException(PairingSignalingErrorCode.closed);
     }
   }
 

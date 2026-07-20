@@ -546,6 +546,10 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     await tester.pump();
     expect(
+      find.byKey(const Key('mobile-remote-privacy-shield')),
+      findsOneWidget,
+    );
+    expect(
       fixture.reliable.decoded.where((event) => event.hasReleaseAllInput()),
       hasLength(1),
     );
@@ -562,6 +566,58 @@ void main() {
     expect(fixture.controller.connectCount, 1);
     expect(find.text('home'), findsOneWidget);
     expect(find.byType(MobileRemoteDesktopPage), findsNothing);
+  });
+
+  testWidgets('covers remote content while inactive and restores on resume', (
+    tester,
+  ) async {
+    final fixture = _PageFixture();
+    await tester.pumpWidget(_app(fixture.page()));
+    await tester.pump();
+
+    final privacyShield = find.byKey(const Key('mobile-remote-privacy-shield'));
+    expect(privacyShield, findsNothing);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+
+    expect(privacyShield, findsOneWidget);
+    expect(tester.widget<ModalBarrier>(privacyShield).color, Colors.black);
+    expect(fixture.controller.closeCount, 0);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(privacyShield, findsNothing);
+    expect(fixture.controller.closeCount, 0);
+  });
+
+  testWidgets('privacy shield covers a root diagnostics dialog', (
+    tester,
+  ) async {
+    final fixture = _PageFixture();
+    await tester.pumpWidget(_app(fixture.page()));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('mobile-remote-diagnostics-action')));
+    await tester.pumpAndSettle();
+    expect(find.text('Privacy-protected diagnostics'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(
+      find.byKey(const Key('mobile-remote-privacy-shield')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Close'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.text('Privacy-protected diagnostics'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('Privacy-protected diagnostics'), findsNothing);
   });
 
   testWidgets('renders localized failure and remains usable when narrow', (

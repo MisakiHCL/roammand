@@ -18,6 +18,7 @@ trap 'rm -f "$temporary"' EXIT
 (
   cd "$PACKAGE_DIR"
   find . -type f \
+    ! -path './.roammand-package-output' \
     ! -path './Library/Application Support/Roammand/install-manifest.sha256' \
     ! -path './Library/Application Support/Roammand/install-manifest.sha256.*' \
     -print | LC_ALL=C sort | sed 's#^\./##' | while IFS= read -r file; do

@@ -123,6 +123,22 @@ go run ./cmd/signaling
 
 The default session endpoint is `ws://127.0.0.1:8080/v1/connect`.
 
+Signaling accepts at most 1,024 concurrent WebSocket connections, 64 from one
+source IP, and four active pairing rendezvous per Host by default. Operators can
+tune these bounded limits with `SIGNALING_MAX_CONNECTIONS` (1–65,536),
+`SIGNALING_MAX_CONNECTIONS_PER_IP` (1–65,536), and
+`SIGNALING_MAX_RENDEZVOUS_PER_HOST` (1–64). Set explicit values appropriate for
+the host's memory, expected NAT fan-out, and traffic instead of relying on an
+unbounded deployment.
+
+Outbound delivery also has fixed byte budgets in addition to the 64-entry
+buffered queue: 64 MiB process-wide, 4 MiB per source IP, and 526,336 bytes per
+connection (two maximum-sized signaling frames). The service reserves all
+three budgets before copying a frame into a queue and keeps the reservation
+while the frame is being written. These built-in safety budgets are not
+environment-variable tunables; a delivery that cannot reserve them is rejected
+instead of increasing slow-consumer memory without bound.
+
 For source Debug builds only, a physical Controller on the same trusted LAN can use plaintext WebSocket without installing a development certificate. Start signaling on all interfaces:
 
 ```bash

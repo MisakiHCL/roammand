@@ -86,12 +86,28 @@ final class _HostStatusPageState extends State<HostStatusPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
-        (_permissionsController?.ready ?? true) &&
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshAfterResume());
+    }
+  }
+
+  Future<void> _refreshAfterResume() async {
+    final permissions = _permissionsController;
+    final permissionsWereReady = permissions?.ready ?? true;
+    if (permissions != null) {
+      await permissions.refresh();
+      if (!mounted || !permissions.ready) return;
+      if (!permissionsWereReady) {
+        // The permission listener gives the session agent a short startup grace
+        // period before retrying the Host connection.
+        return;
+      }
+    }
+    if (mounted &&
         _controller.state == HostAgentViewState.offline &&
         _controller.startupFailure ==
             HostAgentStartupFailure.protectedSessionAgentUnavailable) {
-      unawaited(_retryHost());
+      await _retryHost();
     }
   }
 

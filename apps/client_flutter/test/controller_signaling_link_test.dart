@@ -102,6 +102,54 @@ void main() {
     await link.close();
     await subscription.cancel();
   });
+
+  test('closes the routed stream when transport cleanup fails', () async {
+    final transport = _FakeSignalingTransport()
+      ..enqueue(_registered('request-1'))
+      ..failClose = true;
+    final link = WebSocketControllerSignalingLink(
+      endpoint: Uri.parse('wss://signal.example.test/v1/connect'),
+      requestIdFactory: () => 'request-1',
+      transportFactory: (_) async => transport,
+    );
+
+    await link.connect(_controllerId);
+    await link.close();
+
+    expect(transport.closeCount, 1);
+    await expectLater(link.routedSessions, emitsDone);
+  });
+
+  test('a late registration response cannot revive a closed link', () async {
+    final transport = _FakeSignalingTransport()
+      ..keepPendingReceiveOnClose = true;
+    final link = WebSocketControllerSignalingLink(
+      endpoint: Uri.parse('wss://signal.example.test/v1/connect'),
+      requestIdFactory: () => 'request-1',
+      transportFactory: (_) async => transport,
+    );
+    final connecting = link.connect(_controllerId);
+    final connectResult = expectLater(
+      connecting,
+      throwsA(
+        isA<SignalingClientException>().having(
+          (error) => error.code,
+          'code',
+          SignalingClientErrorCode.closed,
+        ),
+      ),
+    );
+    while (transport.sent.isEmpty) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    await link.close();
+    transport.emit(_registered('request-1'));
+    await connectResult;
+
+    expect(transport.closeCount, 1);
+    await expectLater(link.routedSessions, emitsDone);
+  });
 }
 
 SignalingServerFrame _registered(String requestId) => SignalingServerFrame(
@@ -126,6 +174,8 @@ final class _FakeSignalingTransport implements SignalingTransport {
   final List<SignalingClientFrame> sent = <SignalingClientFrame>[];
   Completer<Uint8List>? _waiting;
   var closeCount = 0;
+  var failClose = false;
+  var keepPendingReceiveOnClose = false;
 
   void enqueue(SignalingServerFrame frame) {
     _queued.add(Uint8List.fromList(frame.writeToBuffer()));
@@ -154,9 +204,14 @@ final class _FakeSignalingTransport implements SignalingTransport {
   @override
   Future<void> close() async {
     closeCount += 1;
+    if (failClose) {
+      throw StateError('transport cleanup failed');
+    }
     final waiting = _waiting;
-    _waiting = null;
-    if (waiting != null && !waiting.isCompleted) {
+    if (!keepPendingReceiveOnClose) {
+      _waiting = null;
+    }
+    if (!keepPendingReceiveOnClose && waiting != null && !waiting.isCompleted) {
       waiting.completeError(
         const SignalingClientException(SignalingClientErrorCode.closed),
       );

@@ -137,6 +137,71 @@ fn rejects_reflected_nonces_malformed_lengths_and_repeat_authentication() {
     );
 }
 
+#[test]
+fn replay_cache_evicts_oldest_nonce_without_blocking_new_connections() {
+    const CAPACITY: usize = 2;
+
+    let mut guard = NonceReplayGuard::new(CAPACITY).expect("guard");
+    for value in [0x44, 0x45, 0x46] {
+        let client_nonce = [value; 32];
+        let candidate = proof(
+            BridgeRole::HostAgent,
+            SECRET,
+            INSTANCE,
+            SERVER_NONCE,
+            client_nonce,
+        );
+        let mut server = BridgeAuthenticator::new(
+            BridgeRole::HostAgent,
+            IpcToken::new(SECRET),
+            INSTANCE,
+            SERVER_NONCE,
+        );
+        server
+            .authenticate(&client_nonce, &candidate, &mut guard)
+            .expect("bounded cache must continue accepting fresh nonces");
+    }
+
+    for retained_value in [0x45, 0x46] {
+        let retained_nonce = [retained_value; 32];
+        let retained_proof = proof(
+            BridgeRole::HostAgent,
+            SECRET,
+            INSTANCE,
+            SERVER_NONCE,
+            retained_nonce,
+        );
+        let mut replay = BridgeAuthenticator::new(
+            BridgeRole::HostAgent,
+            IpcToken::new(SECRET),
+            INSTANCE,
+            SERVER_NONCE,
+        );
+        assert_eq!(
+            replay.authenticate(&retained_nonce, &retained_proof, &mut guard),
+            Err(AuthenticationError::NonceReused)
+        );
+    }
+
+    let evicted_nonce = [0x44; 32];
+    let evicted_proof = proof(
+        BridgeRole::HostAgent,
+        SECRET,
+        INSTANCE,
+        SERVER_NONCE,
+        evicted_nonce,
+    );
+    let mut next_connection = BridgeAuthenticator::new(
+        BridgeRole::HostAgent,
+        IpcToken::new(SECRET),
+        INSTANCE,
+        SERVER_NONCE,
+    );
+    next_connection
+        .authenticate(&evicted_nonce, &evicted_proof, &mut guard)
+        .expect("the oldest nonce must be evicted in FIFO order");
+}
+
 fn proof(
     role: BridgeRole,
     secret: [u8; 32],

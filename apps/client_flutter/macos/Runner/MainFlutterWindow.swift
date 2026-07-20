@@ -38,7 +38,8 @@ private final class MacOsUninstallAuthorization {
     }
 
     var errorInfo: NSDictionary?
-    guard script.executeAndReturnError(&errorInfo) != nil else {
+    _ = script.executeAndReturnError(&errorInfo)
+    guard errorInfo == nil else {
       result(authorizationError())
       return
     }

@@ -339,8 +339,21 @@ final class WebSocketSignalingTransport implements SignalingTransport {
       return;
     }
     _closed = true;
-    await _iterator.cancel();
-    await _channel.sink.close();
+    var cleanupFailed = false;
+    try {
+      await _iterator.cancel();
+    } catch (_) {
+      // The socket sink still owns resources when iterator cancellation fails.
+      cleanupFailed = true;
+    }
+    try {
+      await _channel.sink.close();
+    } catch (_) {
+      cleanupFailed = true;
+    }
+    if (cleanupFailed) {
+      throw const SignalingClientException(SignalingClientErrorCode.transport);
+    }
   }
 }
 

@@ -22,7 +22,12 @@ const _screenRecordingSettings =
     'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture';
 const _accessibilitySettings =
     'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility';
-const _permissionPollInterval = Duration(seconds: 2);
+const _permissionPollDelays = <Duration>[
+  Duration(seconds: 2),
+  Duration(seconds: 10),
+  Duration(seconds: 30),
+  Duration(minutes: 1),
+];
 const _permissionExitCodeBase = 40;
 const _screenRecordingRequestAttemptedStorageKey =
     'macos_screen_recording_request_attempted_v1';
@@ -66,6 +71,16 @@ abstract interface class MacOsHostPermissionService {
 
   Future<MacOsHostPermissionStatus> request(MacOsHostPermission permission);
 }
+
+abstract interface class MacOsPermissionPollHandle {
+  void cancel();
+}
+
+typedef MacOsPermissionPollScheduler =
+    MacOsPermissionPollHandle Function(
+      Duration delay,
+      void Function() callback,
+    );
 
 abstract interface class MacOsScreenRecordingRequestHistory {
   Future<bool> wasRequested();
@@ -224,16 +239,22 @@ final class ProcessMacOsHostPermissionService
 }
 
 final class MacOsHostPermissionsController extends ChangeNotifier {
-  MacOsHostPermissionsController({MacOsHostPermissionService? service})
-    : _service = service ?? ProcessMacOsHostPermissionService();
+  MacOsHostPermissionsController({
+    MacOsHostPermissionService? service,
+    MacOsPermissionPollScheduler? pollScheduler,
+  }) : _service = service ?? ProcessMacOsHostPermissionService(),
+       _pollScheduler = pollScheduler ?? _schedulePermissionPoll;
 
   final MacOsHostPermissionService _service;
+  final MacOsPermissionPollScheduler _pollScheduler;
   MacOsHostPermissionStatus? _status;
   MacOsHostPermission? _pendingPermission;
-  Timer? _pollTimer;
+  MacOsPermissionPollHandle? _pollTimer;
   bool _checking = false;
   bool _unavailable = false;
   bool _disposed = false;
+  int _pollDelayIndex = 0;
+  int _statusOperationGeneration = 0;
 
   MacOsHostPermissionStatus? get status => _status;
   MacOsHostPermission? get pendingPermission => _pendingPermission;
@@ -244,54 +265,94 @@ final class MacOsHostPermissionsController extends ChangeNotifier {
 
   Future<void> start() async {
     await refresh();
-    if (!_disposed && !ready) {
-      _pollTimer ??= Timer.periodic(
-        _permissionPollInterval,
-        (_) => unawaited(refresh()),
-      );
-    }
   }
 
   Future<void> refresh() async {
     if (_disposed || _checking || _pendingPermission != null) return;
+    final operationGeneration = ++_statusOperationGeneration;
     _checking = true;
     _notify();
     try {
-      _status = await _service.check();
-      _unavailable = false;
-      if (_status!.ready) {
-        _pollTimer?.cancel();
-        _pollTimer = null;
+      final status = await _service.check();
+      if (_operationIsCurrent(operationGeneration)) {
+        _status = status;
+        _unavailable = false;
       }
     } on MacOsHostPermissionException {
-      _unavailable = true;
+      if (_operationIsCurrent(operationGeneration)) {
+        _unavailable = true;
+      }
     } finally {
       _checking = false;
+      if (_operationIsCurrent(operationGeneration)) {
+        if (ready) {
+          _cancelPolling(resetBackoff: true);
+        } else {
+          _scheduleNextPoll();
+        }
+      } else if (!_disposed && _pendingPermission == null && !ready) {
+        // A newer request may have scheduled a poll while this stale check was
+        // still running. If that poll fired and observed `_checking`, restore
+        // the polling chain now that the in-flight check has actually ended.
+        _scheduleNextPoll();
+      }
       _notify();
     }
   }
 
   Future<void> request(MacOsHostPermission permission) async {
     if (_disposed || _pendingPermission != null) return;
+    final operationGeneration = ++_statusOperationGeneration;
+    _cancelPolling(resetBackoff: true);
     _pendingPermission = permission;
     _unavailable = false;
     _notify();
     try {
-      _status = await _service.request(permission);
-      if (_status!.ready) {
-        _pollTimer?.cancel();
-        _pollTimer = null;
-      } else {
-        _pollTimer ??= Timer.periodic(
-          _permissionPollInterval,
-          (_) => unawaited(refresh()),
-        );
+      final status = await _service.request(permission);
+      if (_operationIsCurrent(operationGeneration)) {
+        _status = status;
+        _unavailable = false;
+      }
+      if (_operationIsCurrent(operationGeneration) && status.ready) {
+        _cancelPolling(resetBackoff: true);
       }
     } on MacOsHostPermissionException {
-      _unavailable = true;
+      if (_operationIsCurrent(operationGeneration)) {
+        _unavailable = true;
+      }
     } finally {
-      _pendingPermission = null;
+      if (_operationIsCurrent(operationGeneration)) {
+        _pendingPermission = null;
+        if (!ready) {
+          _scheduleNextPoll();
+        }
+      }
       _notify();
+    }
+  }
+
+  void _scheduleNextPoll() {
+    if (_disposed ||
+        ready ||
+        _pendingPermission != null ||
+        _pollTimer != null) {
+      return;
+    }
+    final delay = _permissionPollDelays[_pollDelayIndex];
+    if (_pollDelayIndex < _permissionPollDelays.length - 1) {
+      _pollDelayIndex += 1;
+    }
+    _pollTimer = _pollScheduler(delay, () {
+      _pollTimer = null;
+      unawaited(refresh());
+    });
+  }
+
+  void _cancelPolling({required bool resetBackoff}) {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    if (resetBackoff) {
+      _pollDelayIndex = 0;
     }
   }
 
@@ -299,10 +360,28 @@ final class MacOsHostPermissionsController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  bool _operationIsCurrent(int generation) =>
+      !_disposed && generation == _statusOperationGeneration;
+
   @override
   void dispose() {
     _disposed = true;
-    _pollTimer?.cancel();
+    _statusOperationGeneration += 1;
+    _cancelPolling(resetBackoff: true);
     super.dispose();
   }
 }
+
+final class _TimerPermissionPollHandle implements MacOsPermissionPollHandle {
+  const _TimerPermissionPollHandle(this._timer);
+
+  final Timer _timer;
+
+  @override
+  void cancel() => _timer.cancel();
+}
+
+MacOsPermissionPollHandle _schedulePermissionPoll(
+  Duration delay,
+  void Function() callback,
+) => _TimerPermissionPollHandle(Timer(delay, callback));

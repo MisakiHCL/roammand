@@ -219,6 +219,7 @@ final class ControllerPeerSession {
       StreamController<ControllerPeerEvent>.broadcast();
   ControllerPeerState _state = ControllerPeerState.idle;
   bool _answerApplied = false;
+  bool _answerApplicationInFlight = false;
   bool _closed = false;
 
   ControllerPeerState get state => _state;
@@ -248,6 +249,9 @@ final class ControllerPeerSession {
           onEvent: _onPeerEvent,
         ),
       );
+      if (_closed) {
+        throw const PeerSessionException(PeerSessionErrorCode.closed);
+      }
       if (offer.sdp.isEmpty || offer.dtlsFingerprintSha256.length != 32) {
         throw const PeerSessionException(PeerSessionErrorCode.peer);
       }
@@ -263,25 +267,45 @@ final class ControllerPeerSession {
   }
 
   Future<void> applyVerifiedAnswer(String sdp) async {
-    if (_closed || _state != ControllerPeerState.awaitingVerifiedAnswer) {
+    if (_closed ||
+        _state != ControllerPeerState.awaitingVerifiedAnswer ||
+        _answerApplicationInFlight) {
       throw const PeerSessionException(PeerSessionErrorCode.state);
     }
+    _answerApplicationInFlight = true;
     try {
       await adapter.setRemoteAnswer(sdp);
+      _requireOpen();
       _answerApplied = true;
       for (final candidate in _pendingCandidates.drain()) {
         await adapter.addRemoteCandidate(candidate);
+        _requireOpen();
       }
       _state = ControllerPeerState.connecting;
-    } catch (_) {
-      if (_restarting) {
-        _pendingCandidates.drain();
-        _answerApplied = false;
-        _state = ControllerPeerState.reconnecting;
-      } else {
-        await _failAndClose();
+    } on PeerSessionException catch (error) {
+      if (_closed || error.code == PeerSessionErrorCode.closed) {
+        throw const PeerSessionException(PeerSessionErrorCode.closed);
       }
+      await _handleAnswerFailure();
       throw const PeerSessionException(PeerSessionErrorCode.peer);
+    } catch (_) {
+      if (_closed) {
+        throw const PeerSessionException(PeerSessionErrorCode.closed);
+      }
+      await _handleAnswerFailure();
+      throw const PeerSessionException(PeerSessionErrorCode.peer);
+    } finally {
+      _answerApplicationInFlight = false;
+    }
+  }
+
+  Future<void> _handleAnswerFailure() async {
+    if (_restarting) {
+      _pendingCandidates.drain();
+      _answerApplied = false;
+      _state = ControllerPeerState.reconnecting;
+    } else {
+      await _failAndClose();
     }
   }
 
@@ -289,6 +313,7 @@ final class ControllerPeerSession {
 
   Future<ControllerPeerOffer> restartIce() async {
     if (_closed ||
+        _answerApplicationInFlight ||
         (_state != ControllerPeerState.connected &&
             _state != ControllerPeerState.connecting &&
             _state != ControllerPeerState.awaitingVerifiedAnswer &&
@@ -301,12 +326,22 @@ final class ControllerPeerSession {
     _restarting = true;
     try {
       final offer = await adapter.restartIce();
+      _requireOpen();
       if (offer.sdp.isEmpty || offer.dtlsFingerprintSha256.length != 32) {
         throw const PeerSessionException(PeerSessionErrorCode.peer);
       }
       _state = ControllerPeerState.awaitingVerifiedAnswer;
       return offer;
+    } on PeerSessionException catch (error) {
+      if (_closed || error.code == PeerSessionErrorCode.closed) {
+        throw const PeerSessionException(PeerSessionErrorCode.closed);
+      }
+      _state = ControllerPeerState.reconnecting;
+      throw const PeerSessionException(PeerSessionErrorCode.peer);
     } catch (_) {
+      if (_closed) {
+        throw const PeerSessionException(PeerSessionErrorCode.closed);
+      }
       _state = ControllerPeerState.reconnecting;
       throw const PeerSessionException(PeerSessionErrorCode.peer);
     }
@@ -340,11 +375,23 @@ final class ControllerPeerSession {
       return;
     }
     _closed = true;
+    _answerApplicationInFlight = false;
+    _restarting = false;
     _pendingCandidates.drain();
-    await adapter.close();
+    try {
+      await adapter.close();
+    } catch (_) {
+      // Closing event streams must not depend on a native cleanup succeeding.
+    }
     _state = ControllerPeerState.closed;
     await _localCandidateController.close();
     await _events.close();
+  }
+
+  void _requireOpen() {
+    if (_closed) {
+      throw const PeerSessionException(PeerSessionErrorCode.closed);
+    }
   }
 
   void _onLocalCandidate(IceCandidate candidate) {
@@ -380,7 +427,11 @@ final class ControllerPeerSession {
     _state = ControllerPeerState.failed;
     _closed = true;
     _pendingCandidates.drain();
-    await adapter.close();
+    try {
+      await adapter.close();
+    } catch (_) {
+      // Preserve the stable peer failure while still releasing Dart streams.
+    }
     await _localCandidateController.close();
     await _events.close();
   }
@@ -408,6 +459,9 @@ final class FlutterWebRtcPeerAdapter
   RTCDataChannel? _reliable;
   RTCDataChannel? _fast;
   MediaStream? _ownedRemoteVideoStream;
+  Future<void>? _rendererInitialization;
+  Future<void>? _closeFuture;
+  final Set<Future<void>> _videoBindingTasks = <Future<void>>{};
   bool _closed = false;
   bool _peerConnected = false;
   bool _reportedConnected = false;
@@ -430,7 +484,18 @@ final class FlutterWebRtcPeerAdapter
     configuration.validate();
     var operation = _PeerDebugOperation.initializeRenderer;
     try {
-      await _renderer.initialize();
+      final rendererInitialization = _renderer.initialize();
+      _rendererInitialization = rendererInitialization;
+      try {
+        await rendererInitialization;
+      } finally {
+        if (identical(_rendererInitialization, rendererInitialization)) {
+          _rendererInitialization = null;
+        }
+      }
+      if (_closed) {
+        throw const PeerSessionException(PeerSessionErrorCode.closed);
+      }
       operation = _PeerDebugOperation.createPeerConnection;
       final peer = await createPeerConnection(
         <String, dynamic>{
@@ -452,6 +517,10 @@ final class FlutterWebRtcPeerAdapter
           'optional': <Map<String, dynamic>>[],
         },
       );
+      if (_closed) {
+        await _closeUnownedPeer(peer);
+        throw const PeerSessionException(PeerSessionErrorCode.closed);
+      }
       _peer = peer;
       peer.onIceCandidate = (candidate) {
         final value = candidate.candidate;
@@ -489,7 +558,7 @@ final class FlutterWebRtcPeerAdapter
       };
       peer.onTrack = (event) {
         if (!_closed && event.track.kind == _videoMediaKind) {
-          unawaited(_bindRemoteVideoTrack(event));
+          _startRemoteVideoBinding(event);
         }
       };
 
@@ -498,8 +567,10 @@ final class FlutterWebRtcPeerAdapter
         kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
         init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
       );
+      _throwIfClosed();
       operation = _PeerDebugOperation.readVideoCapabilities;
       final capabilities = await getRtpReceiverCapabilities('video');
+      _throwIfClosed();
       final codecs = _preferCodecCapabilities(
         capabilities.codecs ?? const <RTCRtpCodecCapability>[],
         configuration.videoCodecPreference,
@@ -507,28 +578,40 @@ final class FlutterWebRtcPeerAdapter
       if (codecs.isNotEmpty) {
         operation = _PeerDebugOperation.setVideoCodecs;
         await video.setCodecPreferences(codecs);
+        _throwIfClosed();
       }
 
       operation = _PeerDebugOperation.createReliableDataChannel;
-      _reliable = await peer.createDataChannel(
+      final reliable = await peer.createDataChannel(
         configuration.reliableChannel.label,
         _ExactDataChannelInit(
           ordered: configuration.reliableChannel.ordered,
           maxRetransmits: configuration.reliableChannel.maxRetransmits,
         ),
       );
+      if (_closed) {
+        await _closeUnownedChannel(reliable);
+        throw const PeerSessionException(PeerSessionErrorCode.closed);
+      }
+      _reliable = reliable;
       operation = _PeerDebugOperation.createFastDataChannel;
-      _fast = await peer.createDataChannel(
+      final fast = await peer.createDataChannel(
         configuration.fastChannel.label,
         _ExactDataChannelInit(
           ordered: configuration.fastChannel.ordered,
           maxRetransmits: configuration.fastChannel.maxRetransmits,
         ),
       );
+      if (_closed) {
+        await _closeUnownedChannel(fast);
+        throw const PeerSessionException(PeerSessionErrorCode.closed);
+      }
+      _fast = fast;
       _observeInputChannel(_reliable!, callbacks);
       _observeInputChannel(_fast!, callbacks);
       operation = _PeerDebugOperation.createOffer;
       final created = await peer.createOffer(_receiveVideoOfferConstraints);
+      _throwIfClosed();
       final preferredSdp = preferDesktopVideoCodecs(created.sdp ?? '');
       if (preferredSdp.isEmpty) {
         throw const PeerSessionException(PeerSessionErrorCode.peer);
@@ -537,6 +620,7 @@ final class FlutterWebRtcPeerAdapter
       await peer.setLocalDescription(
         RTCSessionDescription(preferredSdp, 'offer'),
       );
+      _throwIfClosed();
       return ControllerPeerOffer(
         sdp: preferredSdp,
         dtlsFingerprintSha256: extractSha256DtlsFingerprint(preferredSdp),
@@ -648,6 +732,13 @@ final class FlutterWebRtcPeerAdapter
       }
 
       await _renderer.setSrcObject(stream: stream, trackId: event.track.id);
+      if (_closed) {
+        await _bestEffortPeerCleanup(
+          () => _renderer.setSrcObject(stream: null),
+        );
+        await _bestEffortPeerCleanup(() async => ownedStream?.dispose());
+        return;
+      }
       final previousOwnedStream = _ownedRemoteVideoStream;
       _ownedRemoteVideoStream = ownedStream;
       if (previousOwnedStream != null && previousOwnedStream != ownedStream) {
@@ -661,6 +752,17 @@ final class FlutterWebRtcPeerAdapter
       }
       _debugPeerFailure(_PeerDebugOperation.bindRemoteVideo, error);
     }
+  }
+
+  void _startRemoteVideoBinding(RTCTrackEvent event) {
+    late final Future<void> task;
+    task = _bindRemoteVideoTrack(event);
+    _videoBindingTasks.add(task);
+    unawaited(
+      task.whenComplete(() {
+        _videoBindingTasks.remove(task);
+      }),
+    );
   }
 
   Future<void> _send(RTCDataChannel? channel, Uint8List bytes) async {
@@ -715,7 +817,9 @@ final class FlutterWebRtcPeerAdapter
   }
 
   @override
-  Future<void> close() async {
+  Future<void> close() => _closeFuture ??= _close();
+
+  Future<void> _close() async {
     if (_closed) {
       return;
     }
@@ -723,30 +827,57 @@ final class FlutterWebRtcPeerAdapter
     final reliable = _reliable;
     final fast = _fast;
     final peer = _peer;
-    final ownedRemoteVideoStream = _ownedRemoteVideoStream;
     _reliable = null;
     _fast = null;
     _peer = null;
-    _ownedRemoteVideoStream = null;
     _peerConnected = false;
     _reportedConnected = false;
     _transportFailureReported = false;
     if (reliable != null) reliable.onDataChannelState = null;
     if (fast != null) fast.onDataChannelState = null;
-    try {
-      await reliable?.close();
-    } catch (_) {}
-    try {
-      await fast?.close();
-    } catch (_) {}
-    try {
-      await peer?.close();
-      await peer?.dispose();
-    } catch (_) {}
-    await _renderer.dispose();
-    try {
-      await ownedRemoteVideoStream?.dispose();
-    } catch (_) {}
+    if (peer != null) {
+      peer.onIceCandidate = null;
+      peer.onConnectionState = null;
+      peer.onTrack = null;
+    }
+    await _bestEffortPeerCleanup(() async => reliable?.close());
+    await _bestEffortPeerCleanup(() async => fast?.close());
+    await _bestEffortPeerCleanup(() async => peer?.close());
+    await _bestEffortPeerCleanup(() async => peer?.dispose());
+    final rendererInitialization = _rendererInitialization;
+    if (rendererInitialization != null) {
+      await _bestEffortPeerCleanup(() => rendererInitialization);
+    }
+    if (_videoBindingTasks.isNotEmpty) {
+      await Future.wait<void>(List<Future<void>>.of(_videoBindingTasks));
+    }
+    final ownedRemoteVideoStream = _ownedRemoteVideoStream;
+    _ownedRemoteVideoStream = null;
+    await _bestEffortPeerCleanup(() => _renderer.setSrcObject(stream: null));
+    await _bestEffortPeerCleanup(_renderer.dispose);
+    await _bestEffortPeerCleanup(() async => ownedRemoteVideoStream?.dispose());
+  }
+
+  void _throwIfClosed() {
+    if (_closed) {
+      throw const PeerSessionException(PeerSessionErrorCode.closed);
+    }
+  }
+}
+
+Future<void> _closeUnownedPeer(RTCPeerConnection peer) async {
+  await _bestEffortPeerCleanup(peer.close);
+  await _bestEffortPeerCleanup(peer.dispose);
+}
+
+Future<void> _closeUnownedChannel(RTCDataChannel channel) =>
+    _bestEffortPeerCleanup(channel.close);
+
+Future<void> _bestEffortPeerCleanup(Future<void> Function() cleanup) async {
+  try {
+    await cleanup();
+  } catch (_) {
+    // Every native resource is released independently during teardown.
   }
 }
 

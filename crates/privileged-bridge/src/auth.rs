@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use std::{collections::HashSet, fmt};
+use std::{
+    collections::{HashSet, VecDeque},
+    fmt,
+};
 
 use roammand_ipc::{AuthChannel, IpcToken, channel_server_proof, verify_channel_client_proof};
 use thiserror::Error;
@@ -33,8 +36,6 @@ pub enum AuthenticationError {
     AuthenticationFailed,
     #[error("bridge authentication nonce was already used")]
     NonceReused,
-    #[error("bridge authentication replay cache is full")]
-    ReplayCacheFull,
     #[error("bridge connection is already authenticated")]
     AlreadyAuthenticated,
     #[error("bridge replay cache capacity is invalid")]
@@ -44,11 +45,12 @@ pub enum AuthenticationError {
 #[derive(Debug)]
 pub struct NonceReplayGuard {
     used: HashSet<[u8; NONCE_BYTES]>,
+    insertion_order: VecDeque<[u8; NONCE_BYTES]>,
     capacity: usize,
 }
 
 impl NonceReplayGuard {
-    /// Creates a fail-closed nonce replay cache.
+    /// Creates a bounded nonce replay cache.
     ///
     /// # Errors
     ///
@@ -59,6 +61,7 @@ impl NonceReplayGuard {
         }
         Ok(Self {
             used: HashSet::with_capacity(capacity),
+            insertion_order: VecDeque::with_capacity(capacity),
             capacity,
         })
     }
@@ -67,10 +70,13 @@ impl NonceReplayGuard {
         if self.used.contains(&nonce) {
             return Err(AuthenticationError::NonceReused);
         }
-        if self.used.len() >= self.capacity {
-            return Err(AuthenticationError::ReplayCacheFull);
+        if self.used.len() == self.capacity
+            && let Some(expired) = self.insertion_order.pop_front()
+        {
+            self.used.remove(&expired);
         }
         self.used.insert(nonce);
+        self.insertion_order.push_back(nonce);
         Ok(())
     }
 }
@@ -110,7 +116,7 @@ impl BridgeAuthenticator {
     /// # Errors
     ///
     /// Rejects repeated authentication, malformed/reflected/replayed nonces,
-    /// invalid proofs, and a saturated replay cache before business frames run.
+    /// invalid proofs, and recently replayed nonces before business frames run.
     pub fn authenticate(
         &mut self,
         client_nonce: &[u8],

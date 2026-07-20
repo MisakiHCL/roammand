@@ -10,8 +10,10 @@ import (
 	"time"
 )
 
+const testMaxRendezvousPerHost = 8
+
 func TestRendezvousCodeJoinStoresOnlyHash(t *testing.T) {
-	store := NewRendezvousStore()
+	store := NewRendezvousStore(testMaxRendezvousPerHost)
 	now := time.Unix(100, 0)
 	created := Rendezvous{
 		ID:        testRendezvousID(1),
@@ -20,7 +22,7 @@ func TestRendezvousCodeJoinStoresOnlyHash(t *testing.T) {
 		ExpiresAt: now.Add(2 * time.Minute),
 	}
 
-	if err := store.Create(created, "ABCDEFGH"); err != nil {
+	if _, err := store.Create(created, "ABCDEFGH", now); err != nil {
 		t.Fatal(err)
 	}
 	joined, err := store.JoinByCode("abcdefgh", testDeviceID(2), now)
@@ -39,7 +41,7 @@ func TestRendezvousCodeJoinStoresOnlyHash(t *testing.T) {
 }
 
 func TestRendezvousExpiresAfterExactlyTwoMinutes(t *testing.T) {
-	store := NewRendezvousStore()
+	store := NewRendezvousStore(testMaxRendezvousPerHost)
 	now := time.Unix(100, 0)
 	rendezvous := Rendezvous{
 		ID:        testRendezvousID(2),
@@ -48,7 +50,7 @@ func TestRendezvousExpiresAfterExactlyTwoMinutes(t *testing.T) {
 		ExpiresAt: now.Add(2 * time.Minute),
 	}
 
-	if err := store.Create(rendezvous, ""); err != nil {
+	if _, err := store.Create(rendezvous, "", now); err != nil {
 		t.Fatal(err)
 	}
 	removed := store.Sweep(now.Add(2 * time.Minute))
@@ -61,13 +63,13 @@ func TestRendezvousExpiresAfterExactlyTwoMinutes(t *testing.T) {
 }
 
 func TestRendezvousAllowsOneDistinctController(t *testing.T) {
-	store := NewRendezvousStore()
+	store := NewRendezvousStore(testMaxRendezvousPerHost)
 	now := time.Unix(100, 0)
 	id := testRendezvousID(3)
 	host := testDeviceID(1)
-	if err := store.Create(Rendezvous{
+	if _, err := store.Create(Rendezvous{
 		ID: id, Kind: PairingKindQR, Host: host, ExpiresAt: now.Add(time.Minute),
-	}, ""); err != nil {
+	}, "", now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -83,14 +85,14 @@ func TestRendezvousAllowsOneDistinctController(t *testing.T) {
 }
 
 func TestRendezvousPeerAndHostOnlyCompletion(t *testing.T) {
-	store := NewRendezvousStore()
+	store := NewRendezvousStore(testMaxRendezvousPerHost)
 	now := time.Unix(100, 0)
 	id := testRendezvousID(4)
 	host := testDeviceID(1)
 	controller := testDeviceID(2)
-	if err := store.Create(Rendezvous{
+	if _, err := store.Create(Rendezvous{
 		ID: id, Kind: PairingKindQR, Host: host, ExpiresAt: now.Add(time.Minute),
-	}, ""); err != nil {
+	}, "", now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.JoinByID(id, controller, now); err != nil {
@@ -120,15 +122,15 @@ func TestRendezvousPeerAndHostOnlyCompletion(t *testing.T) {
 }
 
 func TestRendezvousDisconnectRemovesMemberSessions(t *testing.T) {
-	store := NewRendezvousStore()
+	store := NewRendezvousStore(testMaxRendezvousPerHost)
 	now := time.Unix(100, 0)
 	host := testDeviceID(1)
 	controller := testDeviceID(2)
 	for seed := byte(5); seed < 7; seed++ {
 		id := testRendezvousID(seed)
-		if err := store.Create(Rendezvous{
+		if _, err := store.Create(Rendezvous{
 			ID: id, Kind: PairingKindQR, Host: host, ExpiresAt: now.Add(time.Minute),
-		}, ""); err != nil {
+		}, "", now); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := store.JoinByID(id, controller, now); err != nil {
@@ -139,6 +141,101 @@ func TestRendezvousDisconnectRemovesMemberSessions(t *testing.T) {
 	removed := store.RemoveForDevice(controller)
 	if len(removed) != 2 || store.Len() != 0 {
 		t.Fatalf("removed=%d remaining=%d, want 2 and 0", len(removed), store.Len())
+	}
+}
+
+func TestRendezvousLimitsActiveEntriesPerHostAndReleasesCapacity(t *testing.T) {
+	const maxPerHost = 2
+	store := NewRendezvousStore(maxPerHost)
+	now := time.Unix(100, 0)
+	host := testDeviceID(1)
+	otherHost := testDeviceID(2)
+
+	create := func(idSeed byte, owner DeviceID) error {
+		_, err := store.Create(Rendezvous{
+			ID:        testRendezvousID(idSeed),
+			Kind:      PairingKindQR,
+			Host:      owner,
+			ExpiresAt: now.Add(time.Minute),
+		}, "", now)
+		return err
+	}
+	if err := create(10, host); err != nil {
+		t.Fatal(err)
+	}
+	if err := create(11, host); err != nil {
+		t.Fatal(err)
+	}
+	if err := create(12, host); !errors.Is(err, ErrRendezvousLimit) {
+		t.Fatalf("third rendezvous error = %v, want %v", err, ErrRendezvousLimit)
+	}
+	if err := create(13, otherHost); err != nil {
+		t.Fatalf("other host was affected by limit: %v", err)
+	}
+
+	if _, err := store.Complete(testRendezvousID(10), host, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := create(12, host); err != nil {
+		t.Fatalf("released capacity was not reusable: %v", err)
+	}
+}
+
+func TestRendezvousCreateReleasesExpiredHostCapacityImmediately(t *testing.T) {
+	store := NewRendezvousStore(1)
+	now := time.Unix(100, 0)
+	host := testDeviceID(1)
+	if _, err := store.Create(Rendezvous{
+		ID:        testRendezvousID(20),
+		Kind:      PairingKindQR,
+		Host:      host,
+		ExpiresAt: now.Add(time.Second),
+	}, "", now); err != nil {
+		t.Fatal(err)
+	}
+
+	later := now.Add(time.Second)
+	removed, err := store.Create(Rendezvous{
+		ID:        testRendezvousID(21),
+		Kind:      PairingKindQR,
+		Host:      host,
+		ExpiresAt: later.Add(time.Minute),
+	}, "", later)
+	if err != nil {
+		t.Fatalf("expired rendezvous still consumed host capacity: %v", err)
+	}
+	if len(removed) != 1 || removed[0].ID != testRendezvousID(20) {
+		t.Fatalf("removed = %+v, want expired rendezvous 20", removed)
+	}
+	if store.Len() != 1 {
+		t.Fatalf("store length = %d, want 1", store.Len())
+	}
+}
+
+func TestRendezvousCreateReusesAnExpiredDesktopCode(t *testing.T) {
+	store := NewRendezvousStore(2)
+	now := time.Unix(100, 0)
+	if _, err := store.Create(Rendezvous{
+		ID:        testRendezvousID(22),
+		Kind:      PairingKindDesktopCode,
+		Host:      testDeviceID(1),
+		ExpiresAt: now.Add(time.Second),
+	}, "ABCDEFGH", now); err != nil {
+		t.Fatal(err)
+	}
+
+	later := now.Add(time.Second)
+	removed, err := store.Create(Rendezvous{
+		ID:        testRendezvousID(23),
+		Kind:      PairingKindDesktopCode,
+		Host:      testDeviceID(2),
+		ExpiresAt: later.Add(time.Minute),
+	}, "ABCDEFGH", later)
+	if err != nil {
+		t.Fatalf("expired desktop code was not reusable: %v", err)
+	}
+	if len(removed) != 1 || removed[0].ID != testRendezvousID(22) {
+		t.Fatalf("removed = %+v, want expired rendezvous 22", removed)
 	}
 }
 

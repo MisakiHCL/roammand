@@ -46,6 +46,21 @@ chmod 640 secrets/tls-cert.pem secrets/tls-key.pem
 If the files live elsewhere, edit `.env`. Do not commit `.env`, certificates,
 private keys, public addresses, or operator-specific paths.
 
+The example also caps signaling at 1,024 concurrent WebSocket connections, 64
+from one source IP, and four active pairing rendezvous per Host. Tune
+`SIGNALING_MAX_CONNECTIONS` (1–65,536),
+`SIGNALING_MAX_CONNECTIONS_PER_IP` (1–65,536), and
+`SIGNALING_MAX_RENDEZVOUS_PER_HOST` (1–64) in `.env` for the machine's memory,
+expected NAT fan-out, and traffic; invalid or unbounded values are rejected at
+startup.
+
+Independently of those operator settings, outbound payload copies have fixed
+hard budgets: 64 MiB across the process, 4 MiB across connections from one
+source IP, and 526,336 bytes per connection (two maximum-sized frames). The
+64-entry per-connection queue limit remains in force. Queued and currently
+writing bytes count against all applicable budgets, and failed delivery or
+connection shutdown releases every reservation.
+
 ## Validate and start
 
 ```bash

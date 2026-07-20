@@ -27,13 +27,15 @@ Join attempts use fixed-window limits:
 - 30 attempts per source IP per 60 seconds;
 - 5 attempts per rendezvous ID or normalized pairing code per 60 seconds.
 
-The source IP is the TCP peer address; forwarded-address headers are not trusted. A limited response includes a bounded retry delay. Operators should place only a carefully configured transport proxy in front of the service and must not treat proxy authentication as device authorization.
+The source IP is the TCP peer address unless that direct peer belongs to a configured `SIGNALING_TRUSTED_PROXY_CIDRS` network, in which case the proxy-overwritten `X-Real-IP` value is used. Forwarded headers from every other peer are ignored. A limited response includes a bounded retry delay. Operators should place only a carefully configured transport proxy in front of the service and must not treat proxy authentication as device authorization.
 
 ## Session routing
 
 A registered sender provides a 32-byte recipient device ID and an opaque envelope. If the recipient is online, the service forwards the bytes unchanged and supplies the sender device ID from the registered connection. If the recipient is absent, it returns `DEVICE_OFFLINE`. WebRTC offers, answers, ICE candidates, and signed session authentication remain end-to-end protocol data inside the opaque envelope.
 
-The service does not persist session messages, inspect signatures, terminate WebRTC, relay screen media, or synthesize authorization. Delivery is best-effort through a bounded per-connection queue; a stalled consumer is disconnected rather than allowed to grow unbounded memory.
+The service does not persist session messages, inspect signatures, terminate WebRTC, relay screen media, or synthesize authorization. Delivery is best-effort through a bounded per-connection queue. The buffered queue retains at most 64 entries. Before copying an encoded frame into that queue, transport atomically reserves its payload size against a 526,336-byte per-connection budget (two maximum-sized frames), a 4 MiB source-IP budget, and a 64 MiB process-wide budget. Reservations include the frame currently being written and are released after write success, write failure, queue drain, or connection close.
+
+If the entry limit or any byte budget is full, the new relayed message is dropped and its sender receives `DEVICE_OFFLINE`; the recipient route is not removed by another sender. A recipient whose current socket write exceeds the bounded write deadline is disconnected. The byte budgets are fixed safety invariants rather than deployment knobs, so raising connection-count limits cannot silently remove the process-wide outbound memory bound.
 
 ## Public errors
 
@@ -62,5 +64,14 @@ key must be configured together. When a reverse proxy overwrites `X-Real-IP`,
 forwarding headers from untrusted peers are ignored. `SIGINT` and `SIGTERM`
 stop new HTTP work, close active WebSocket connections, remove presence and
 rendezvous state, and finish within the configured shutdown deadline.
+
+The process accepts at most 1,024 concurrent WebSocket connections, 64 from one
+source IP, and four active rendezvous per Host by default. Operators can set
+bounded values with `SIGNALING_MAX_CONNECTIONS` (1–65,536),
+`SIGNALING_MAX_CONNECTIONS_PER_IP` (1–65,536), and
+`SIGNALING_MAX_RENDEZVOUS_PER_HOST` (1–64). A connection above the global limit
+receives HTTP 503, and one above the per-IP limit receives HTTP 429, before
+WebSocket upgrade. A Host above its rendezvous limit receives
+`PAIRING_REJECTED`.
 
 All presence, rate-limit, rendezvous, and connection state is local memory and is cleared on restart. Signaling does not provide multi-instance coordination, durable queues, TURN, WebRTC media, device key storage, pairing presentation, screen capture, or input control.

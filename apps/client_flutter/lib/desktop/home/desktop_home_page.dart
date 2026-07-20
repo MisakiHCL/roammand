@@ -895,13 +895,16 @@ Future<bool> _launchRemote(
   }
 
   controller.addListener(observeConnection);
-  await Navigator.of(context).push<void>(
-    MaterialPageRoute<void>(
-      builder: (context) =>
-          RemoteDesktopPage(target: target, controller: controller),
-    ),
-  );
-  controller.removeListener(observeConnection);
+  try {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            RemoteDesktopPage(target: target, controller: controller),
+      ),
+    );
+  } finally {
+    controller.removeListener(observeConnection);
+  }
   return connected;
 }
 

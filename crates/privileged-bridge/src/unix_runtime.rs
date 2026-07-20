@@ -50,7 +50,7 @@ impl UnixStreamTransport {
             .set_nonblocking(true)
             .map_err(|_| TransportError::FailedClosed)?;
         #[cfg(target_os = "macos")]
-        let peer = macos_peer_identity(&stream).ok();
+        let peer = Some(macos_peer_identity(&stream)?);
         #[cfg(not(target_os = "macos"))]
         let peer = None;
         Ok(Self {

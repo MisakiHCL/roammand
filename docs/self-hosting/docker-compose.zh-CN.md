@@ -37,6 +37,18 @@ chmod 640 secrets/tls-cert.pem secrets/tls-key.pem
 
 如果文件放在其他位置，请修改 `.env`。不要提交 `.env`、证书、私钥、公网地址或运维人员本地路径。
 
+示例配置还会把信令服务限制为最多 1,024 个并发 WebSocket 连接、每个来源 IP
+64 个连接，以及每台 Host 最多 4 个活动配对 rendezvous。可根据机器内存、NAT
+后的预期设备数量和流量，在 `.env` 中调整
+`SIGNALING_MAX_CONNECTIONS`（1–65,536）、
+`SIGNALING_MAX_CONNECTIONS_PER_IP`（1–65,536）和
+`SIGNALING_MAX_RENDEZVOUS_PER_HOST`（1–64）；服务启动时会拒绝无效或无上限值。
+
+这些运维配置之外，出站载荷副本还有不可调大的硬预算：进程全局 64 MiB、同一来源
+IP 的所有连接合计 4 MiB、每个连接 526,336 字节（两个最大尺寸的帧）。每个连接
+64 条的队列上限仍然有效；排队中和正在写入套接字的字节都会计入所有适用预算，
+投递失败或连接关闭时会释放全部预留。
+
 ## 校验并启动
 
 ```bash

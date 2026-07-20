@@ -29,6 +29,7 @@ final class HostTrayController {
   HostTrayMenu? _menu;
   Future<void> _previousOperation = Future<void>.value();
   bool _started = false;
+  bool _initialized = false;
   bool _commandPending = false;
   bool _disposed = false;
 
@@ -45,10 +46,17 @@ final class HostTrayController {
       if (_disposed) {
         return;
       }
-      await _port.initialize(
-        iconAssetPath: iconAssetPath,
-        onCommand: _handleCommand,
-      );
+      try {
+        await _port.initialize(
+          iconAssetPath: iconAssetPath,
+          onCommand: _handleCommand,
+        );
+      } catch (_) {
+        _started = false;
+        _initialized = false;
+        rethrow;
+      }
+      _initialized = true;
       await _flushDesiredSnapshot();
     });
   }
@@ -63,7 +71,10 @@ final class HostTrayController {
 
   Future<void> _flushDesiredSnapshot() async {
     final desiredSnapshot = _desiredSnapshot;
-    if (_disposed || desiredSnapshot == null || desiredSnapshot == _snapshot) {
+    if (_disposed ||
+        !_initialized ||
+        desiredSnapshot == null ||
+        desiredSnapshot == _snapshot) {
       return;
     }
     final desiredMenu = HostTrayMenu.fromSnapshot(desiredSnapshot);
@@ -76,7 +87,7 @@ final class HostTrayController {
 
   Future<void> _enqueue(Future<void> Function() operation) {
     final scheduled = _previousOperation.then((_) => operation());
-    _previousOperation = scheduled;
+    _previousOperation = scheduled.catchError((_) {});
     return scheduled;
   }
 

@@ -115,6 +115,83 @@ void main() {
     expect(port.menus.single.exitLabel, chinese.exitLabel);
     await controller.dispose();
   });
+
+  test(
+    'continues updates and disposes after a queued operation fails',
+    () async {
+      final port = FakeHostTrayPort();
+      final controller = HostTrayController(
+        port: port,
+        emergencyStop: () async {},
+        confirmControlledExit: () async => true,
+        beforeExit: () async {},
+      );
+      const ready = HostTraySnapshot(
+        tooltipLabel: 'Roammand',
+        exitLabel: 'Quit Roammand',
+        controlActive: false,
+      );
+      const recovered = HostTraySnapshot(
+        tooltipLabel: 'Roammand',
+        exitLabel: 'Exit Roammand',
+        controlActive: true,
+      );
+      const localized = HostTraySnapshot(
+        tooltipLabel: 'Roammand',
+        exitLabel: '退出 Roammand',
+        controlActive: true,
+      );
+
+      await controller.start(iconAssetPath: 'tray.png', snapshot: ready);
+      port.failNextMenuUpdate = true;
+      await expectLater(controller.update(localized), throwsStateError);
+
+      await controller.update(recovered);
+      expect(port.menus.last.exitLabel, recovered.exitLabel);
+
+      port.failNextMenuUpdate = true;
+      await expectLater(controller.update(ready), throwsStateError);
+      await controller.dispose();
+
+      expect(port.updateMenuAttempts, 4);
+      expect(port.disposeCount, 1);
+    },
+  );
+
+  test(
+    'retries initialization and blocks updates after start failure',
+    () async {
+      final port = FakeHostTrayPort()..failNextInitialize = true;
+      final controller = HostTrayController(
+        port: port,
+        emergencyStop: () async {},
+        confirmControlledExit: () async => true,
+        beforeExit: () async {},
+      );
+      const first = HostTraySnapshot(
+        tooltipLabel: 'Roammand',
+        exitLabel: 'Quit Roammand',
+        controlActive: false,
+      );
+      const recovered = HostTraySnapshot(
+        tooltipLabel: 'Roammand',
+        exitLabel: 'Exit Roammand',
+        controlActive: false,
+      );
+
+      await expectLater(
+        controller.start(iconAssetPath: 'tray.png', snapshot: first),
+        throwsStateError,
+      );
+      await controller.update(recovered);
+      expect(port.updateMenuAttempts, 0);
+
+      await controller.start(iconAssetPath: 'tray.png', snapshot: recovered);
+      expect(port.initializeCount, 2);
+      expect(port.menus.single.exitLabel, recovered.exitLabel);
+      await controller.dispose();
+    },
+  );
 }
 
 final class FakeHostTrayPort implements HostTrayPort {
@@ -125,6 +202,9 @@ final class FakeHostTrayPort implements HostTrayPort {
   int hideCount = 0;
   int exitCount = 0;
   int disposeCount = 0;
+  int updateMenuAttempts = 0;
+  bool failNextMenuUpdate = false;
+  bool failNextInitialize = false;
   Completer<void>? initializeGate;
 
   @override
@@ -133,6 +213,10 @@ final class FakeHostTrayPort implements HostTrayPort {
     required Future<void> Function(HostTrayCommand command) onCommand,
   }) async {
     initializeCount += 1;
+    if (failNextInitialize) {
+      failNextInitialize = false;
+      throw StateError('simulated tray initialization failure');
+    }
     _onCommand = onCommand;
     await initializeGate?.future;
   }
@@ -140,7 +224,14 @@ final class FakeHostTrayPort implements HostTrayPort {
   Future<void> emit(HostTrayCommand command) async => _onCommand!(command);
 
   @override
-  Future<void> updateMenu(HostTrayMenu menu) async => menus.add(menu);
+  Future<void> updateMenu(HostTrayMenu menu) async {
+    updateMenuAttempts += 1;
+    if (failNextMenuUpdate) {
+      failNextMenuUpdate = false;
+      throw StateError('simulated tray update failure');
+    }
+    menus.add(menu);
+  }
 
   @override
   Future<void> showWindow() async => showCount += 1;

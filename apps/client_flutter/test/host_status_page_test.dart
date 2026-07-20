@@ -13,6 +13,8 @@ import 'package:roammand/l10n/generated/app_localizations.dart';
 import 'package:roammand/network/network_service_configuration.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
 
+const _permissionReadyTestDelay = Duration(seconds: 1);
+
 void main() {
   testWidgets('shows ready Host identity and confirms revocation', (
     tester,
@@ -143,6 +145,40 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Finish Mac permissions'), findsNothing);
+    expect(find.text('Add a new device'), findsOneWidget);
+  });
+
+  testWidgets('refreshes macOS permissions immediately after app resume', (
+    tester,
+  ) async {
+    final host = HostAgentController(
+      clientFactory: WidgetFakeHostAgentApi.new,
+      refreshInterval: const Duration(hours: 1),
+    );
+    final permissionService = _FakeMacOsPermissionService();
+    final permissions = MacOsHostPermissionsController(
+      service: permissionService,
+    );
+    addTearDown(permissions.dispose);
+
+    await tester.pumpWidget(
+      _app(controller: host, macOsPermissionsController: permissions),
+    );
+    await tester.pumpAndSettle();
+    expect(permissionService.checkCount, 1);
+    expect(find.text('Finish Mac permissions'), findsOneWidget);
+
+    permissionService.status = const MacOsHostPermissionStatus(
+      screenRecording: true,
+      accessibility: true,
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(permissionService.checkCount, 2);
+    await tester.pump(_permissionReadyTestDelay);
+    await tester.pumpAndSettle();
     expect(find.text('Add a new device'), findsOneWidget);
   });
 
@@ -297,9 +333,13 @@ final class _FakeMacOsPermissionService implements MacOsHostPermissionService {
     screenRecording: false,
     accessibility: false,
   );
+  int checkCount = 0;
 
   @override
-  Future<MacOsHostPermissionStatus> check() async => status;
+  Future<MacOsHostPermissionStatus> check() async {
+    checkCount += 1;
+    return status;
+  }
 
   @override
   Future<MacOsHostPermissionStatus> request(

@@ -8,6 +8,7 @@ import (
 
 	roammandv1 "github.com/MisakiHCL/roammand/gen/go/roammand/v1"
 	validation "github.com/MisakiHCL/roammand/gen/go/validation"
+	"github.com/MisakiHCL/roammand/services/signaling/internal/state"
 	"github.com/coder/websocket"
 )
 
@@ -40,6 +41,38 @@ func TestSessionRoutingReturnsOfflineForMissingDevice(t *testing.T) {
 	relaySession(t, controller, testDeviceBytes(33), []byte{1}, "relay-offline")
 	if got := readServerFrame(t, controller).GetError().GetCode(); got != roammandv1.ErrorCode_ERROR_CODE_DEVICE_OFFLINE {
 		t.Fatalf("offline code = %v", got)
+	}
+}
+
+func TestSessionRoutingBackpressureDoesNotCloseRecipient(t *testing.T) {
+	options := DefaultOptions()
+	testServer := newServiceTestServer(t, options)
+	sender := testServer.dial(t)
+	registerClient(t, sender, testDeviceBytes(34), "register-sender")
+	recipientID, valid := state.DeviceIDFromBytes(testDeviceBytes(35))
+	if !valid {
+		t.Fatal("test recipient ID is invalid")
+	}
+	const routeToken = 35
+	closeCalled := false
+	if !testServer.service.presence.Register(recipientID, state.Route{
+		Token: routeToken,
+		Send:  func([]byte) bool { return false },
+		Close: func() { closeCalled = true },
+	}, options.Now()) {
+		t.Fatal("test recipient registration failed")
+	}
+	defer testServer.service.presence.Remove(recipientID, routeToken)
+
+	relaySession(t, sender, recipientID.Bytes(), []byte{1}, "relay-backpressured")
+	if got := readServerFrame(t, sender).GetError().GetCode(); got != roammandv1.ErrorCode_ERROR_CODE_DEVICE_OFFLINE {
+		t.Fatalf("backpressure code = %v", got)
+	}
+	if closeCalled {
+		t.Fatal("recipient was closed when its outbound queue rejected a third-party message")
+	}
+	if _, online := testServer.service.presence.Lookup(recipientID); !online {
+		t.Fatal("recipient route was removed after transient backpressure")
 	}
 }
 

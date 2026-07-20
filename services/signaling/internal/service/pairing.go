@@ -41,7 +41,15 @@ func (server *Server) handleCreateRendezvous(
 		Host:      connection.deviceID,
 		ExpiresAt: now.Add(server.options.RendezvousTTL),
 	}
-	if err := server.rendezvous.Create(rendezvous, request.GetPairingCode()); err != nil {
+	expired, err := server.rendezvous.Create(rendezvous, request.GetPairingCode(), now)
+	for _, removed := range expired {
+		server.notifyRendezvousClosed(
+			removed,
+			roammandv1.PairingRendezvousCompletion_PAIRING_RENDEZVOUS_COMPLETION_EXPIRED,
+			nil,
+		)
+	}
+	if err != nil {
 		return server.sendPairingError(connection, requestID, err, 0)
 	}
 	frame := baseServerFrame(requestID)
@@ -156,7 +164,7 @@ func (server *Server) handleRelayPairing(
 		RoutedPairing: &roammandv1.RoutedPairingEnvelope{
 			RendezvousId:   rendezvousID.Bytes(),
 			SenderDeviceId: connection.deviceID.Bytes(),
-			OpaqueEnvelope: append([]byte(nil), request.GetOpaqueEnvelope()...),
+			OpaqueEnvelope: request.GetOpaqueEnvelope(),
 		},
 	}
 	if server.sendToDevice(peer, frame) {
@@ -219,6 +227,7 @@ func (server *Server) sendPairingError(
 		case errors.Is(value, state.ErrRendezvousInvalid),
 			errors.Is(value, state.ErrRendezvousExists),
 			errors.Is(value, state.ErrPairingCodeExists),
+			errors.Is(value, state.ErrRendezvousLimit),
 			errors.Is(value, state.ErrRendezvousFull),
 			errors.Is(value, state.ErrRendezvousSelfJoin),
 			errors.Is(value, state.ErrRendezvousNotMember),
@@ -248,9 +257,6 @@ func (server *Server) sendToDevice(
 	}
 	if route.Send != nil && route.Send(encoded) {
 		return true
-	}
-	if route.Close != nil {
-		route.Close()
 	}
 	return false
 }

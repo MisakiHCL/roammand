@@ -20,6 +20,7 @@ var (
 	ErrRendezvousNotHost   = errors.New("device is not the rendezvous host")
 	ErrRendezvousNotJoined = errors.New("rendezvous has no controller")
 	ErrRendezvousInvalid   = errors.New("invalid rendezvous")
+	ErrRendezvousLimit     = errors.New("device has too many active rendezvous")
 )
 
 type PairingKind uint8
@@ -39,49 +40,66 @@ type Rendezvous struct {
 }
 
 type RendezvousStore struct {
-	mu        sync.RWMutex
-	byID      map[RendezvousID]Rendezvous
-	codeIndex map[[sha256.Size]byte]RendezvousID
+	mu         sync.RWMutex
+	byID       map[RendezvousID]Rendezvous
+	codeIndex  map[[sha256.Size]byte]RendezvousID
+	hostCounts map[DeviceID]int
+	maxPerHost int
 }
 
-func NewRendezvousStore() *RendezvousStore {
+func NewRendezvousStore(maxPerHost int) *RendezvousStore {
 	return &RendezvousStore{
-		byID:      make(map[RendezvousID]Rendezvous),
-		codeIndex: make(map[[sha256.Size]byte]RendezvousID),
+		byID:       make(map[RendezvousID]Rendezvous),
+		codeIndex:  make(map[[sha256.Size]byte]RendezvousID),
+		hostCounts: make(map[DeviceID]int),
+		maxPerHost: maxPerHost,
 	}
 }
 
-func (store *RendezvousStore) Create(rendezvous Rendezvous, pairingCode string) error {
+func (store *RendezvousStore) Create(
+	rendezvous Rendezvous,
+	pairingCode string,
+	now time.Time,
+) ([]Rendezvous, error) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
-
-	if _, exists := store.byID[rendezvous.ID]; exists {
-		return ErrRendezvousExists
-	}
 
 	switch rendezvous.Kind {
 	case PairingKindQR:
 		if pairingCode != "" {
-			return ErrRendezvousInvalid
+			return nil, ErrRendezvousInvalid
 		}
 	case PairingKindDesktopCode:
 		if pairingCode == "" {
-			return ErrRendezvousInvalid
+			return nil, ErrRendezvousInvalid
 		}
 		rendezvous.CodeHash = pairingCodeHash(pairingCode)
-		if _, exists := store.codeIndex[rendezvous.CodeHash]; exists {
-			return ErrPairingCodeExists
-		}
 	default:
-		return ErrRendezvousInvalid
+		return nil, ErrRendezvousInvalid
+	}
+	if !rendezvous.ExpiresAt.After(now) {
+		return nil, ErrRendezvousInvalid
+	}
+	removed := store.sweepLocked(now)
+	if _, exists := store.byID[rendezvous.ID]; exists {
+		return removed, ErrRendezvousExists
+	}
+	if rendezvous.Kind == PairingKindDesktopCode {
+		if _, exists := store.codeIndex[rendezvous.CodeHash]; exists {
+			return removed, ErrPairingCodeExists
+		}
+	}
+	if store.hostCounts[rendezvous.Host] >= store.maxPerHost {
+		return removed, ErrRendezvousLimit
 	}
 
 	stored := cloneRendezvous(rendezvous)
 	store.byID[stored.ID] = stored
+	store.hostCounts[stored.Host]++
 	if stored.Kind == PairingKindDesktopCode {
 		store.codeIndex[stored.CodeHash] = stored.ID
 	}
-	return nil
+	return removed, nil
 }
 
 func (store *RendezvousStore) JoinByID(
@@ -171,7 +189,10 @@ func (store *RendezvousStore) RemoveForDevice(deviceID DeviceID) []Rendezvous {
 func (store *RendezvousStore) Sweep(now time.Time) []Rendezvous {
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	return store.sweepLocked(now)
+}
 
+func (store *RendezvousStore) sweepLocked(now time.Time) []Rendezvous {
 	removed := make([]Rendezvous, 0)
 	for _, rendezvous := range store.byID {
 		if rendezvous.ExpiresAt.After(now) {
@@ -229,9 +250,19 @@ func (store *RendezvousStore) activeLocked(
 }
 
 func (store *RendezvousStore) deleteLocked(rendezvous Rendezvous) {
-	delete(store.byID, rendezvous.ID)
-	if rendezvous.Kind == PairingKindDesktopCode {
-		delete(store.codeIndex, rendezvous.CodeHash)
+	stored, exists := store.byID[rendezvous.ID]
+	if !exists {
+		return
+	}
+	delete(store.byID, stored.ID)
+	if stored.Kind == PairingKindDesktopCode {
+		delete(store.codeIndex, stored.CodeHash)
+	}
+	remaining := store.hostCounts[stored.Host] - 1
+	if remaining <= 0 {
+		delete(store.hostCounts, stored.Host)
+	} else {
+		store.hostCounts[stored.Host] = remaining
 	}
 }
 

@@ -27,22 +27,37 @@ const (
 	PairingAttemptsPerIP        = 30
 	PairingAttemptsPerLookupKey = 5
 	MaxTrustedProxyCIDRs        = 16
+	DefaultMaxConnections       = 1_024
+	MaximumMaxConnections       = 65_536
+	DefaultMaxConnectionsPerIP  = 64
+	DefaultMaxRendezvousPerHost = 4
+	MaximumMaxRendezvousPerHost = 64
+
+	DefaultGlobalOutboundByteBudget  = 64 * 1024 * 1024
+	DefaultPerIPOutboundByteBudget   = 4 * 1024 * 1024
+	OutboundFrameBudgetPerConnection = 2
 )
 
 type Config struct {
-	ListenAddress      string
-	TLSCertificateFile string
-	TLSPrivateKeyFile  string
-	TrustedProxyCIDRs  []netip.Prefix
-	ShutdownTimeout    time.Duration
+	ListenAddress        string
+	TLSCertificateFile   string
+	TLSPrivateKeyFile    string
+	TrustedProxyCIDRs    []netip.Prefix
+	ShutdownTimeout      time.Duration
+	MaxConnections       int
+	MaxConnectionsPerIP  int
+	MaxRendezvousPerHost int
 }
 
 func Load(getenv func(string) string) (Config, error) {
 	config := Config{
-		ListenAddress:      strings.TrimSpace(getenv("SIGNALING_LISTEN_ADDR")),
-		TLSCertificateFile: strings.TrimSpace(getenv("SIGNALING_TLS_CERT_FILE")),
-		TLSPrivateKeyFile:  strings.TrimSpace(getenv("SIGNALING_TLS_KEY_FILE")),
-		ShutdownTimeout:    ShutdownTimeout,
+		ListenAddress:        strings.TrimSpace(getenv("SIGNALING_LISTEN_ADDR")),
+		TLSCertificateFile:   strings.TrimSpace(getenv("SIGNALING_TLS_CERT_FILE")),
+		TLSPrivateKeyFile:    strings.TrimSpace(getenv("SIGNALING_TLS_KEY_FILE")),
+		ShutdownTimeout:      ShutdownTimeout,
+		MaxConnections:       DefaultMaxConnections,
+		MaxConnectionsPerIP:  DefaultMaxConnectionsPerIP,
+		MaxRendezvousPerHost: DefaultMaxRendezvousPerHost,
 	}
 	if config.ListenAddress == "" {
 		config.ListenAddress = DefaultListenAddress
@@ -60,6 +75,36 @@ func Load(getenv func(string) string) (Config, error) {
 		return Config{}, err
 	}
 	config.TrustedProxyCIDRs = trustedProxyCIDRs
+	maxConnections, err := parseBoundedPositiveInt(
+		getenv("SIGNALING_MAX_CONNECTIONS"),
+		"SIGNALING_MAX_CONNECTIONS",
+		DefaultMaxConnections,
+		MaximumMaxConnections,
+	)
+	if err != nil {
+		return Config{}, err
+	}
+	config.MaxConnections = maxConnections
+	maxConnectionsPerIP, err := parseBoundedPositiveInt(
+		getenv("SIGNALING_MAX_CONNECTIONS_PER_IP"),
+		"SIGNALING_MAX_CONNECTIONS_PER_IP",
+		DefaultMaxConnectionsPerIP,
+		MaximumMaxConnections,
+	)
+	if err != nil {
+		return Config{}, err
+	}
+	config.MaxConnectionsPerIP = maxConnectionsPerIP
+	maxRendezvousPerHost, err := parseBoundedPositiveInt(
+		getenv("SIGNALING_MAX_RENDEZVOUS_PER_HOST"),
+		"SIGNALING_MAX_RENDEZVOUS_PER_HOST",
+		DefaultMaxRendezvousPerHost,
+		MaximumMaxRendezvousPerHost,
+	)
+	if err != nil {
+		return Config{}, err
+	}
+	config.MaxRendezvousPerHost = maxRendezvousPerHost
 
 	if encoded := strings.TrimSpace(getenv("SIGNALING_SHUTDOWN_TIMEOUT")); encoded != "" {
 		parsed, err := time.ParseDuration(encoded)
@@ -75,6 +120,18 @@ func Load(getenv func(string) string) (Config, error) {
 		config.ShutdownTimeout = parsed
 	}
 	return config, nil
+}
+
+func parseBoundedPositiveInt(encoded, name string, fallback, maximum int) (int, error) {
+	encoded = strings.TrimSpace(encoded)
+	if encoded == "" {
+		return fallback, nil
+	}
+	value, err := strconv.Atoi(encoded)
+	if err != nil || value <= 0 || value > maximum {
+		return 0, fmt.Errorf("%s must be greater than zero and at most %d", name, maximum)
+	}
+	return value, nil
 }
 
 func parseTrustedProxyCIDRs(encoded string) ([]netip.Prefix, error) {

@@ -18,9 +18,19 @@ readonly REQUIRED=(
   "Library/Application Support/Roammand/uninstall-macos.sh"
   "Library/Application Support/Roammand/licenses/MPL-2.0.txt"
   "Library/Application Support/Roammand/licenses/Apache-2.0.txt"
+  "Library/Application Support/Roammand/licenses/libwebrtc-macos-arm64-LICENSE.md"
+  "Library/Application Support/Roammand/licenses/libwebrtc-macos-x86_64-LICENSE.md"
 )
 for path in "${REQUIRED[@]}"; do
   [[ -e "$PACKAGE_DIR/$path" ]] || { printf 'missing staged macOS path: %s\n' "$path" >&2; exit 1; }
+done
+for path in \
+  "Library/Application Support/Roammand/licenses/libwebrtc-macos-arm64-LICENSE.md" \
+  "Library/Application Support/Roammand/licenses/libwebrtc-macos-x86_64-LICENSE.md"; do
+  [[ -f "$PACKAGE_DIR/$path" && -s "$PACKAGE_DIR/$path" ]] || {
+    printf 'staged libwebrtc license is not a non-empty regular file\n' >&2
+    exit 1
+  }
 done
 [[ -x "$PACKAGE_DIR/Library/Application Support/Roammand/uninstall-macos.sh" ]] || {
   printf 'staged macOS uninstaller is not executable\n' >&2

@@ -15,6 +15,7 @@ import (
 
 	roammandv1 "github.com/MisakiHCL/roammand/gen/go/roammand/v1"
 	validation "github.com/MisakiHCL/roammand/gen/go/validation"
+	"github.com/MisakiHCL/roammand/services/signaling/internal/config"
 	"github.com/MisakiHCL/roammand/services/signaling/internal/safelog"
 	"github.com/coder/websocket"
 	"google.golang.org/protobuf/proto"
@@ -66,6 +67,164 @@ func TestConnectAcceptsLegacyProtobufSubprotocol(t *testing.T) {
 	t.Cleanup(func() { _ = connection.CloseNow() })
 	if got := connection.Subprotocol(); got != LegacyWebSocketSubprotocol {
 		t.Fatalf("subprotocol = %q, want %q", got, LegacyWebSocketSubprotocol)
+	}
+}
+
+func TestConnectLimitsGlobalConcurrencyAndReleasesCapacity(t *testing.T) {
+	options := DefaultOptions()
+	options.MaxConnections = 1
+	testServer := newServiceTestServer(t, options)
+	first := testServer.dial(t)
+	waitFor(t, time.Second, func() bool {
+		return testServer.service.ActiveConnectionCount() == 1 &&
+			testServer.service.connectionCountForIP("203.0.113.10") == 0
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	second, response, err := websocket.Dial(
+		ctx,
+		testServer.websocketURL(),
+		&websocket.DialOptions{Subprotocols: []string{WebSocketSubprotocol}},
+	)
+	if response != nil {
+		defer response.Body.Close()
+	}
+	if second != nil {
+		_ = second.CloseNow()
+	}
+	if err == nil || response == nil || response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("second Dial = (response=%v, err=%v), want HTTP 503", response, err)
+	}
+
+	if err := first.CloseNow(); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, time.Second, func() bool {
+		return testServer.service.ActiveConnectionCount() == 0 &&
+			len(testServer.service.connectionSlots) == 0
+	})
+	third := testServer.dial(t)
+	waitFor(t, time.Second, func() bool {
+		return testServer.service.ActiveConnectionCount() == 1
+	})
+	if err := third.CloseNow(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConnectLimitsConcurrencyPerSourceIPAndPreservesFairness(t *testing.T) {
+	options := DefaultOptions()
+	options.MaxConnections = 3
+	options.MaxConnectionsPerIP = 1
+	options.TrustedProxyCIDRs = []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}
+	testServer := newServiceTestServer(t, options)
+	dialFromIP := func(ip string) (*websocket.Conn, *http.Response, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		return websocket.Dial(ctx, testServer.websocketURL(), &websocket.DialOptions{
+			Subprotocols: []string{WebSocketSubprotocol},
+			HTTPHeader:   http.Header{"X-Real-IP": []string{ip}},
+		})
+	}
+
+	first, _, err := dialFromIP("203.0.113.10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = first.CloseNow() })
+	blocked, response, err := dialFromIP("203.0.113.10")
+	if blocked != nil {
+		_ = blocked.CloseNow()
+	}
+	if response != nil {
+		defer response.Body.Close()
+	}
+	if err == nil || response == nil || response.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("same-IP Dial = (response=%v, err=%v), want HTTP 429", response, err)
+	}
+
+	other, _, err := dialFromIP("203.0.113.11")
+	if err != nil {
+		t.Fatalf("different-IP Dial: %v", err)
+	}
+	t.Cleanup(func() { _ = other.CloseNow() })
+	if err := first.CloseNow(); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, time.Second, func() bool {
+		return testServer.service.ActiveConnectionCount() == 1 &&
+			testServer.service.connectionCountForIP("203.0.113.10") == 0
+	})
+	replacement, _, err := dialFromIP("203.0.113.10")
+	if err != nil {
+		t.Fatalf("replacement Dial: %v", err)
+	}
+	_ = replacement.CloseNow()
+}
+
+func TestDefaultOutboundByteBudgetsAreHardBounded(t *testing.T) {
+	options := DefaultOptions()
+	if options.MaxOutboundBytes != config.DefaultGlobalOutboundByteBudget {
+		t.Fatalf("global outbound budget = %d", options.MaxOutboundBytes)
+	}
+	if options.MaxOutboundBytesPerIP != config.DefaultPerIPOutboundByteBudget {
+		t.Fatalf("per-IP outbound budget = %d", options.MaxOutboundBytesPerIP)
+	}
+	wantPerConnection := int64(validation.MaxSignalingServiceFrameBytes) *
+		config.OutboundFrameBudgetPerConnection
+	if options.MaxOutboundBytesPerConnection != wantPerConnection {
+		t.Fatalf(
+			"per-connection outbound budget = %d, want %d",
+			options.MaxOutboundBytesPerConnection,
+			wantPerConnection,
+		)
+	}
+}
+
+func TestSourceIPOutboundByteBudgetIsSharedAndReleased(t *testing.T) {
+	options := DefaultOptions()
+	options.MaxConnectionsPerIP = 2
+	options.MaxOutboundBytesPerIP = 8
+	testServer := newServiceTestServer(t, options)
+	const remoteIP = "198.51.100.42"
+
+	first, acquired := testServer.service.acquireIPConnection(remoteIP)
+	if !acquired {
+		t.Fatal("first source-IP connection was rejected")
+	}
+	second, acquired := testServer.service.acquireIPConnection(remoteIP)
+	if !acquired {
+		t.Fatal("second source-IP connection was rejected")
+	}
+	if !first.TryReserve(5) || !second.TryReserve(3) {
+		t.Fatal("valid source-IP byte reservations were rejected")
+	}
+	if second.TryReserve(1) {
+		t.Fatal("source-IP byte budget allowed an over-limit reservation")
+	}
+	if got := testServer.service.outboundBytesForIP(remoteIP); got != 8 {
+		t.Fatalf("source-IP outbound bytes = %d, want 8", got)
+	}
+
+	// Reservations can outlive the HTTP handler briefly while a socket write is
+	// being interrupted, so the source-IP entry remains until both counters hit zero.
+	testServer.service.releaseIPConnection(remoteIP)
+	testServer.service.releaseIPConnection(remoteIP)
+	if got := testServer.service.connectionCountForIP(remoteIP); got != 0 {
+		t.Fatalf("source-IP connection count = %d, want 0", got)
+	}
+	if got := testServer.service.outboundBytesForIP(remoteIP); got != 8 {
+		t.Fatalf("source-IP outbound bytes after disconnect = %d, want 8", got)
+	}
+	first.Release(5)
+	second.Release(3)
+
+	testServer.service.sourceIPMu.Lock()
+	_, retained := testServer.service.sourceIPs[remoteIP]
+	testServer.service.sourceIPMu.Unlock()
+	if retained {
+		t.Fatal("idle source-IP budget entry was retained")
 	}
 }
 

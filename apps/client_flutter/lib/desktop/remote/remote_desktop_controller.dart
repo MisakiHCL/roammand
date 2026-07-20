@@ -120,6 +120,10 @@ final class RemoteDesktopException implements Exception {
   String toString() => 'RemoteDesktopException(${code.name})';
 }
 
+final class _RemoteDesktopOperationCancelled implements Exception {
+  const _RemoteDesktopOperationCancelled();
+}
+
 final class RemoteDesktopController extends ChangeNotifier
     implements RemoteDesktopViewModel {
   factory RemoteDesktopController({
@@ -184,16 +188,20 @@ final class RemoteDesktopController extends ChangeNotifier
   StreamSubscription<ControllerPeerEvent>? _peerSubscription;
   StreamSubscription<IceCandidate>? _candidateSubscription;
   Future<void>? _closeFuture;
+  Future<void>? _resourceCloseFuture;
   ReconnectAttemptSequence? _reconnectSequence;
   ReconnectTimer? _reconnectTimer;
   bool _reconnectConnectionGracePending = false;
   Timer? _diagnosticsTimer;
   bool _offerSent = false;
+  bool _answerApplicationInFlight = false;
   bool _signalingRecoveryRequired = false;
   bool _resourcesClosed = false;
+  bool _closeRequested = false;
   bool _disposed = false;
   bool _statsCollectionInFlight = false;
   int _requestSequence = 0;
+  int _operationGeneration = 0;
   int _reconnectGeneration = 0;
   RemoteDesktopErrorCode _reconnectFailureCode = RemoteDesktopErrorCode.peer;
 
@@ -223,17 +231,24 @@ final class RemoteDesktopController extends ChangeNotifier
       throw const RemoteDesktopException(RemoteDesktopErrorCode.configuration);
     }
     target.validate();
+    final operationGeneration = ++_operationGeneration;
     _target = target;
     _setState(RemoteDesktopState.connecting);
     var operation = _RemoteDebugOperation.openIdentity;
     try {
       final controllerIdentity = await _identity.open();
+      _requireActiveOperation(operationGeneration);
       validateDeviceIdentity(controllerIdentity);
       _controllerIdentity = controllerIdentity.deepCopy();
       _sessionId = _checkedRandom(_sessionIdBytes);
       _signalingSubscription = _signaling.routedSessions.listen(
-        (event) => unawaited(_handleRouted(event)),
+        (event) {
+          if (_operationIsCurrent(operationGeneration)) {
+            unawaited(_handleRouted(event, operationGeneration));
+          }
+        },
         onError: (Object error) {
+          if (!_operationIsCurrent(operationGeneration)) return;
           _debugRemoteFailure(_RemoteDebugOperation.signalingStream, error);
           if (error is SignalingRemoteException) {
             _diagnostics.recordError(
@@ -244,32 +259,48 @@ final class RemoteDesktopController extends ChangeNotifier
           unawaited(_handleRecoverableFailure(signaling: true));
         },
         onDone: () {
+          if (!_operationIsCurrent(operationGeneration)) return;
           _debugRemoteReason(_RemoteDebugOperation.signalingStream, 'closed');
           unawaited(_handleRecoverableFailure(signaling: true));
         },
       );
       _peerSubscription = _peer.events.listen(
-        _handlePeerEvent,
+        (event) {
+          if (_operationIsCurrent(operationGeneration)) {
+            _handlePeerEvent(event);
+          }
+        },
         onError: (Object error) {
+          if (!_operationIsCurrent(operationGeneration)) return;
           _debugRemoteFailure(_RemoteDebugOperation.peerStream, error);
           unawaited(_handleRecoverableFailure());
         },
       );
       _candidateSubscription = _peer.localCandidates.listen(
-        (candidate) => unawaited(_handleLocalCandidate(candidate)),
+        (candidate) {
+          if (_operationIsCurrent(operationGeneration)) {
+            unawaited(_handleLocalCandidate(candidate));
+          }
+        },
         onError: (Object error) {
+          if (!_operationIsCurrent(operationGeneration)) return;
           _debugRemoteFailure(_RemoteDebugOperation.candidateStream, error);
           unawaited(_handleRecoverableFailure());
         },
       );
       operation = _RemoteDebugOperation.connectSignaling;
       await _signaling.connect(controllerIdentity.deviceId);
+      _requireActiveOperation(operationGeneration);
       operation = _RemoteDebugOperation.createPeerOffer;
       final peerOffer = await _peer.start();
+      _requireActiveOperation(operationGeneration);
       _setState(RemoteDesktopState.authenticating);
       operation = _RemoteDebugOperation.sendAuthenticatedOffer;
-      await _sendAuthenticatedOffer(peerOffer);
+      await _sendAuthenticatedOffer(peerOffer, operationGeneration);
+      _requireActiveOperation(operationGeneration);
       _setState(RemoteDesktopState.negotiating);
+    } on _RemoteDesktopOperationCancelled {
+      return;
     } on RemoteDesktopException catch (error) {
       _debugRemoteFailure(operation, error);
       await _fail(error.code);
@@ -291,19 +322,25 @@ final class RemoteDesktopController extends ChangeNotifier
     }
   }
 
-  Future<void> _sendAuthenticatedOffer(ControllerPeerOffer peerOffer) async {
+  Future<void> _sendAuthenticatedOffer(
+    ControllerPeerOffer peerOffer,
+    int operationGeneration,
+  ) async {
     final controllerIdentity = _controllerIdentity!;
     final target = _target!;
     final offer = _createOffer(controllerIdentity, target, peerOffer);
     final transcript = encodeSessionOfferTranscript(offer);
     final signature = await _identity.signOffer(transcript);
+    _requireActiveOperation(operationGeneration);
     await _validateLocalSignature(signature, controllerIdentity, transcript);
+    _requireActiveOperation(operationGeneration);
     offer.signature = signature;
     _offer = offer;
     _answer = null;
     _reconnect = null;
     _answerDescription = null;
     await _relay(sessionAuthentication: SessionAuthentication(offer: offer));
+    _requireActiveOperation(operationGeneration);
     await _relay(
       webRtcNegotiation: WebRtcNegotiation(
         sessionId: offer.sessionId,
@@ -314,9 +351,11 @@ final class RemoteDesktopController extends ChangeNotifier
         ),
       ),
     );
+    _requireActiveOperation(operationGeneration);
     _offerSent = true;
     for (final candidate in List<IceCandidate>.of(_pendingLocalCandidates)) {
       await _relayCandidate(candidate);
+      _requireActiveOperation(operationGeneration);
     }
     _pendingLocalCandidates.clear();
   }
@@ -343,7 +382,10 @@ final class RemoteDesktopController extends ChangeNotifier
     );
   }
 
-  Future<void> _handleRouted(SignalingRoutedSession routed) async {
+  Future<void> _handleRouted(
+    SignalingRoutedSession routed,
+    int operationGeneration,
+  ) async {
     if (_state == RemoteDesktopState.closing ||
         _state == RemoteDesktopState.failed ||
         _state == RemoteDesktopState.idle) {
@@ -390,7 +432,7 @@ final class RemoteDesktopController extends ChangeNotifier
               );
           }
           operation = _RemoteDebugOperation.applyRemoteAnswer;
-          await _tryApplyAnswer();
+          await _tryApplyAnswer(operationGeneration);
         case SignalingEnvelope_Payload.webrtcNegotiation:
           final negotiation = envelope.webrtcNegotiation;
           if (!_bytesEqual(negotiation.sessionId, sessionId)) {
@@ -408,10 +450,11 @@ final class RemoteDesktopController extends ChangeNotifier
               }
               _answerDescription = negotiation.description.deepCopy();
               operation = _RemoteDebugOperation.applyRemoteAnswer;
-              await _tryApplyAnswer();
+              await _tryApplyAnswer(operationGeneration);
             case WebRtcNegotiation_Payload.iceCandidate:
               operation = _RemoteDebugOperation.addRemoteCandidate;
               await _peer.addRemoteCandidate(negotiation.iceCandidate);
+              _requireActiveOperation(operationGeneration);
             case WebRtcNegotiation_Payload.endOfCandidates:
             case WebRtcNegotiation_Payload.notSet:
               break;
@@ -466,7 +509,7 @@ final class RemoteDesktopController extends ChangeNotifier
     }
   }
 
-  Future<void> _tryApplyAnswer() async {
+  Future<void> _tryApplyAnswer(int operationGeneration) async {
     final answer = _answer;
     final reconnect = _reconnect;
     final description = _answerDescription;
@@ -478,48 +521,59 @@ final class RemoteDesktopController extends ChangeNotifier
         target == null) {
       return;
     }
-    final fingerprint = extractSha256DtlsFingerprint(description.sdp);
-    if (!_bytesEqual(fingerprint, description.dtlsFingerprintSha256)) {
-      throw const RemoteDesktopException(RemoteDesktopErrorCode.authentication);
-    }
-    if (reconnect != null) {
-      final verified =
-          await SessionReconnectVerifier(
-            expectedHost: target.hostIdentity,
-          ).verify(
-            offer: offer,
-            reconnect: reconnect,
-            answerSdp: description.sdp,
-            hostDtlsFingerprintSha256: fingerprint,
-            previousGeneration: _reconnectGeneration,
-            nowUnixMs: _nowUnixMs(),
-          );
-      _reconnectGeneration = verified.generation;
-    } else {
-      await SessionAnswerVerifier(expectedHost: target.hostIdentity).verify(
-        offer: offer,
-        answer: answer!,
-        answerSdp: description.sdp,
-        hostDtlsFingerprintSha256: fingerprint,
-        nowUnixMs: _nowUnixMs(),
-      );
-      if (_reconnectSequence != null) {
-        _reconnectGeneration = 0;
+    if (_answerApplicationInFlight) return;
+    _answerApplicationInFlight = true;
+    try {
+      final fingerprint = extractSha256DtlsFingerprint(description.sdp);
+      if (!_bytesEqual(fingerprint, description.dtlsFingerprintSha256)) {
+        throw const RemoteDesktopException(
+          RemoteDesktopErrorCode.authentication,
+        );
       }
+      if (reconnect != null) {
+        final verified =
+            await SessionReconnectVerifier(
+              expectedHost: target.hostIdentity,
+            ).verify(
+              offer: offer,
+              reconnect: reconnect,
+              answerSdp: description.sdp,
+              hostDtlsFingerprintSha256: fingerprint,
+              previousGeneration: _reconnectGeneration,
+              nowUnixMs: _nowUnixMs(),
+            );
+        _requireActiveOperation(operationGeneration);
+        _reconnectGeneration = verified.generation;
+      } else {
+        await SessionAnswerVerifier(expectedHost: target.hostIdentity).verify(
+          offer: offer,
+          answer: answer!,
+          answerSdp: description.sdp,
+          hostDtlsFingerprintSha256: fingerprint,
+          nowUnixMs: _nowUnixMs(),
+        );
+        _requireActiveOperation(operationGeneration);
+        if (_reconnectSequence != null) {
+          _reconnectGeneration = 0;
+        }
+      }
+      await _peer.applyVerifiedAnswer(description.sdp);
+      _requireActiveOperation(operationGeneration);
+      _inputSender ??= RemoteInputSender(
+        sessionId: offer.sessionId,
+        reliable: _peer.reliableInput,
+        fast: _peer.fastInput,
+      );
+      _answer = null;
+      _reconnect = null;
+      _answerDescription = null;
+      if (_reconnectSequence != null) {
+        _reconnectConnectionGracePending = true;
+      }
+      _setState(RemoteDesktopState.connecting);
+    } finally {
+      _answerApplicationInFlight = false;
     }
-    await _peer.applyVerifiedAnswer(description.sdp);
-    _inputSender ??= RemoteInputSender(
-      sessionId: offer.sessionId,
-      reliable: _peer.reliableInput,
-      fast: _peer.fastInput,
-    );
-    _answer = null;
-    _reconnect = null;
-    _answerDescription = null;
-    if (_reconnectSequence != null) {
-      _reconnectConnectionGracePending = true;
-    }
-    _setState(RemoteDesktopState.connecting);
   }
 
   Future<void> _handleLocalCandidate(IceCandidate candidate) async {
@@ -600,6 +654,7 @@ final class RemoteDesktopController extends ChangeNotifier
         _state == RemoteDesktopState.idle) {
       return;
     }
+    final operationGeneration = _operationGeneration;
     if (_inputSender == null && _state != RemoteDesktopState.reconnecting) {
       await _fail(
         signaling
@@ -626,6 +681,7 @@ final class RemoteDesktopController extends ChangeNotifier
     try {
       await _inputSender?.suspend();
     } catch (_) {}
+    if (!_operationIsCurrent(operationGeneration)) return;
     _scheduleReconnect();
   }
 
@@ -682,6 +738,7 @@ final class RemoteDesktopController extends ChangeNotifier
     if (sequence == null || !sequence.begin(ticket)) {
       return;
     }
+    final operationGeneration = _operationGeneration;
     _diagnostics.recordReconnect(
       attempt: ticket.attempt,
       delay: ticket.delay,
@@ -691,12 +748,16 @@ final class RemoteDesktopController extends ChangeNotifier
     try {
       if (_signalingRecoveryRequired) {
         await _signaling.recover();
+        _requireActiveOperation(operationGeneration);
         _signalingRecoveryRequired = false;
       }
       _offerSent = false;
       _pendingLocalCandidates.clear();
       final peerOffer = await _peer.restartIce();
-      await _sendAuthenticatedOffer(peerOffer);
+      _requireActiveOperation(operationGeneration);
+      await _sendAuthenticatedOffer(peerOffer, operationGeneration);
+    } on _RemoteDesktopOperationCancelled {
+      return;
     } on SignalingClientException {
       _signalingRecoveryRequired = true;
       _reconnectFailureCode = RemoteDesktopErrorCode.signaling;
@@ -777,7 +838,10 @@ final class RemoteDesktopController extends ChangeNotifier
   }
 
   @override
-  Future<void> close() => _closeFuture ??= _closeResources(setIdle: true);
+  Future<void> close() {
+    _closeRequested = true;
+    return _closeFuture ??= _closeResources(setIdle: true);
+  }
 
   Future<void> _fail(RemoteDesktopErrorCode code) async {
     if (_state == RemoteDesktopState.failed ||
@@ -792,20 +856,39 @@ final class RemoteDesktopController extends ChangeNotifier
       _diagnosticErrorCode(code),
     );
     await _closeResources(setIdle: false);
-    _setState(RemoteDesktopState.failed);
+    if (!_closeRequested) {
+      _setState(RemoteDesktopState.failed);
+    }
   }
 
   Future<void> _closeResources({
     required bool setIdle,
     bool notifyRemote = true,
   }) async {
-    if (_resourcesClosed) {
-      if (setIdle) {
-        _errorCode = null;
-        _setState(RemoteDesktopState.idle);
-      }
-      return;
+    final teardown = _resourceCloseFuture ?? _startResourceClose(notifyRemote);
+    await teardown;
+    if (setIdle) {
+      _errorCode = null;
+      _setState(RemoteDesktopState.idle);
     }
+  }
+
+  Future<void> _startResourceClose(bool notifyRemote) {
+    final completer = Completer<void>();
+    _resourceCloseFuture = completer.future;
+    unawaited(
+      _performResourceClose(notifyRemote).then(
+        (_) => completer.complete(),
+        onError: (Object error, StackTrace stackTrace) {
+          completer.completeError(error, stackTrace);
+        },
+      ),
+    );
+    return completer.future;
+  }
+
+  Future<void> _performResourceClose(bool notifyRemote) async {
+    _operationGeneration += 1;
     _resourcesClosed = true;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
@@ -833,17 +916,39 @@ final class RemoteDesktopController extends ChangeNotifier
         _debugRemoteFailure(_RemoteDebugOperation.relayClosingStatus, error);
       }
     }
-    await _candidateSubscription?.cancel();
+    final candidateSubscription = _candidateSubscription;
     _candidateSubscription = null;
-    await _peerSubscription?.cancel();
+    final peerSubscription = _peerSubscription;
     _peerSubscription = null;
-    await _signalingSubscription?.cancel();
+    final signalingSubscription = _signalingSubscription;
     _signalingSubscription = null;
-    await _peer.close();
-    await _signaling.close();
-    await _identity.close();
+    await _bestEffortRemoteCleanup(
+      _RemoteDebugOperation.cancelCandidateStream,
+      () async => candidateSubscription?.cancel(),
+    );
+    await _bestEffortRemoteCleanup(
+      _RemoteDebugOperation.cancelPeerStream,
+      () async => peerSubscription?.cancel(),
+    );
+    await _bestEffortRemoteCleanup(
+      _RemoteDebugOperation.cancelSignalingStream,
+      () async => signalingSubscription?.cancel(),
+    );
+    await _bestEffortRemoteCleanup(
+      _RemoteDebugOperation.closePeer,
+      _peer.close,
+    );
+    await _bestEffortRemoteCleanup(
+      _RemoteDebugOperation.closeSignaling,
+      _signaling.close,
+    );
+    await _bestEffortRemoteCleanup(
+      _RemoteDebugOperation.closeIdentity,
+      _identity.close,
+    );
     _pendingLocalCandidates.clear();
     _offerSent = false;
+    _answerApplicationInFlight = false;
     _offer = null;
     _answer = null;
     _reconnect = null;
@@ -851,9 +956,14 @@ final class RemoteDesktopController extends ChangeNotifier
     _sessionId = null;
     _reconnectGeneration = 0;
     _signalingRecoveryRequired = false;
-    if (setIdle) {
-      _errorCode = null;
-      _setState(RemoteDesktopState.idle);
+  }
+
+  bool _operationIsCurrent(int generation) =>
+      !_resourcesClosed && !_disposed && generation == _operationGeneration;
+
+  void _requireActiveOperation(int generation) {
+    if (!_operationIsCurrent(generation)) {
+      throw const _RemoteDesktopOperationCancelled();
     }
   }
 
@@ -966,9 +1076,26 @@ enum _RemoteDebugOperation {
   signalingStream,
   peerStream,
   candidateStream,
+  cancelCandidateStream,
+  cancelPeerStream,
+  cancelSignalingStream,
+  closePeer,
+  closeSignaling,
+  closeIdentity,
   remoteError,
   peerEvent,
   terminalFailure,
+}
+
+Future<void> _bestEffortRemoteCleanup(
+  _RemoteDebugOperation operation,
+  Future<void> Function() cleanup,
+) async {
+  try {
+    await cleanup();
+  } catch (error) {
+    _debugRemoteFailure(operation, error);
+  }
 }
 
 void _debugRemoteFailure(_RemoteDebugOperation operation, Object error) {

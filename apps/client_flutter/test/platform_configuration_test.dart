@@ -33,6 +33,9 @@ void main() {
     expect(window, contains('titlebarAppearsTransparent = true'));
     expect(window, contains('styleMask.insert(.fullSizeContentView)'));
     expect(window, contains('self.minSize = minimumWindowSize'));
+    expect(window, contains('_ = script.executeAndReturnError(&errorInfo)'));
+    expect(window, contains('guard errorInfo == nil else'));
+    expect(window, isNot(contains('executeAndReturnError(&errorInfo) != nil')));
   });
 
   test('mobile identity and camera platform policy is explicit', () {
@@ -64,6 +67,15 @@ void main() {
     );
     expect(iosInfo, isNot(contains('<key>NSAllowsArbitraryLoads</key>')));
     expect(iosInfo, contains('<key>NSLocalNetworkUsageDescription</key>'));
+    final iosSceneDelegate = File(
+      'ios/Runner/SceneDelegate.swift',
+    ).readAsStringSync();
+    expect(iosSceneDelegate, contains('sceneWillResignActive'));
+    expect(iosSceneDelegate, contains('sceneDidEnterBackground'));
+    expect(iosSceneDelegate, contains('sceneDidBecomeActive'));
+    expect(iosSceneDelegate, contains('installPrivacyShield(in: scene)'));
+    expect(iosSceneDelegate, contains('shield.backgroundColor = .black'));
+    expect(iosSceneDelegate, contains('shield.isOpaque = true'));
     for (final fileName in <String>[
       'ios/Runner/en.lproj/InfoPlist.strings',
       'ios/Runner/zh-Hans.lproj/InfoPlist.strings',

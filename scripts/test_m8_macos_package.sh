@@ -21,6 +21,12 @@ rg -q 'build_macos_universal_agents\.sh' scripts/package_m8_macos.sh
 rg -q -- '--target "\$target"' scripts/build_macos_universal_agents.sh
 rg -q 'webrtc-mac-arm64-release\.zip' scripts/build_macos_universal_agents.sh
 rg -q 'webrtc-mac-x64-release\.zip' scripts/build_macos_universal_agents.sh
+rg -q 'webrtc-mac-arm64-release\.zip.*LICENSE\.md' scripts/package_m8_macos.sh
+rg -q 'webrtc-mac-x64-release\.zip.*LICENSE\.md' scripts/package_m8_macos.sh
+rg -q 'roammand-package-output' \
+  scripts/package_m8_macos.sh \
+  scripts/write_macos_package_manifest.sh \
+  scripts/build_macos_pkg.sh
 rg -q 'lipo -create' scripts/build_macos_universal_agents.sh
 rg -q 'rustc-link-arg-bin=.*=-ObjC' crates/privileged-bridge/build.rs
 rg -q 'stringForAbslStringView' scripts/check_m8_macos_package.sh
@@ -79,14 +85,87 @@ printf '%s\n' \
 printf 'host\n' >"$TEMP_DIR/roammand-host-agent"
 printf '#!/bin/sh\nexit 0\n' >"$TEMP_DIR/roammand-privileged-bridge"
 printf '#!/bin/sh\nexit 0\n' >"$TEMP_DIR/roammand-session-agent"
+printf 'arm64 libwebrtc license\n' >"$TEMP_DIR/libwebrtc-arm64-LICENSE.md"
+printf 'x86_64 libwebrtc license\n' >"$TEMP_DIR/libwebrtc-x86_64-LICENSE.md"
 chmod 0755 "$TEMP_DIR"/roammand-*
+
+mkdir "$TEMP_DIR/unmarked-output"
+printf 'keep\n' >"$TEMP_DIR/unmarked-output/keep.txt"
+if ./scripts/package_m8_macos.sh \
+  --output "$TEMP_DIR/unmarked-output" \
+  --app-bundle "$TEMP_DIR/Roammand.app" \
+  --host-agent "$TEMP_DIR/roammand-host-agent" \
+  --bridge "$TEMP_DIR/roammand-privileged-bridge" \
+  --session-agent "$TEMP_DIR/roammand-session-agent" \
+  --webrtc-arm64-license "$TEMP_DIR/libwebrtc-arm64-LICENSE.md" \
+  --webrtc-x64-license "$TEMP_DIR/libwebrtc-x86_64-LICENSE.md" \
+  >/dev/null 2>&1; then
+  printf 'macOS packager replaced an unmarked non-empty directory\n' >&2
+  exit 1
+fi
+[[ -f "$TEMP_DIR/unmarked-output/keep.txt" ]] || {
+  printf 'macOS packager damaged an unsafe output directory\n' >&2
+  exit 1
+}
+
+if ./scripts/package_m8_macos.sh \
+  --output "$TEMP_DIR/package-without-third-party-licenses" \
+  --app-bundle "$TEMP_DIR/Roammand.app" \
+  --host-agent "$TEMP_DIR/roammand-host-agent" \
+  --bridge "$TEMP_DIR/roammand-privileged-bridge" \
+  --session-agent "$TEMP_DIR/roammand-session-agent" >/dev/null 2>&1; then
+  printf 'macOS packager accepted native WebRTC binaries without their licenses\n' >&2
+  exit 1
+fi
 
 ./scripts/package_m8_macos.sh \
   --output "$TEMP_DIR/package" \
   --app-bundle "$TEMP_DIR/Roammand.app" \
   --host-agent "$TEMP_DIR/roammand-host-agent" \
   --bridge "$TEMP_DIR/roammand-privileged-bridge" \
-  --session-agent "$TEMP_DIR/roammand-session-agent"
+  --session-agent "$TEMP_DIR/roammand-session-agent" \
+  --webrtc-arm64-license "$TEMP_DIR/libwebrtc-arm64-LICENSE.md" \
+  --webrtc-x64-license "$TEMP_DIR/libwebrtc-x86_64-LICENSE.md"
+# Staging directories produced before the safety marker existed remain
+# replaceable when their exact package layout and manifest identify them.
+rm "$TEMP_DIR/package/.roammand-package-output"
+./scripts/package_m8_macos.sh \
+  --output "$TEMP_DIR/package" \
+  --app-bundle "$TEMP_DIR/Roammand.app" \
+  --host-agent "$TEMP_DIR/roammand-host-agent" \
+  --bridge "$TEMP_DIR/roammand-privileged-bridge" \
+  --session-agent "$TEMP_DIR/roammand-session-agent" \
+  --webrtc-arm64-license "$TEMP_DIR/libwebrtc-arm64-LICENSE.md" \
+  --webrtc-x64-license "$TEMP_DIR/libwebrtc-x86_64-LICENSE.md" \
+  >/dev/null
+# The marker must travel with the staged package. Moving the old output must
+# not authorize deletion of unrelated content later created at its old path.
+mv "$TEMP_DIR/package" "$TEMP_DIR/package-moved"
+mkdir "$TEMP_DIR/package"
+printf 'keep\n' >"$TEMP_DIR/package/keep.txt"
+if ./scripts/package_m8_macos.sh \
+  --output "$TEMP_DIR/package" \
+  --app-bundle "$TEMP_DIR/Roammand.app" \
+  --host-agent "$TEMP_DIR/roammand-host-agent" \
+  --bridge "$TEMP_DIR/roammand-privileged-bridge" \
+  --session-agent "$TEMP_DIR/roammand-session-agent" \
+  --webrtc-arm64-license "$TEMP_DIR/libwebrtc-arm64-LICENSE.md" \
+  --webrtc-x64-license "$TEMP_DIR/libwebrtc-x86_64-LICENSE.md" \
+  >/dev/null 2>&1; then
+  printf 'stale package marker authorized an unrelated directory\n' >&2
+  exit 1
+fi
+[[ -f "$TEMP_DIR/package/keep.txt" ]] || {
+  printf 'macOS packager damaged content after moving an old package\n' >&2
+  exit 1
+}
+rm "$TEMP_DIR/package/keep.txt"
+rmdir "$TEMP_DIR/package"
+mv "$TEMP_DIR/package-moved" "$TEMP_DIR/package"
+cmp "$TEMP_DIR/libwebrtc-arm64-LICENSE.md" \
+  "$TEMP_DIR/package/Library/Application Support/Roammand/licenses/libwebrtc-macos-arm64-LICENSE.md"
+cmp "$TEMP_DIR/libwebrtc-x86_64-LICENSE.md" \
+  "$TEMP_DIR/package/Library/Application Support/Roammand/licenses/libwebrtc-macos-x86_64-LICENSE.md"
 ./scripts/check_m8_macos_package.sh "$TEMP_DIR/package"
 ln -s /etc/passwd "$TEMP_DIR/package/unsafe-link"
 if ./scripts/check_m8_macos_package.sh "$TEMP_DIR/package" >/dev/null 2>&1; then

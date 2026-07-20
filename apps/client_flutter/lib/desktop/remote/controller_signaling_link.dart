@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'signaling_client.dart';
 
 const _heartbeatInterval = Duration(seconds: 20);
+const _transportShutdownTimeout = Duration(seconds: 2);
 
 abstract interface class ControllerSignalingLink {
   Stream<SignalingRoutedSession> get routedSessions;
@@ -90,7 +91,11 @@ final class WebSocketControllerSignalingLink
     _transport = transport;
     try {
       transport.send(protocol.registration(_requestId('register')));
-      final registered = protocol.handleBinary(await transport.receiveBinary());
+      final registrationFrame = await transport.receiveBinary();
+      if (_closed || generation != _transportGeneration) {
+        throw const SignalingClientException(SignalingClientErrorCode.closed);
+      }
+      final registered = protocol.handleBinary(registrationFrame);
       if (registered is! SignalingRegistered) {
         throw const SignalingClientException(
           SignalingClientErrorCode.unexpectedPayload,
@@ -236,10 +241,17 @@ final class WebSocketControllerSignalingLink
     _protocol = null;
     final receiveTask = _receiveTask;
     _receiveTask = null;
-    await transport?.close();
-    if (receiveTask != null) {
+    var transportClosed = true;
+    try {
+      await transport?.close().timeout(_transportShutdownTimeout);
+    } catch (_) {
+      // A failed close may leave receiveBinary blocked indefinitely. The
+      // generation gate still prevents that stale task from publishing.
+      transportClosed = false;
+    }
+    if (receiveTask != null && transportClosed) {
       try {
-        await receiveTask;
+        await receiveTask.timeout(_transportShutdownTimeout);
       } catch (_) {}
     }
   }

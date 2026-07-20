@@ -81,6 +81,9 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
   bool _keyboardVisible = false;
   bool _controlsLocked = false;
   bool _immersiveSystemUiActive = false;
+  bool _privacyShieldVisible = false;
+  bool _privacyShieldSyncScheduled = false;
+  OverlayEntry? _privacyShieldEntry;
   bool _closing = false;
   bool _popRequested = false;
   bool _allowPop = false;
@@ -89,11 +92,15 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
   @override
   void initState() {
     super.initState();
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    _privacyShieldVisible =
+        lifecycleState != null && lifecycleState != AppLifecycleState.resumed;
     _orientationLock = _setPreferredOrientations(_remoteOrientations);
     WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_onControllerChanged);
     _syncKeyboardController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncPrivacyShield();
       if (mounted && !_closing) {
         unawaited(widget.controller.connect(widget.target));
       }
@@ -106,14 +113,18 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
       case AppLifecycleState.resumed:
         if (_closing) {
           unawaited(_closeSession(pop: true));
+        } else {
+          _setPrivacyShieldVisible(false);
         }
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
+        _setPrivacyShieldVisible(true);
         _exitControlsLock();
         _releaseInput();
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
+        _setPrivacyShieldVisible(true);
         _exitControlsLock();
         _releaseInput();
         unawaited(_closeSession(pop: false));
@@ -123,6 +134,7 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _removePrivacyShield();
     widget.controller.removeListener(_onControllerChanged);
     _restoreSystemUiIfNeeded();
     _textInputFocusNode.dispose();
@@ -667,6 +679,45 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
   void _releaseInput() {
     _gestureController.cancel();
     unawaited(_keyboardController?.releaseAll() ?? Future<void>.value());
+  }
+
+  void _setPrivacyShieldVisible(bool visible) {
+    if (!mounted) return;
+    _privacyShieldVisible = visible;
+    _syncPrivacyShield();
+  }
+
+  void _syncPrivacyShield() {
+    if (!mounted) return;
+    if (!_privacyShieldVisible) {
+      _removePrivacyShield();
+      return;
+    }
+    if (_privacyShieldEntry != null) return;
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null) {
+      if (_privacyShieldSyncScheduled) return;
+      _privacyShieldSyncScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _privacyShieldSyncScheduled = false;
+        _syncPrivacyShield();
+      });
+      return;
+    }
+    final entry = OverlayEntry(
+      builder: (_) => const ModalBarrier(
+        key: Key('mobile-remote-privacy-shield'),
+        dismissible: false,
+        color: Colors.black,
+      ),
+    );
+    _privacyShieldEntry = entry;
+    overlay.insert(entry);
+  }
+
+  void _removePrivacyShield() {
+    _privacyShieldEntry?.remove();
+    _privacyShieldEntry = null;
   }
 
   void _handleInputFailure(Object error) {

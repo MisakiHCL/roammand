@@ -90,12 +90,16 @@ final class HostAgentClient implements HostAgentApi {
     try {
       final connection = await _connector.connect();
       token = connection.token;
+      if (_state != _ClientState.connecting) {
+        await _bestEffortHostAgentCleanup(connection.transport.close);
+        throw const HostAgentDisconnectedException();
+      }
+      _transport = connection.transport;
       if (token.length != localIpcTokenBytes) {
         throw const HostAgentProtocolException(
           'Host Agent token length is invalid',
         );
       }
-      _transport = connection.transport;
       _challenge = Completer<LocalIpcChallenge>();
       _subscription = connection.transport.incoming.listen(
         _onData,
@@ -109,6 +113,9 @@ final class HostAgentClient implements HostAgentApi {
           'Host Agent handshake timed out',
         ),
       );
+      if (_state != _ClientState.connecting) {
+        throw const HostAgentDisconnectedException();
+      }
       _validateChallenge(challenge, connection.expectedInstanceId);
       final clientNonce = _randomBytes(_nonceBytes);
       if (clientNonce.length != _nonceBytes) {
@@ -141,6 +148,9 @@ final class HostAgentClient implements HostAgentApi {
         onTimeout: () =>
             throw const HostAgentTimeoutException('Host Agent proof timed out'),
       );
+      if (_state != _ClientState.authenticating) {
+        throw const HostAgentDisconnectedException();
+      }
       final expectedServerProof = _proof(
         token,
         _serverProofDomain,
@@ -586,18 +596,20 @@ final class HostAgentClient implements HostAgentApi {
     for (final request in pending) {
       request.fail(disconnected);
     }
-    await _subscription?.cancel();
+    final subscription = _subscription;
     _subscription = null;
-    await _transport?.close();
+    final transport = _transport;
     _transport = null;
+    await _bestEffortHostAgentCleanup(() async => subscription?.cancel());
+    await _bestEffortHostAgentCleanup(() async => transport?.close());
     if (!_sessionTerminations.isClosed) {
-      await _sessionTerminations.close();
+      await _bestEffortHostAgentCleanup(_sessionTerminations.close);
     }
     if (!_hostPairingStates.isClosed) {
-      await _hostPairingStates.close();
+      await _bestEffortHostAgentCleanup(_hostPairingStates.close);
     }
     if (!_privilegedBridgeStates.isClosed) {
-      await _privilegedBridgeStates.close();
+      await _bestEffortHostAgentCleanup(_privilegedBridgeStates.close);
     }
     _state = _ClientState.closed;
   }
@@ -633,6 +645,16 @@ final class HostAgentClient implements HostAgentApi {
       frame.hasProtocolVersion() &&
       frame.protocolVersion.major == protocolMajorVersion &&
       frame.protocolVersion.minor == minimumProtocolMinorVersion;
+}
+
+Future<void> _bestEffortHostAgentCleanup(
+  Future<void> Function() cleanup,
+) async {
+  try {
+    await cleanup();
+  } catch (_) {
+    // A failed cleanup must not leave other IPC resources reachable.
+  }
 }
 
 abstract class _PendingRequest {

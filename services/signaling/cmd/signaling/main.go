@@ -60,6 +60,9 @@ func run(
 	logger := safelog.New(stderr)
 	options := service.DefaultOptions()
 	options.TrustedProxyCIDRs = loaded.TrustedProxyCIDRs
+	options.MaxConnections = loaded.MaxConnections
+	options.MaxConnectionsPerIP = loaded.MaxConnectionsPerIP
+	options.MaxRendezvousPerHost = loaded.MaxRendezvousPerHost
 	signalingServer := service.New(ctx, logger, options)
 	httpServer := &http.Server{
 		Handler:           signalingServer.Handler(),

@@ -24,7 +24,10 @@ final class HostAgentControllerSessionIdentity
     }
     try {
       await _port.connect();
-      final identity = (await _port.getHostStatus()).identity.deepCopy();
+      _requireOpen();
+      final status = await _port.getHostStatus();
+      _requireOpen();
+      final identity = status.identity.deepCopy();
       validateDesktopHostIdentity(identity);
       _identity = identity;
       return identity.deepCopy();
@@ -42,6 +45,7 @@ final class HostAgentControllerSessionIdentity
     }
     try {
       final signed = await _port.signSessionOffer(canonicalTranscript);
+      _requireOpen();
       if (!_constantTimeEquals(signed.controllerDeviceId, identity.deviceId) ||
           !_constantTimeEquals(
             signed.controllerPublicKey,
@@ -64,6 +68,7 @@ final class HostAgentControllerSessionIdentity
           ),
         ),
       );
+      _requireOpen();
       if (!valid) {
         throw const ControllerSessionIdentityException();
       }
@@ -83,6 +88,12 @@ final class HostAgentControllerSessionIdentity
     _closed = true;
     _identity = null;
     await _port.close();
+  }
+
+  void _requireOpen() {
+    if (_closed) {
+      throw const ControllerSessionIdentityException();
+    }
   }
 }
 

@@ -26,7 +26,7 @@ func (server *Server) handleRelaySession(
 	frame.Payload = &roammandv1.SignalingServerFrame_RoutedSession{
 		RoutedSession: &roammandv1.RoutedSessionEnvelope{
 			SenderDeviceId: connection.deviceID.Bytes(),
-			OpaqueEnvelope: append([]byte(nil), request.GetOpaqueEnvelope()...),
+			OpaqueEnvelope: request.GetOpaqueEnvelope(),
 		},
 	}
 	if server.sendToDevice(recipientID, frame) {

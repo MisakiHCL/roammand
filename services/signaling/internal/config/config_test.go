@@ -4,6 +4,7 @@ package config
 
 import (
 	"net/netip"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -19,6 +20,16 @@ func TestLoadDefaults(t *testing.T) {
 	if config.ShutdownTimeout != 10*time.Second {
 		t.Fatalf("shutdown timeout = %s", config.ShutdownTimeout)
 	}
+	if config.MaxConnections != DefaultMaxConnections ||
+		config.MaxConnectionsPerIP != DefaultMaxConnectionsPerIP ||
+		config.MaxRendezvousPerHost != DefaultMaxRendezvousPerHost {
+		t.Fatalf(
+			"resource limits = (%d, %d, %d)",
+			config.MaxConnections,
+			config.MaxConnectionsPerIP,
+			config.MaxRendezvousPerHost,
+		)
+	}
 	if RendezvousTTL != 2*time.Minute {
 		t.Fatalf("rendezvous TTL = %s", RendezvousTTL)
 	}
@@ -26,11 +37,14 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadOverrides(t *testing.T) {
 	values := map[string]string{
-		"SIGNALING_LISTEN_ADDR":         "localhost:9443",
-		"SIGNALING_TLS_CERT_FILE":       "server.crt",
-		"SIGNALING_TLS_KEY_FILE":        "server.key",
-		"SIGNALING_TRUSTED_PROXY_CIDRS": "127.0.0.0/8,::1/128",
-		"SIGNALING_SHUTDOWN_TIMEOUT":    "15s",
+		"SIGNALING_LISTEN_ADDR":             "localhost:9443",
+		"SIGNALING_TLS_CERT_FILE":           "server.crt",
+		"SIGNALING_TLS_KEY_FILE":            "server.key",
+		"SIGNALING_TRUSTED_PROXY_CIDRS":     "127.0.0.0/8,::1/128",
+		"SIGNALING_SHUTDOWN_TIMEOUT":        "15s",
+		"SIGNALING_MAX_CONNECTIONS":         "128",
+		"SIGNALING_MAX_CONNECTIONS_PER_IP":  "16",
+		"SIGNALING_MAX_RENDEZVOUS_PER_HOST": "3",
 	}
 	config, err := Load(func(key string) string { return values[key] })
 	if err != nil {
@@ -41,7 +55,10 @@ func TestLoadOverrides(t *testing.T) {
 		config.TLSPrivateKeyFile != values["SIGNALING_TLS_KEY_FILE"] ||
 		len(config.TrustedProxyCIDRs) != 2 ||
 		config.TrustedProxyCIDRs[0] != netip.MustParsePrefix("127.0.0.0/8") ||
-		config.ShutdownTimeout != 15*time.Second {
+		config.ShutdownTimeout != 15*time.Second ||
+		config.MaxConnections != 128 ||
+		config.MaxConnectionsPerIP != 16 ||
+		config.MaxRendezvousPerHost != 3 {
 		t.Fatalf("unexpected config: %+v", config)
 	}
 }
@@ -61,10 +78,22 @@ func TestLoadRejectsUnpairedTLSFiles(t *testing.T) {
 
 func TestLoadRejectsInvalidValues(t *testing.T) {
 	for name, values := range map[string]map[string]string{
-		"listen address":  {"SIGNALING_LISTEN_ADDR": "not-an-address"},
-		"zero timeout":    {"SIGNALING_SHUTDOWN_TIMEOUT": "0s"},
-		"invalid timeout": {"SIGNALING_SHUTDOWN_TIMEOUT": "eventually"},
-		"invalid proxy":   {"SIGNALING_TRUSTED_PROXY_CIDRS": "loopback"},
+		"listen address":   {"SIGNALING_LISTEN_ADDR": "not-an-address"},
+		"zero timeout":     {"SIGNALING_SHUTDOWN_TIMEOUT": "0s"},
+		"invalid timeout":  {"SIGNALING_SHUTDOWN_TIMEOUT": "eventually"},
+		"invalid proxy":    {"SIGNALING_TRUSTED_PROXY_CIDRS": "loopback"},
+		"zero connections": {"SIGNALING_MAX_CONNECTIONS": "0"},
+		"too many connections": {
+			"SIGNALING_MAX_CONNECTIONS": strconv.Itoa(MaximumMaxConnections + 1),
+		},
+		"zero connections per IP": {"SIGNALING_MAX_CONNECTIONS_PER_IP": "0"},
+		"too many connections per IP": {
+			"SIGNALING_MAX_CONNECTIONS_PER_IP": strconv.Itoa(MaximumMaxConnections + 1),
+		},
+		"invalid rendezvous limit": {"SIGNALING_MAX_RENDEZVOUS_PER_HOST": "many"},
+		"too many rendezvous": {
+			"SIGNALING_MAX_RENDEZVOUS_PER_HOST": strconv.Itoa(MaximumMaxRendezvousPerHost + 1),
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := Load(func(key string) string { return values[key] }); err == nil {

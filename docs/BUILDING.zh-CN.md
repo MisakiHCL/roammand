@@ -108,6 +108,19 @@ go run ./cmd/signaling
 
 默认会话地址为 `ws://127.0.0.1:8080/v1/connect`。
 
+信令服务默认最多接受 1,024 个并发 WebSocket 连接、每个来源 IP 64 个连接，
+并允许每台 Host 同时创建 4 个配对 rendezvous。运维人员可通过
+`SIGNALING_MAX_CONNECTIONS`（1–65,536）、
+`SIGNALING_MAX_CONNECTIONS_PER_IP`（1–65,536）和
+`SIGNALING_MAX_RENDEZVOUS_PER_HOST`（1–64）调整这些有界上限。请根据主机内存、
+NAT 后的预期设备数量和流量显式设置，避免部署成无上限服务。
+
+除 64 条的缓冲队列外，出站投递还有固定的字节预算：进程全局 64 MiB、每个来源
+IP 4 MiB、每个连接 526,336 字节（两个最大尺寸的信令帧）。服务会在把帧复制到
+队列之前同时预留这三层预算，并在帧写入套接字期间继续持有预算。这些内建安全
+预算不能通过环境变量调大；无法取得预算的投递会被拒绝，避免慢消费者导致内存
+无上限增长。
+
 仅在源码 Debug 构建中，同一可信局域网内的实体 Controller 可以使用明文 WebSocket，无需安装开发证书。先让 signaling 监听所有网卡：
 
 ```bash

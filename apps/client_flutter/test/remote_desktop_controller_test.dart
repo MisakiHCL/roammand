@@ -172,6 +172,119 @@ void main() {
     },
   );
 
+  test('cleanup failures do not skip later resources or idle state', () async {
+    final fixture = await _Fixture.create();
+    await fixture.controller.connect(fixture.target);
+    fixture.adapter.failClose = true;
+    fixture.signaling.failClose = true;
+    fixture.agent.failClose = true;
+
+    await fixture.controller.close();
+
+    expect(fixture.adapter.closeCount, 1);
+    expect(fixture.signaling.closeCount, 1);
+    expect(fixture.agent.closeCount, 1);
+    expect(fixture.controller.state, RemoteDesktopState.idle);
+  });
+
+  test(
+    'closing during identity open cannot create late session resources',
+    () async {
+      final fixture = await _Fixture.create();
+      final identityGate = Completer<void>();
+      fixture.agent.connectGate = identityGate;
+
+      final connecting = fixture.controller.connect(fixture.target);
+      while (fixture.agent.connectCount == 0) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      await fixture.controller.close();
+      identityGate.complete();
+      await connecting;
+
+      expect(fixture.controller.state, RemoteDesktopState.idle);
+      expect(fixture.signaling.connectCount, 0);
+      expect(fixture.adapter.operations, isEmpty);
+      expect(fixture.agent.closeCount, 1);
+      expect(fixture.signaling.closeCount, 1);
+      expect(fixture.adapter.closeCount, 1);
+    },
+  );
+
+  test('closing during offer relay cannot continue negotiation', () async {
+    final fixture = await _Fixture.create();
+    final relayGate = Completer<void>();
+    final relayStarted = Completer<void>();
+    fixture.signaling
+      ..relayGate = relayGate
+      ..relayStarted = relayStarted;
+
+    final connecting = fixture.controller.connect(fixture.target);
+    await relayStarted.future;
+    await fixture.controller.close();
+    relayGate.complete();
+    await connecting;
+
+    expect(fixture.controller.state, RemoteDesktopState.idle);
+    expect(fixture.signaling.sent, hasLength(1));
+    expect(fixture.adapter.closeCount, 1);
+    expect(fixture.signaling.closeCount, 1);
+    expect(fixture.agent.closeCount, 1);
+  });
+
+  test('duplicate answer frames share one verification operation', () async {
+    final fixture = await _Fixture.create();
+    await fixture.controller.connect(fixture.target);
+    final offer = fixture.sentOffer();
+    final answer = await fixture.signedAnswer(offer);
+    final answerGate = Completer<void>();
+    fixture.adapter.answerGate = answerGate;
+
+    fixture.signaling.route(
+      fixture.envelope(
+        sessionAuthentication: SessionAuthentication(answer: answer),
+      ),
+    );
+    fixture.routeAnswerDescription(offer);
+    while (fixture.adapter.answerCount == 0) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    fixture.routeAnswerDescription(offer);
+    await _pumpEvents();
+
+    expect(fixture.adapter.answerCount, 1);
+    expect(fixture.adapter.closeCount, 0);
+    answerGate.complete();
+    await _pumpEvents();
+    expect(fixture.controller.state, RemoteDesktopState.connecting);
+    expect(fixture.adapter.answerCount, 1);
+  });
+
+  test('close waits for teardown already started by a failure', () async {
+    final fixture = await _Fixture.create();
+    await fixture.controller.connect(fixture.target);
+    final closeGate = Completer<void>();
+    fixture.adapter.closeGate = closeGate;
+
+    fixture.signaling.fail();
+    while (fixture.adapter.closeCount == 0) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    var closeCompleted = false;
+    final closing = fixture.controller.close().then((_) {
+      closeCompleted = true;
+    });
+    await _pumpEvents();
+    expect(closeCompleted, isFalse);
+
+    closeGate.complete();
+    await closing;
+    expect(fixture.controller.state, RemoteDesktopState.idle);
+    expect(fixture.adapter.closeCount, 1);
+    expect(fixture.signaling.closeCount, 1);
+    expect(fixture.agent.closeCount, 1);
+  });
+
   test('saved diagnostics preserve a stable signaling server code', () async {
     final logs = <String>[];
     final originalDebugPrint = debugPrint;
@@ -733,6 +846,8 @@ final class _FakeHostAgent implements HostAgentApi {
   int connectCount = 0;
   int closeCount = 0;
   int signCount = 0;
+  bool failClose = false;
+  Completer<void>? connectGate;
 
   @override
   Stream<SessionTerminatedEvent> get sessionTerminations =>
@@ -753,6 +868,7 @@ final class _FakeHostAgent implements HostAgentApi {
   @override
   Future<void> connect() async {
     connectCount += 1;
+    await connectGate?.future;
   }
 
   @override
@@ -778,6 +894,9 @@ final class _FakeHostAgent implements HostAgentApi {
   @override
   Future<void> close() async {
     closeCount += 1;
+    if (failClose) {
+      throw StateError('host agent cleanup failed');
+    }
   }
 
   @override
@@ -841,13 +960,19 @@ final class _FakeSignalingLink implements ControllerSignalingLink {
       StreamController<SignalingRoutedSession>.broadcast();
   final List<Uint8List> sent = <Uint8List>[];
   int closeCount = 0;
+  int connectCount = 0;
   int recoverCount = 0;
+  bool failClose = false;
+  Completer<void>? relayGate;
+  Completer<void>? relayStarted;
 
   @override
   Stream<SignalingRoutedSession> get routedSessions => _routed.stream;
 
   @override
-  Future<void> connect(List<int> controllerDeviceId) async {}
+  Future<void> connect(List<int> controllerDeviceId) async {
+    connectCount += 1;
+  }
 
   @override
   Future<void> recover() async {
@@ -857,6 +982,11 @@ final class _FakeSignalingLink implements ControllerSignalingLink {
   @override
   Future<void> relay(List<int> hostDeviceId, Uint8List opaqueEnvelope) async {
     sent.add(Uint8List.fromList(opaqueEnvelope));
+    final started = relayStarted;
+    if (started != null && !started.isCompleted) {
+      started.complete();
+    }
+    await relayGate?.future;
   }
 
   void route(SignalingEnvelope envelope) {
@@ -879,6 +1009,9 @@ final class _FakeSignalingLink implements ControllerSignalingLink {
   @override
   Future<void> close() async {
     closeCount += 1;
+    if (failClose) {
+      throw StateError('signaling cleanup failed');
+    }
   }
 }
 
@@ -887,6 +1020,10 @@ final class _FakePeerAdapter implements ControllerPeerAdapter {
   ControllerPeerCallbacks? callbacks;
   int closeCount = 0;
   int restartCount = 0;
+  int answerCount = 0;
+  bool failClose = false;
+  Completer<void>? answerGate;
+  Completer<void>? closeGate;
   final List<Uint8List> reliableSent = <Uint8List>[];
 
   @override
@@ -917,7 +1054,9 @@ final class _FakePeerAdapter implements ControllerPeerAdapter {
 
   @override
   Future<void> setRemoteAnswer(String sdp) async {
+    answerCount += 1;
     operations.add('answer');
+    await answerGate?.future;
   }
 
   @override
@@ -943,6 +1082,10 @@ final class _FakePeerAdapter implements ControllerPeerAdapter {
   @override
   Future<void> close() async {
     closeCount += 1;
+    await closeGate?.future;
+    if (failClose) {
+      throw StateError('peer cleanup failed');
+    }
   }
 }
 

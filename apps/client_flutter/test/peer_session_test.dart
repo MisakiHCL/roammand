@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -166,6 +167,103 @@ void main() {
     expect(resources.created, 10);
     expect(resources.closed, 10);
   });
+
+  test(
+    'closing while peer initialization is pending cannot revive it',
+    () async {
+      final resources = _ResourceCounter();
+      final initializeGate = Completer<void>();
+      final adapter = _FakePeerAdapter(resources: resources)
+        ..initializeGate = initializeGate;
+      final session = ControllerPeerSession(
+        adapter: adapter,
+        configuration: const ControllerPeerConfiguration(),
+      );
+
+      final start = session.start();
+      await Future<void>.delayed(Duration.zero);
+      final expectation = expectLater(
+        start,
+        throwsA(
+          isA<PeerSessionException>().having(
+            (error) => error.code,
+            'code',
+            PeerSessionErrorCode.closed,
+          ),
+        ),
+      );
+      await session.close();
+      initializeGate.complete();
+      await expectation;
+
+      expect(session.state, ControllerPeerState.closed);
+      expect(adapter.closeCount, 1);
+      expect(resources.live, 0);
+    },
+  );
+
+  test(
+    'closing during a remote answer cannot revive the peer session',
+    () async {
+      final answerGate = Completer<void>();
+      final adapter = _FakePeerAdapter()..answerGate = answerGate;
+      final session = ControllerPeerSession(
+        adapter: adapter,
+        configuration: const ControllerPeerConfiguration(),
+      );
+      await session.start();
+
+      final applying = session.applyVerifiedAnswer(_answerSdp);
+      await Future<void>.delayed(Duration.zero);
+      final result = expectLater(
+        applying,
+        throwsA(
+          isA<PeerSessionException>().having(
+            (error) => error.code,
+            'code',
+            PeerSessionErrorCode.closed,
+          ),
+        ),
+      );
+      await session.close();
+      answerGate.complete();
+      await result;
+
+      expect(session.state, ControllerPeerState.closed);
+      expect(adapter.closeCount, 1);
+    },
+  );
+
+  test('closing during ICE restart cannot revive the peer session', () async {
+    final restartGate = Completer<void>();
+    final adapter = _FakePeerAdapter()..restartGate = restartGate;
+    final session = ControllerPeerSession(
+      adapter: adapter,
+      configuration: const ControllerPeerConfiguration(),
+    );
+    await session.start();
+    await session.applyVerifiedAnswer(_answerSdp);
+    adapter.emit(ControllerPeerEvent.connected);
+
+    final restarting = session.restartIce();
+    await Future<void>.delayed(Duration.zero);
+    final result = expectLater(
+      restarting,
+      throwsA(
+        isA<PeerSessionException>().having(
+          (error) => error.code,
+          'code',
+          PeerSessionErrorCode.closed,
+        ),
+      ),
+    );
+    await session.close();
+    restartGate.complete();
+    await result;
+
+    expect(session.state, ControllerPeerState.closed);
+    expect(adapter.closeCount, 1);
+  });
 }
 
 final class _FakePeerAdapter implements ControllerPeerAdapter {
@@ -175,6 +273,9 @@ final class _FakePeerAdapter implements ControllerPeerAdapter {
   final Object videoRenderer = Object();
   final List<String> operations = <String>[];
   ControllerPeerConfiguration? configuration;
+  Completer<void>? initializeGate;
+  Completer<void>? answerGate;
+  Completer<void>? restartGate;
   bool failInitialize = false;
   int closeCount = 0;
   bool _created = false;
@@ -196,6 +297,7 @@ final class _FakePeerAdapter implements ControllerPeerAdapter {
     operations.add('initialize');
     _created = true;
     resources?.create();
+    await initializeGate?.future;
     if (failInitialize) {
       throw StateError('peer failed');
     }
@@ -210,6 +312,7 @@ final class _FakePeerAdapter implements ControllerPeerAdapter {
   @override
   Future<ControllerPeerOffer> restartIce() async {
     operations.add('restart-ice');
+    await restartGate?.future;
     return ControllerPeerOffer(
       sdp: _restartOfferSdp,
       dtlsFingerprintSha256: Uint8List.fromList(List<int>.filled(32, 0x55)),
@@ -224,6 +327,7 @@ final class _FakePeerAdapter implements ControllerPeerAdapter {
   @override
   Future<void> setRemoteAnswer(String sdp) async {
     operations.add('answer');
+    await answerGate?.future;
   }
 
   @override

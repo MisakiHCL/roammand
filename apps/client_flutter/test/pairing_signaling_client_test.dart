@@ -143,6 +143,118 @@ void main() {
     expect(fixture.transport.closeCount, 1);
   });
 
+  test('closes a transport that arrives after the client is closed', () async {
+    final connectorStarted = Completer<void>();
+    final transportGate = Completer<PairingSignalingTransport>();
+    final transport = _CloseTrackingPairingSignalingTransport();
+    final client = PairingSignalingClient(
+      connector: (_) {
+        connectorStarted.complete();
+        return transportGate.future;
+      },
+    );
+    final connecting = client.connect(
+      Uri.parse('wss://signal.example.test/v1/ws'),
+      List<int>.filled(32, 0x61),
+    );
+    final connectionResult = expectLater(
+      connecting,
+      throwsA(
+        isA<PairingSignalingException>().having(
+          (error) => error.code,
+          'code',
+          PairingSignalingErrorCode.closed,
+        ),
+      ),
+    );
+    await connectorStarted.future;
+
+    await client.close();
+    expect(transport.closeCount, 0);
+
+    transportGate.complete(transport);
+    await connectionResult;
+
+    expect(transport.closeCount, 1);
+    expect(transport.sent, isEmpty);
+    await client.close();
+    expect(transport.closeCount, 1);
+  });
+
+  test('close during a pending registration send has no stray error', () async {
+    final transport = _PendingSendPairingSignalingTransport();
+    final client = PairingSignalingClient(connector: (_) async => transport);
+    final connecting = client.connect(
+      Uri.parse('wss://signal.example.test/v1/ws'),
+      List<int>.filled(32, 0x61),
+    );
+    final connectionResult = expectLater(
+      connecting,
+      throwsA(isA<PairingSignalingException>()),
+    );
+    await transport.sendStarted.future;
+
+    await client.close();
+    await connectionResult;
+
+    expect(transport.closeCount, 1);
+  });
+
+  test('a completed join response cannot revive a closed client', () async {
+    final fixture = _Fixture(syncIncoming: true);
+    await fixture.connect();
+    final rendezvousId = List<int>.filled(16, 0x51);
+    final joining = fixture.client.joinQr(rendezvousId);
+    final joinFrame = await fixture.transport.takeFrame();
+    final joinResult = expectLater(
+      joining,
+      throwsA(
+        isA<PairingSignalingException>().having(
+          (error) => error.code,
+          'code',
+          PairingSignalingErrorCode.closed,
+        ),
+      ),
+    );
+
+    fixture.transport.server(
+      SignalingServerFrame(
+        protocolVersion: _version(),
+        requestId: joinFrame.requestId,
+        rendezvousJoined: PairingRendezvousJoined(
+          rendezvousId: rendezvousId,
+          peerDeviceId: List<int>.filled(32, 0x71),
+          expiresAtUnixMs: Int64(120000),
+        ),
+      ),
+    );
+    await fixture.client.close();
+    await joinResult;
+
+    await expectLater(
+      fixture.client.relay(rendezvousId, Uint8List.fromList(<int>[1])),
+      throwsA(isA<PairingSignalingException>()),
+    );
+  });
+
+  test('transport cleanup failure does not skip client cleanup', () async {
+    final fixture = _Fixture();
+    await fixture.connect();
+    fixture.transport.failClose = true;
+
+    await fixture.client.close();
+
+    expect(fixture.transport.closeCount, 1);
+    await expectLater(fixture.client.events, emitsDone);
+    await expectLater(
+      fixture.client.relay(
+        List<int>.filled(16, 0x51),
+        Uint8List.fromList(<int>[1]),
+      ),
+      throwsA(isA<PairingSignalingException>()),
+    );
+  });
+
   test(
     'fails closed for sender substitution, malformed enums, and oversized frames',
     () async {
@@ -192,7 +304,10 @@ void main() {
 }
 
 final class _Fixture {
-  _Fixture({Duration heartbeatInterval = const Duration(seconds: 15)}) {
+  _Fixture({
+    Duration heartbeatInterval = const Duration(seconds: 15),
+    bool syncIncoming = false,
+  }) : transport = FakePairingSignalingTransport(syncIncoming: syncIncoming) {
     client = PairingSignalingClient(
       connector: (_) async => transport,
       requestIdFactory: () => 'request-${requestSequence++}',
@@ -200,8 +315,7 @@ final class _Fixture {
     );
   }
 
-  final FakePairingSignalingTransport transport =
-      FakePairingSignalingTransport();
+  final FakePairingSignalingTransport transport;
   var requestSequence = 0;
   late final PairingSignalingClient client;
 
@@ -243,9 +357,13 @@ final class _Fixture {
 }
 
 final class FakePairingSignalingTransport implements PairingSignalingTransport {
-  final StreamController<Uint8List> incoming = StreamController<Uint8List>();
+  FakePairingSignalingTransport({bool syncIncoming = false})
+    : incoming = StreamController<Uint8List>(sync: syncIncoming);
+
+  final StreamController<Uint8List> incoming;
   final List<Uint8List> sent = <Uint8List>[];
   int closeCount = 0;
+  bool failClose = false;
 
   @override
   Stream<Uint8List> get frames => incoming.stream;
@@ -271,6 +389,55 @@ final class FakePairingSignalingTransport implements PairingSignalingTransport {
     closeCount += 1;
     await incoming.close();
     sent.clear();
+    if (failClose) {
+      throw StateError('transport cleanup failed');
+    }
+  }
+}
+
+final class _CloseTrackingPairingSignalingTransport
+    implements PairingSignalingTransport {
+  final List<Uint8List> sent = <Uint8List>[];
+  int closeCount = 0;
+
+  @override
+  Stream<Uint8List> get frames => const Stream<Uint8List>.empty();
+
+  @override
+  Future<void> send(Uint8List frame) async {
+    sent.add(Uint8List.fromList(frame));
+  }
+
+  @override
+  Future<void> close() async {
+    closeCount += 1;
+  }
+}
+
+final class _PendingSendPairingSignalingTransport
+    implements PairingSignalingTransport {
+  final StreamController<Uint8List> _incoming =
+      StreamController<Uint8List>.broadcast();
+  final Completer<void> _pendingSend = Completer<void>();
+  final Completer<void> sendStarted = Completer<void>();
+  int closeCount = 0;
+
+  @override
+  Stream<Uint8List> get frames => _incoming.stream;
+
+  @override
+  Future<void> send(Uint8List frame) async {
+    sendStarted.complete();
+    await _pendingSend.future;
+  }
+
+  @override
+  Future<void> close() async {
+    closeCount += 1;
+    if (!_pendingSend.isCompleted) {
+      _pendingSend.completeError(StateError('transport closed'));
+    }
+    await _incoming.close();
   }
 }
 

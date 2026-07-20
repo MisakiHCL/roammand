@@ -135,6 +135,47 @@ const _tokenBytes = <int>[
 ];
 
 void main() {
+  test('close seals a connection whose connector completes late', () async {
+    final connector = _DelayedConnector();
+    final client = HostAgentClient(
+      connector: connector,
+      randomBytes: (_) => Uint8List.fromList(_clientNonce),
+    );
+    final connecting = client.connect();
+    final expectation = expectLater(
+      connecting,
+      throwsA(isA<HostAgentDisconnectedException>()),
+    );
+
+    await client.close();
+    final transport = _LateLocalIpcTransport();
+    final token = Uint8List.fromList(_tokenBytes);
+    connector.complete(LocalIpcConnection(transport, token));
+    await expectation;
+
+    expect(transport.closeCount, 1);
+    expect(token, everyElement(0));
+    expect(client.isReady, isFalse);
+  });
+
+  test('invalid connector token still closes the accepted transport', () async {
+    final transport = _LateLocalIpcTransport();
+    final token = Uint8List.fromList(<int>[0x44]);
+    final client = HostAgentClient(
+      connector: FakeConnector(transport, token),
+      randomBytes: (_) => Uint8List.fromList(_clientNonce),
+    );
+
+    await expectLater(
+      client.connect(),
+      throwsA(isA<HostAgentProtocolException>()),
+    );
+
+    expect(transport.closeCount, 1);
+    expect(token, everyElement(0));
+    expect(client.isReady, isFalse);
+  });
+
   test(
     'authenticates, correlates out-of-order responses, and routes events',
     () async {
@@ -713,12 +754,41 @@ class _Fixture {
 class FakeConnector implements HostAgentConnector {
   const FakeConnector(this.transport, this.token);
 
-  final FakeLocalIpcTransport transport;
+  final LocalIpcTransport transport;
   final Uint8List token;
 
   @override
   Future<LocalIpcConnection> connect() async =>
       LocalIpcConnection(transport, token);
+}
+
+class _DelayedConnector implements HostAgentConnector {
+  final Completer<LocalIpcConnection> _connection =
+      Completer<LocalIpcConnection>();
+
+  void complete(LocalIpcConnection connection) {
+    _connection.complete(connection);
+  }
+
+  @override
+  Future<LocalIpcConnection> connect() => _connection.future;
+}
+
+class _LateLocalIpcTransport implements LocalIpcTransport {
+  int closeCount = 0;
+
+  @override
+  Stream<List<int>> get incoming => const Stream<List<int>>.empty();
+
+  @override
+  Future<void> write(Uint8List bytes) async {
+    throw StateError('late transport must not be used');
+  }
+
+  @override
+  Future<void> close() async {
+    closeCount += 1;
+  }
 }
 
 class FakeLocalIpcTransport implements LocalIpcTransport {
