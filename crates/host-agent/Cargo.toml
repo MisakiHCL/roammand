@@ -25,7 +25,7 @@ roammand-host-webrtc = { path = "../host-webrtc" }
 roammand-ipc = { path = "../ipc" }
 roammand-privileged-bridge = { path = "../privileged-bridge" }
 roammand-protocol = { path = "../../gen/rust" }
-prost = "0.13.5"
+prost = "0.14.4"
 rustls = { version = "0.23.42", default-features = false, features = ["ring", "std"] }
 sha2 = "0.11.0"
 thiserror = "2.0.18"

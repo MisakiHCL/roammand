@@ -11,7 +11,7 @@ workspace = true
 [dependencies]
 aes-gcm = "0.10.3"
 hkdf = "0.12.4"
-prost = "0.13.5"
+prost = "0.14.4"
 sha2 = "0.10.9"
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 

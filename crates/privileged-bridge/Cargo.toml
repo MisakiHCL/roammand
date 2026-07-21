@@ -31,7 +31,7 @@ roammand-ipc = { path = "../ipc" }
 roammand-host-platform = { path = "../host-platform" }
 roammand-host-webrtc = { path = "../host-webrtc" }
 roammand-protocol = { path = "../../gen/rust" }
-prost = "0.13.5"
+prost = "0.14.4"
 sha2 = "0.11.0"
 thiserror = "2.0.18"
 
