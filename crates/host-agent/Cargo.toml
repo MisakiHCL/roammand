@@ -38,7 +38,7 @@ tokio = { version = "1.52.3", features = [
   "sync",
   "time",
 ] }
-tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-webpki-roots"] }
 zeroize = "1.9.0"
 url = "2.5.8"
 
