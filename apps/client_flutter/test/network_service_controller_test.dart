@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roammand/desktop/remote/peer_session.dart';
@@ -87,6 +88,29 @@ void main() {
     controller.dispose();
   });
 
+  test('does not notify after a pending write outlives disposal', () async {
+    final store = _GatedNetworkServiceStore();
+    final controller = await NetworkServiceController.load(store: store);
+    final saving = controller.useCustom(_custom());
+    await store.saveStarted.future;
+
+    controller.dispose();
+    store.saveGate.complete();
+
+    await expectLater(saving, completes);
+    expect(controller.configuration.kind, NetworkServiceProfileKind.official);
+  });
+
+  test('does not erase a profile after a transient read failure', () async {
+    final store = _FailingLoadNetworkServiceStore();
+
+    final controller = await NetworkServiceController.load(store: store);
+
+    expect(controller.configuration.kind, NetworkServiceProfileKind.official);
+    expect(store.clearCount, 0);
+    controller.dispose();
+  });
+
   test('round trips the persisted signaling and STUN configuration', () {
     final original = _custom();
     final decoded = NetworkServiceConfiguration.fromJson(original.toJson());
@@ -162,9 +186,34 @@ void main() {
           controller.configuration.kind,
           NetworkServiceProfileKind.official,
         );
+        expect(
+          await preferences.getString(networkServiceConfigurationStorageKey),
+          isNull,
+        );
         controller.dispose();
       },
     );
+
+    test('enforces the stored limit in UTF-8 bytes', () async {
+      final store = PersistentNetworkServiceConfigurationStore(
+        preferences: preferences,
+      );
+      final unicodeHost = List<String>.filled(700, '例').join();
+      final largeUnicodeConfiguration = NetworkServiceConfiguration(
+        kind: NetworkServiceProfileKind.custom,
+        signalingEndpoint: Uri.parse('wss://signal.example.test/v1/connect'),
+        stunUrls: List<String>.filled(8, 'stun:$unicodeHost.test'),
+      );
+
+      await expectLater(
+        store.save(largeUnicodeConfiguration),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        await preferences.getString(networkServiceConfigurationStorageKey),
+        isNull,
+      );
+    });
   });
 }
 
@@ -195,4 +244,38 @@ final class _MemoryNetworkServiceStore
   Future<void> save(NetworkServiceConfiguration configuration) async {
     saved = configuration;
   }
+}
+
+final class _GatedNetworkServiceStore
+    implements NetworkServiceConfigurationStore {
+  final Completer<void> saveStarted = Completer<void>();
+  final Completer<void> saveGate = Completer<void>();
+
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<NetworkServiceConfiguration?> load() async => null;
+
+  @override
+  Future<void> save(NetworkServiceConfiguration configuration) async {
+    saveStarted.complete();
+    await saveGate.future;
+  }
+}
+
+final class _FailingLoadNetworkServiceStore
+    implements NetworkServiceConfigurationStore {
+  int clearCount = 0;
+
+  @override
+  Future<void> clear() async => clearCount += 1;
+
+  @override
+  Future<NetworkServiceConfiguration?> load() async {
+    throw StateError('temporary storage failure');
+  }
+
+  @override
+  Future<void> save(NetworkServiceConfiguration configuration) async {}
 }

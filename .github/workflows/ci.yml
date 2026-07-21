@@ -8,15 +8,21 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   boundary-and-schema:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: ./.github/actions/setup-ci-tools
-      - uses: bufbuild/buf-setup-action@v1
+      - uses: bufbuild/buf-setup-action@a47c93e0b1648d5651a065437926377d060baa99 # v1.50.0
         with:
           version: 1.69.0
           github_token: ${{ github.token }}
@@ -46,20 +52,23 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-ci-tools
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: 3.44.0
           channel: stable
           cache: true
       - name: Resolve protocol packages
         working-directory: gen/dart
-        run: dart pub get
+        run: dart pub get --enforce-lockfile
       - name: Resolve client packages
         working-directory: apps/client_flutter
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
       - name: Check formatting
         run: |
           dart format --output=none --set-exit-if-changed scripts/validate_m4_smoke_config.dart
@@ -79,15 +88,17 @@ jobs:
         run: dart analyze && dart test
       - name: Analyze and test client
         working-directory: apps/client_flutter
-        run: flutter analyze && flutter test
+        run: flutter analyze --no-pub && flutter test --no-pub
       - name: Build macOS Controller
         if: runner.os == 'macOS'
         working-directory: apps/client_flutter
-        run: flutter build macos --debug
+        run: flutter build macos --debug --no-pub
       - name: Build Windows Controller
         if: runner.os == 'Windows'
         working-directory: apps/client_flutter
-        run: flutter build windows --debug
+        run: flutter build windows --debug --no-pub
+      - name: Confirm generated files and dependency locks are unchanged
+        run: git diff --exit-code -- gen/dart/pubspec.lock apps/client_flutter/pubspec.lock apps/client_flutter/lib/l10n/generated apps/client_flutter/ios/Podfile.lock apps/client_flutter/macos/Podfile.lock
 
   mobile-builds:
     strategy:
@@ -95,30 +106,35 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            command: flutter build ios --simulator --debug
+            command: flutter build ios --simulator --debug --no-pub
           - os: ubuntu-latest
-            command: flutter build apk --debug
+            command: flutter build apk --debug --no-pub
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-ci-tools
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: 3.44.0
           channel: stable
           cache: true
       - name: Resolve protocol packages
         working-directory: gen/dart
-        run: dart pub get
+        run: dart pub get --enforce-lockfile
       - name: Resolve client packages
         working-directory: apps/client_flutter
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
       - name: Check M6 mobile lifecycle
         shell: bash
         run: make test-m6-lifecycle
       - name: Build mobile client
         working-directory: apps/client_flutter
         run: ${{ matrix.command }}
+      - name: Confirm generated files and dependency locks are unchanged
+        run: git diff --exit-code -- gen/dart/pubspec.lock apps/client_flutter/pubspec.lock apps/client_flutter/lib/l10n/generated apps/client_flutter/ios/Podfile.lock apps/client_flutter/macos/Podfile.lock
 
   desktop-host:
     strategy:
@@ -126,14 +142,17 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-ci-tools
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: 1.97.0
           components: rustfmt,clippy
-      - uses: actions/cache@v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/roammand/libwebrtc
           key: libwebrtc-${{ runner.os }}-${{ hashFiles('scripts/libwebrtc-assets.sha256') }}
@@ -141,12 +160,14 @@ jobs:
         shell: bash
         run: make check-libwebrtc
       - name: Lint desktop Host crates
-        run: cargo clippy -p roammand-host-platform -p roammand-ipc -p roammand-host-agent --all-targets -- -D warnings
+        run: cargo clippy --locked -p roammand-host-platform -p roammand-ipc -p roammand-host-agent --all-targets -- -D warnings
       - name: Test desktop Host crates
-        run: cargo test -p roammand-host-platform -p roammand-ipc -p roammand-host-agent
+        run: cargo test --locked -p roammand-host-platform -p roammand-ipc -p roammand-host-agent
       - name: Test native desktop WebRTC
         shell: bash
         run: make test-native-webrtc
+      - name: Confirm Cargo lock is unchanged
+        run: git diff --exit-code -- Cargo.lock
 
   m8-privileged-bridge:
     strategy:
@@ -154,28 +175,31 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-ci-tools
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: 1.97.0
           components: rustfmt,clippy
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: 3.44.0
           channel: stable
           cache: true
       - name: Resolve Flutter dependencies
         working-directory: apps/client_flutter
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
       - name: Test bridge core and platform contracts
-        run: cargo test -p roammand-privileged-bridge
+        run: cargo test --locked -p roammand-privileged-bridge
       - name: Lint bridge platform code
-        run: cargo clippy -p roammand-privileged-bridge --all-targets -- -D warnings
+        run: cargo clippy --locked -p roammand-privileged-bridge --all-targets -- -D warnings
       - name: Test status, tray, and emergency stop
         working-directory: apps/client_flutter
-        run: flutter test test/privileged_bridge_presenter_test.dart test/host_status_page_test.dart test/host_tray_controller_test.dart test/desktop_app_root_test.dart
+        run: flutter test --no-pub test/privileged_bridge_presenter_test.dart test/host_status_page_test.dart test/host_tray_controller_test.dart test/desktop_app_root_test.dart
       - name: Check M8 privacy boundary
         shell: bash
         run: ./scripts/check_m8_privacy.sh
@@ -187,29 +211,41 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: ./scripts/test_m8_windows_package.sh
+      - name: Confirm generated files and dependency locks are unchanged
+        run: git diff --exit-code -- Cargo.lock apps/client_flutter/pubspec.lock apps/client_flutter/lib/l10n/generated apps/client_flutter/ios/Podfile.lock apps/client_flutter/macos/Podfile.lock
 
   rust:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-ci-tools
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: 1.97.0
           components: rustfmt,clippy
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Lint
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --locked --workspace
+      - name: Confirm Cargo lock is unchanged
+        run: git diff --exit-code -- Cargo.lock
 
   go:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GOFLAGS: -mod=readonly
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-ci-tools
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: 1.26.5
           cache-dependency-path: |
@@ -219,44 +255,59 @@ jobs:
         run: ./scripts/check_go_format.sh
       - name: Vet and test protocol
         working-directory: gen/go
-        run: go vet ./... && go test ./...
+        run: go mod verify && go vet ./... && go test ./...
       - name: Vet and test signaling
         working-directory: services/signaling
-        run: go vet ./... && go test ./...
+        run: go mod verify && go vet ./... && go test ./...
       - name: Race-test signaling
         working-directory: services/signaling
         run: go test -race ./...
+      - name: Confirm Go module files are unchanged
+        run: git diff --exit-code -- gen/go/go.mod gen/go/go.sum services/signaling/go.mod services/signaling/go.sum
 
   m7-recovery-privacy-fuzz:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GOFLAGS: -mod=readonly
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-ci-tools
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: 3.44.0
           channel: stable
           cache: true
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: 1.26.5
           cache-dependency-path: |
             gen/go/go.sum
             services/signaling/go.sum
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: 1.97.0
+      - name: Resolve Flutter dependencies from the lockfile
+        working-directory: apps/client_flutter
+        run: flutter pub get --enforce-lockfile
       - name: Check authenticated reconnect
         run: make test-m7-reconnect
       - name: Check privacy-safe diagnostics and logging
         run: make test-m7-privacy
       - name: Fuzz and property-test untrusted inputs
         run: make test-m7-fuzz
+      - name: Confirm dependency locks are unchanged
+        run: git diff --exit-code -- Cargo.lock apps/client_flutter/pubspec.lock gen/go/go.mod gen/go/go.sum services/signaling/go.mod services/signaling/go.sum
 
   self-hosting:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-ci-tools
       - name: Prepare ephemeral Compose fixture secrets
         run: |

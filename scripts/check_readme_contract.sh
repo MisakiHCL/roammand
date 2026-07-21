@@ -11,6 +11,8 @@ readonly BUILDING_DOC="docs/BUILDING.md"
 readonly CHINESE_BUILDING_DOC="docs/BUILDING.zh-CN.md"
 readonly BRAND_README="brand/README.md"
 readonly CHINESE_BRAND_README="brand/README.zh-CN.md"
+readonly CHANGELOG="CHANGELOG.md"
+readonly CHINESE_CHANGELOG="CHANGELOG.zh-CN.md"
 readonly CI_WORKFLOW=".github/workflows/ci.yml"
 readonly ENTRY_DOCS=(
   "$ENGLISH_README"
@@ -69,6 +71,8 @@ for path in \
   "${ENTRY_DOCS[@]}" \
   "$BRAND_README" \
   "$CHINESE_BRAND_README" \
+  "$CHANGELOG" \
+  "$CHINESE_CHANGELOG" \
   "$CI_WORKFLOW" \
   "${DOC_INDEXES[@]}" \
   "${TECHNICAL_DOCS[@]}"; do
@@ -157,6 +161,8 @@ require_text "$BUILDING_DOC" '[简体中文](BUILDING.zh-CN.md)'
 require_text "$CHINESE_BUILDING_DOC" '[English](BUILDING.md)'
 require_text "$BRAND_README" '[简体中文](README.zh-CN.md)'
 require_text "$CHINESE_BRAND_README" '[English](README.md)'
+require_text "$CHANGELOG" '[简体中文](CHANGELOG.zh-CN.md)'
+require_text "$CHINESE_CHANGELOG" '[English](CHANGELOG.md)'
 
 for index_dir in architecture security operations testing; do
   require_text "docs/$index_dir/README.md" '[简体中文](README.zh-CN.md)'
@@ -209,7 +215,10 @@ if rg -n '\bM[0-8]\b|Pending|Development status|Developer preview|Release status
   exit 1
 fi
 
-require_text "docs/architecture/reconnect-v1.md" "1, 2, 4, 8, and 15 seconds"
+require_text "docs/architecture/reconnect-v1.md" "per-attempt delays of 1, 2, 4, 8, and 8 seconds"
+require_text "docs/architecture/reconnect-v1.md" "final 7-second policy grace"
+require_text "docs/architecture/reconnect-v1.md" "not a hard 30-second end-to-end latency"
+require_text "docs/architecture/reconnect-v1.md" "separate 45-second fail-closed retention deadline"
 require_text "docs/architecture/reconnect-v1.md" "fresh 32-byte nonce"
 require_text "docs/security/privacy-safe-diagnostics.md" "roammand-diagnostics/v1"
 require_text "docs/security/privacy-safe-diagnostics.md" "never uploaded automatically"

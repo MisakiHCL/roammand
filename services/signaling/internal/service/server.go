@@ -27,26 +27,49 @@ import (
 const (
 	WebSocketSubprotocol       = transport.WebSocketSubprotocol
 	LegacyWebSocketSubprotocol = transport.LegacyWebSocketSubprotocol
+
+	cacheControlHeader        = "Cache-Control"
+	cacheControlNoStore       = "no-store"
+	contentTypeOptionsHeader  = "X-Content-Type-Options"
+	contentTypeOptionsNoSniff = "nosniff"
+	inboundRateLimitReason    = "inbound rate limit exceeded"
 )
 
+type InboundLimits struct {
+	Window              time.Duration
+	FramesPerConnection int
+	BytesPerConnection  int64
+	FramesPerIP         int
+	BytesPerIP          int64
+	FramesGlobal        int
+	BytesGlobal         int64
+	IPWindowCapacity    int
+}
+
 type Options struct {
-	Now                           func() time.Time
-	RegistrationTimeout           time.Duration
-	PresenceTimeout               time.Duration
-	SweepInterval                 time.Duration
-	RendezvousTTL                 time.Duration
-	RateLimitWindow               time.Duration
-	PairingAttemptsPerIP          int
-	PairingAttemptsPerLookupKey   int
-	OutboundQueueCapacity         int
-	MaxFrameBytes                 int
-	MaxConnections                int
-	MaxConnectionsPerIP           int
-	MaxRendezvousPerHost          int
-	MaxOutboundBytes              int64
-	MaxOutboundBytesPerIP         int64
-	MaxOutboundBytesPerConnection int64
-	TrustedProxyCIDRs             []netip.Prefix
+	Now                               func() time.Time
+	RegistrationTimeout               time.Duration
+	PresenceTimeout                   time.Duration
+	SweepInterval                     time.Duration
+	RendezvousTTL                     time.Duration
+	RateLimitWindow                   time.Duration
+	PairingAttemptsPerIP              int
+	PairingAttemptsPerLookupKey       int
+	OutboundQueueCapacity             int
+	MaxFrameBytes                     int
+	MessageReadTimeout                time.Duration
+	MaxConnections                    int
+	MaxConnectionsPerIP               int
+	MaxRendezvous                     int
+	MaxRendezvousPerHost              int
+	MaxOutboundBytes                  int64
+	MaxOutboundBytesPerIP             int64
+	MaxOutboundBytesPerConnection     int64
+	MaxInFlightReadBytes              int64
+	MaxInFlightReadBytesPerIP         int64
+	MaxInFlightReadBytesPerConnection int64
+	TrustedProxyCIDRs                 []netip.Prefix
+	InboundLimits                     InboundLimits
 }
 
 func DefaultOptions() Options {
@@ -61,30 +84,52 @@ func DefaultOptions() Options {
 		PairingAttemptsPerLookupKey: config.PairingAttemptsPerLookupKey,
 		OutboundQueueCapacity:       config.OutboundQueueCapacity,
 		MaxFrameBytes:               validation.MaxSignalingServiceFrameBytes,
+		MessageReadTimeout:          config.MessageReadTimeout,
 		MaxConnections:              config.DefaultMaxConnections,
 		MaxConnectionsPerIP:         config.DefaultMaxConnectionsPerIP,
+		MaxRendezvous:               config.DefaultMaxRendezvous,
 		MaxRendezvousPerHost:        config.DefaultMaxRendezvousPerHost,
 		MaxOutboundBytes:            config.DefaultGlobalOutboundByteBudget,
 		MaxOutboundBytesPerIP:       config.DefaultPerIPOutboundByteBudget,
 		MaxOutboundBytesPerConnection: int64(validation.MaxSignalingServiceFrameBytes) *
 			config.OutboundFrameBudgetPerConnection,
+		MaxInFlightReadBytes:      config.DefaultGlobalInFlightReadByteBudget,
+		MaxInFlightReadBytesPerIP: config.DefaultPerIPInFlightReadByteBudget,
+		MaxInFlightReadBytesPerConnection: int64(validation.MaxSignalingServiceFrameBytes) +
+			config.InboundReadLimitProbeBytes,
+		InboundLimits: InboundLimits{
+			Window:              config.InboundRateLimitWindow,
+			FramesPerConnection: config.InboundFramesPerConnection,
+			BytesPerConnection:  config.InboundBytesPerConnection,
+			FramesPerIP:         config.InboundFramesPerIP,
+			BytesPerIP:          config.InboundBytesPerIP,
+			FramesGlobal:        config.InboundFramesGlobal,
+			BytesGlobal:         config.InboundBytesGlobal,
+			IPWindowCapacity:    config.InboundIPWindowCapacity,
+		},
 	}
 }
 
 type Server struct {
-	ctx                  context.Context
-	cancel               context.CancelFunc
-	logger               *safelog.Logger
-	options              Options
-	mux                  *http.ServeMux
-	presence             *state.PresenceRegistry
-	rendezvous           *state.RendezvousStore
-	limiter              *state.FixedWindowLimiter
-	connectionSlots      chan struct{}
-	globalOutboundBudget *transport.ByteBudget
-	nextToken            atomic.Uint64
-	sourceIPMu           sync.Mutex
-	sourceIPs            map[string]*sourceIPUsage
+	ctx                      context.Context
+	cancel                   context.CancelFunc
+	logger                   *safelog.Logger
+	options                  Options
+	mux                      *http.ServeMux
+	presence                 *state.PresenceRegistry
+	rendezvous               *state.RendezvousStore
+	limiter                  *state.FixedWindowLimiter
+	connectionSlots          chan struct{}
+	globalOutboundBudget     *transport.ByteBudget
+	globalInFlightReadBudget *transport.ByteBudget
+	inboundLimiter           *state.TrafficLimiter
+	nextToken                atomic.Uint64
+	sourceIPMu               sync.Mutex
+	sourceIPs                map[string]*sourceIPUsage
+	lifecycleMu              sync.Mutex
+	shuttingDown             bool
+	shutdownWaitOnce         sync.Once
+	shutdownDone             chan struct{}
 
 	activeMu sync.Mutex
 	active   map[*clientConnection]struct{}
@@ -97,6 +142,7 @@ type clientConnection struct {
 	remoteIP   string
 	registered atomic.Bool
 	deviceID   state.DeviceID
+	inbound    inboundWindow
 }
 
 func New(ctx context.Context, logger *safelog.Logger, options Options) *Server {
@@ -105,22 +151,37 @@ func New(ctx context.Context, logger *safelog.Logger, options Options) *Server {
 		logger = safelog.Discard()
 	}
 	server := &Server{
-		ctx:        serverContext,
-		cancel:     cancel,
-		logger:     logger,
-		options:    options,
-		mux:        http.NewServeMux(),
-		presence:   state.NewPresenceRegistry(),
-		rendezvous: state.NewRendezvousStore(options.MaxRendezvousPerHost),
+		ctx:      serverContext,
+		cancel:   cancel,
+		logger:   logger,
+		options:  options,
+		mux:      http.NewServeMux(),
+		presence: state.NewPresenceRegistry(),
+		rendezvous: state.NewRendezvousStore(
+			options.MaxRendezvousPerHost,
+			options.MaxRendezvous,
+		),
 		limiter: state.NewFixedWindowLimiter(
 			options.RateLimitWindow,
 			options.PairingAttemptsPerIP,
 			options.PairingAttemptsPerLookupKey,
+			config.RateLimitIPWindowCapacity,
+			config.RateLimitLookupCapacity,
 		),
-		connectionSlots:      make(chan struct{}, options.MaxConnections),
-		globalOutboundBudget: transport.NewByteBudget(options.MaxOutboundBytes),
-		sourceIPs:            make(map[string]*sourceIPUsage),
-		active:               make(map[*clientConnection]struct{}),
+		connectionSlots:          make(chan struct{}, options.MaxConnections),
+		globalOutboundBudget:     transport.NewByteBudget(options.MaxOutboundBytes),
+		globalInFlightReadBudget: transport.NewByteBudget(options.MaxInFlightReadBytes),
+		inboundLimiter: state.NewTrafficLimiter(
+			options.InboundLimits.Window,
+			options.InboundLimits.FramesGlobal,
+			options.InboundLimits.BytesGlobal,
+			options.InboundLimits.FramesPerIP,
+			options.InboundLimits.BytesPerIP,
+			options.InboundLimits.IPWindowCapacity,
+		),
+		sourceIPs:    make(map[string]*sourceIPUsage),
+		active:       make(map[*clientConnection]struct{}),
+		shutdownDone: make(chan struct{}),
 	}
 	server.mux.HandleFunc("/healthz", server.handleHealth)
 	server.mux.HandleFunc("/v1/connect", server.handleConnect)
@@ -130,7 +191,11 @@ func New(ctx context.Context, logger *safelog.Logger, options Options) *Server {
 }
 
 func (server *Server) Handler() http.Handler {
-	return server.mux
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set(cacheControlHeader, cacheControlNoStore)
+		writer.Header().Set(contentTypeOptionsHeader, contentTypeOptionsNoSniff)
+		server.mux.ServeHTTP(writer, request)
+	})
 }
 
 func (server *Server) PresenceCount() int {
@@ -163,10 +228,15 @@ func (server *Server) Sweep(now time.Time) {
 		}
 	}
 	server.limiter.Sweep(now)
+	server.inboundLimiter.Sweep(now)
 }
 
 func (server *Server) Shutdown(ctx context.Context) error {
+	server.lifecycleMu.Lock()
+	server.shuttingDown = true
 	server.cancel()
+	server.lifecycleMu.Unlock()
+
 	server.activeMu.Lock()
 	connections := make([]*clientConnection, 0, len(server.active))
 	for connection := range server.active {
@@ -177,13 +247,14 @@ func (server *Server) Shutdown(ctx context.Context) error {
 		connection.transport.CloseNow()
 	}
 
-	done := make(chan struct{})
-	go func() {
-		server.wait.Wait()
-		close(done)
-	}()
+	server.shutdownWaitOnce.Do(func() {
+		go func() {
+			server.wait.Wait()
+			close(server.shutdownDone)
+		}()
+	})
 	select {
-	case <-done:
+	case <-server.shutdownDone:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -192,8 +263,19 @@ func (server *Server) Shutdown(ctx context.Context) error {
 
 func (server *Server) handleHealth(writer http.ResponseWriter, request *http.Request) {
 	if request.Method != http.MethodGet {
+		writer.Header().Set("Allow", http.MethodGet)
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 		return
+	}
+	select {
+	case <-server.ctx.Done():
+		http.Error(
+			writer,
+			http.StatusText(http.StatusServiceUnavailable),
+			http.StatusServiceUnavailable,
+		)
+		return
+	default:
 	}
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	writer.WriteHeader(http.StatusOK)
@@ -201,12 +283,11 @@ func (server *Server) handleHealth(writer http.ResponseWriter, request *http.Req
 }
 
 func (server *Server) handleConnect(writer http.ResponseWriter, request *http.Request) {
-	select {
-	case <-server.ctx.Done():
+	if !server.beginConnect() {
 		http.Error(writer, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		return
-	default:
 	}
+	defer server.wait.Done()
 	if !requestOffersSubprotocol(request, WebSocketSubprotocol) &&
 		!requestOffersSubprotocol(request, LegacyWebSocketSubprotocol) {
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -214,7 +295,7 @@ func (server *Server) handleConnect(writer http.ResponseWriter, request *http.Re
 	}
 	remoteAddress := remoteIP(
 		request.RemoteAddr,
-		request.Header.Get("X-Real-IP"),
+		request.Header.Values("X-Real-IP"),
 		server.options.TrustedProxyCIDRs,
 	)
 	select {
@@ -227,10 +308,8 @@ func (server *Server) handleConnect(writer http.ResponseWriter, request *http.Re
 		)
 		return
 	}
-	server.wait.Add(1)
-	defer server.wait.Done()
 	defer func() { <-server.connectionSlots }()
-	ipOutboundBudget, acquired := server.acquireIPConnection(remoteAddress)
+	ipBudgets, acquired := server.acquireIPConnection(remoteAddress)
 	if !acquired {
 		http.Error(
 			writer,
@@ -241,12 +320,32 @@ func (server *Server) handleConnect(writer http.ResponseWriter, request *http.Re
 	}
 	defer server.releaseIPConnection(remoteAddress)
 
+	var connection *clientConnection
+	var controlLimitCloseOnce sync.Once
+	allowControlFrame := func(payload []byte) bool {
+		if connection == nil {
+			return false
+		}
+		if server.allowInbound(connection, len(payload), server.options.Now()) {
+			return true
+		}
+		controlLimitCloseOnce.Do(func() {
+			go connection.transport.Close(websocket.StatusTryAgainLater, inboundRateLimitReason)
+		})
+		return false
+	}
 	socket, err := websocket.Accept(writer, request, &websocket.AcceptOptions{
 		Subprotocols: []string{
 			WebSocketSubprotocol,
 			LegacyWebSocketSubprotocol,
 		},
 		CompressionMode: websocket.CompressionDisabled,
+		OnPingReceived: func(_ context.Context, payload []byte) bool {
+			return allowControlFrame(payload)
+		},
+		OnPongReceived: func(_ context.Context, payload []byte) {
+			_ = allowControlFrame(payload)
+		},
 	})
 	if err != nil {
 		return
@@ -257,16 +356,22 @@ func (server *Server) handleConnect(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	connection := &clientConnection{
+	connection = &clientConnection{
 		transport: transport.NewConnection(
 			socket,
 			transport.ConnectionConfig{
 				OutboundQueueCapacity: server.options.OutboundQueueCapacity,
 				MaxFrameBytes:         server.options.MaxFrameBytes,
 				MaxOutboundBytes:      server.options.MaxOutboundBytesPerConnection,
-				SharedOutboundBudgets: []transport.OutboundByteBudget{
-					ipOutboundBudget,
+				SharedOutboundBudgets: []transport.ByteReservationBudget{
+					ipBudgets.outbound,
 					server.globalOutboundBudget,
+				},
+				MessageReadTimeout:   server.options.MessageReadTimeout,
+				MaxInFlightReadBytes: server.options.MaxInFlightReadBytesPerConnection,
+				SharedInFlightReadBudgets: []transport.ByteReservationBudget{
+					ipBudgets.inFlightRead,
+					server.globalInFlightReadBudget,
 				},
 			},
 		),
@@ -299,6 +404,10 @@ func (server *Server) handleConnect(writer http.ResponseWriter, request *http.Re
 			}
 			break
 		}
+		if !server.allowInbound(connection, len(encoded), server.options.Now()) {
+			connection.transport.Close(websocket.StatusTryAgainLater, inboundRateLimitReason)
+			break
+		}
 		frame, code := decodeClientFrame(encoded)
 		if code != roammandv1.ErrorCode_ERROR_CODE_UNSPECIFIED {
 			server.sendFrame(connection, publicError(code, frame.GetRequestId(), 0))
@@ -316,6 +425,21 @@ func (server *Server) handleConnect(writer http.ResponseWriter, request *http.Re
 	}
 }
 
+func (server *Server) beginConnect() bool {
+	server.lifecycleMu.Lock()
+	defer server.lifecycleMu.Unlock()
+	if server.shuttingDown {
+		return false
+	}
+	select {
+	case <-server.ctx.Done():
+		return false
+	default:
+	}
+	server.wait.Add(1)
+	return true
+}
+
 func (server *Server) handleReadError(connection *clientConnection, err error) {
 	var code roammandv1.ErrorCode
 	switch {
@@ -323,6 +447,9 @@ func (server *Server) handleReadError(connection *clientConnection, err error) {
 		code = roammandv1.ErrorCode_ERROR_CODE_INVALID_REQUEST
 	case errors.Is(err, transport.ErrMessageTooLarge):
 		code = roammandv1.ErrorCode_ERROR_CODE_MESSAGE_TOO_LARGE
+	case errors.Is(err, transport.ErrMessageReadTimeout),
+		errors.Is(err, transport.ErrInFlightReadBudgetExceeded):
+		code = roammandv1.ErrorCode_ERROR_CODE_SERVER_UNAVAILABLE
 	default:
 		return
 	}
@@ -405,7 +532,11 @@ func requestOffersSubprotocol(request *http.Request, required string) bool {
 	return false
 }
 
-func remoteIP(remoteAddress, realIPHeader string, trustedProxies []netip.Prefix) string {
+func remoteIP(
+	remoteAddress string,
+	realIPHeaders []string,
+	trustedProxies []netip.Prefix,
+) string {
 	directIP, ok := parseRemoteIP(remoteAddress)
 	if !ok {
 		return remoteAddress
@@ -417,10 +548,10 @@ func remoteIP(remoteAddress, realIPHeader string, trustedProxies []netip.Prefix)
 			break
 		}
 	}
-	if !trusted || strings.Contains(realIPHeader, ",") {
+	if !trusted || len(realIPHeaders) != 1 || strings.Contains(realIPHeaders[0], ",") {
 		return directIP.String()
 	}
-	forwardedIP, err := netip.ParseAddr(strings.TrimSpace(realIPHeader))
+	forwardedIP, err := netip.ParseAddr(strings.TrimSpace(realIPHeaders[0]))
 	if err != nil {
 		return directIP.String()
 	}

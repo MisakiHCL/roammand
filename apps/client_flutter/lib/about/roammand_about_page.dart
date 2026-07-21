@@ -147,25 +147,25 @@ final class _RoammandAboutPageState extends State<RoammandAboutPage> {
                       FilledButton.icon(
                         key: Key(
                           desktopHost
-                              ? 'about-download-ios'
+                              ? 'about-build-ios'
                               : 'about-download-macos',
                         ),
                         onPressed: () => _open(
                           desktopHost
-                              ? iosAppStorePageUri
+                              ? roammandBuildingGuideUri(locale)
                               : macOsDownloadPageUri,
                         ),
                         icon: const Icon(Icons.open_in_new, size: 20),
                         label: Text(
                           desktopHost
-                              ? strings.aboutIosDownloadAction
+                              ? strings.aboutIosBuildAction
                               : strings.mobileMacDownloadAction,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         desktopHost
-                            ? strings.aboutIosDownloadNote
+                            ? strings.aboutIosAvailabilityNote
                             : strings.aboutMacDownloadNote,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),

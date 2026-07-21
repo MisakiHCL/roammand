@@ -107,10 +107,11 @@ measurement. Validate keyboard, animation, and frame timing on the physical
 device with
 `make app-run-ios-release IOS_DEVICE=YOUR_IOS_DEVICE_ID`.
 
-Physical-device source testing therefore drops from four terminals to two.
-Installed desktop and mobile Release builds launch from their graphical
-interfaces and need no terminal. Re-run `make bootstrap` after dependency files
-change; normal run targets intentionally use the locked, cached packages.
+This path needs only the desktop and mobile app processes; it does not require a
+local signaling terminal. Installed desktop and mobile Release builds launch
+from their graphical interfaces and need no terminal. Re-run `make bootstrap`
+after dependency files change; normal run targets intentionally use the locked,
+cached packages.
 
 ### Advanced: start local signaling
 
@@ -124,12 +125,15 @@ go run ./cmd/signaling
 The default session endpoint is `ws://127.0.0.1:8080/v1/connect`.
 
 Signaling accepts at most 1,024 concurrent WebSocket connections, 64 from one
-source IP, and four active pairing rendezvous per Host by default. Operators can
-tune these bounded limits with `SIGNALING_MAX_CONNECTIONS` (1–65,536),
-`SIGNALING_MAX_CONNECTIONS_PER_IP` (1–65,536), and
+source IP, 4,096 active pairing rendezvous globally, and four active rendezvous
+per Host by default. Operators can tune these bounded limits with
+`SIGNALING_MAX_CONNECTIONS` (1–65,536),
+`SIGNALING_MAX_CONNECTIONS_PER_IP` (1–65,536),
+`SIGNALING_MAX_RENDEZVOUS` (1–65,536), and
 `SIGNALING_MAX_RENDEZVOUS_PER_HOST` (1–64). Set explicit values appropriate for
 the host's memory, expected NAT fan-out, and traffic instead of relying on an
-unbounded deployment.
+unbounded deployment. `SIGNALING_SHUTDOWN_TIMEOUT` defaults to 10 seconds and
+must be greater than zero and no longer than one minute.
 
 Outbound delivery also has fixed byte budgets in addition to the 64-entry
 buffered queue: 64 MiB process-wide, 4 MiB per source IP, and 526,336 bytes per
@@ -138,6 +142,15 @@ three budgets before copying a frame into a queue and keeps the reservation
 while the frame is being written. These built-in safety budgets are not
 environment-variable tunables; a delivery that cannot reserve them is rejected
 instead of increasing slow-consumer memory without bound.
+
+Inbound safety limits are also fixed: in each one-second window, 256 frames /
+32 MiB per connection, 4,096 frames / 128 MiB per source IP, and 32,768 frames /
+512 MiB process-wide. Application and incoming ping/pong frames count; exceeding
+a limit closes the WebSocket with status 1013. The traffic-IP window map is
+capped at 65,536 entries. Pairing create and join requests separately share 30
+attempts per source IP per minute, joins allow five attempts per lookup key,
+and their limiter maps are capped at 65,536 IP and 262,144 lookup entries. New
+keys fail closed with `PAIRING_RATE_LIMITED` when an applicable map is full.
 
 For source Debug builds only, a physical Controller on the same trusted LAN can use plaintext WebSocket without installing a development certificate. Start signaling on all interfaces:
 
@@ -267,8 +280,7 @@ flutter run -d YOUR_IOS_DEVICE_ID \
 
 TURN URL, username, and password are an all-or-nothing group. Do not commit or
 log credentials. This advanced path requires a separately operated TURN
-service and is not a fallback provided by Roammand's official first-release
-profile.
+service and is not a fallback provided by Roammand's current official profile.
 
 ## Build platform apps
 
@@ -282,7 +294,7 @@ Windows Release:
 
 ```powershell
 cd apps\client_flutter
-flutter build windows --release
+flutter build windows --release --no-pub
 ```
 
 Build output remains under `apps/client_flutter/build/` and is ignored by Git.
@@ -290,6 +302,15 @@ Build output remains under `apps/client_flutter/build/` and is ignored by Git.
 ## Package the installed Host
 
 Package scripts require a clean worktree for their default Release build. They stage only allowlisted apps, agents, bridge/helpers, service definitions, licenses, a protected uninstaller, and a sorted SHA-256 manifest. Device identities, grants, endpoints, credentials, private keys, and local developer paths are excluded.
+
+The package allowlist and manifest are technical integrity checks; they do not
+generate an exhaustive third-party notice set or software bill of materials.
+Before any public binary or container distribution, derive both from the exact
+Rust, Flutter/Dart, CocoaPods, Go, native WebRTC, and container dependency graph,
+review every applicable term, and add the required license/notice files to the
+shipped artifact or accompanying source location. An incomplete inventory is a
+release blocker. See [Licensing](../LICENSES.md) for the current scope and known
+notice boundary.
 
 ### macOS
 
@@ -406,6 +427,18 @@ printing the Team ID, bundle ID, or signing identity:
 ```
 
 iOS distribution uses App Store/TestFlight archives. The complete macOS Host uses Developer ID signing, Hardened Runtime, a signed installer, notarization, and stapling for direct distribution. Its privileged non-sandboxed architecture is not a Mac App Store target; a store-distributed macOS app requires a separate sandboxed Controller-only design.
+
+Before a public iOS submission, publish a stable, publicly accessible privacy
+policy URL and expose that policy from an easy-to-find place in the app, as
+required by the [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/).
+The policy and App Store privacy answers must match the actual app, official
+signaling/STUN operation, infrastructure providers, and integrated third-party
+code, including data purposes, retention/deletion, and a monitored privacy
+contact. The repository's security metadata guide is a technical boundary, not
+an operator-specific privacy notice. Those operator facts are not currently
+committed here, so a public iOS release must treat the policy and its verified
+App Store declarations as release prerequisites rather than infer them from
+source behavior.
 
 ## Verify changes
 

@@ -150,6 +150,160 @@ void main() {
     expect(transport.closeCount, 1);
     await expectLater(link.routedSessions, emitsDone);
   });
+
+  test('bounds transport creation and closes a late transport', () async {
+    final pending = Completer<SignalingTransport>();
+    final link = WebSocketControllerSignalingLink(
+      endpoint: Uri.parse('wss://signal.example.test/v1/connect'),
+      transportConnectTimeout: const Duration(milliseconds: 10),
+      transportFactory: (_) => pending.future,
+    );
+
+    await expectLater(
+      link.connect(_controllerId),
+      throwsA(
+        isA<SignalingClientException>().having(
+          (error) => error.code,
+          'code',
+          SignalingClientErrorCode.timeout,
+        ),
+      ),
+    );
+
+    final lateTransport = _FakeSignalingTransport();
+    pending.complete(lateTransport);
+    await pumpEventQueue();
+    expect(lateTransport.closeCount, 1);
+    await link.close();
+  });
+
+  test('bounds registration response time and closes transport', () async {
+    final transport = _FakeSignalingTransport();
+    final link = WebSocketControllerSignalingLink(
+      endpoint: Uri.parse('wss://signal.example.test/v1/connect'),
+      registrationTimeout: const Duration(milliseconds: 10),
+      transportFactory: (_) async => transport,
+    );
+
+    await expectLater(
+      link.connect(_controllerId),
+      throwsA(
+        isA<SignalingClientException>().having(
+          (error) => error.code,
+          'code',
+          SignalingClientErrorCode.timeout,
+        ),
+      ),
+    );
+
+    expect(transport.sent.single.hasRegister(), isTrue);
+    expect(transport.closeCount, 1);
+    await link.close();
+  });
+
+  test(
+    'fails a half-open connection when a heartbeat is not acknowledged',
+    () async {
+      final transport = _FakeSignalingTransport()
+        ..enqueue(_registered('request-1'));
+      var requestSequence = 0;
+      final link = WebSocketControllerSignalingLink(
+        endpoint: Uri.parse('wss://signal.example.test/v1/connect'),
+        requestIdFactory: () => 'request-${++requestSequence}',
+        heartbeatInterval: const Duration(milliseconds: 10),
+        transportFactory: (_) async => transport,
+      );
+      final failure = expectLater(
+        link.routedSessions,
+        emitsError(
+          isA<SignalingClientException>().having(
+            (error) => error.code,
+            'code',
+            SignalingClientErrorCode.timeout,
+          ),
+        ),
+      );
+
+      await link.connect(_controllerId);
+      await failure.timeout(const Duration(seconds: 1));
+
+      expect(
+        transport.sent.where((frame) => frame.hasHeartbeat()),
+        hasLength(1),
+      );
+      await link.close();
+    },
+  );
+
+  test(
+    'rejects a heartbeat acknowledgement with the wrong request ID',
+    () async {
+      final transport = _FakeSignalingTransport()
+        ..enqueue(_registered('request-1'));
+      var requestSequence = 0;
+      final link = WebSocketControllerSignalingLink(
+        endpoint: Uri.parse('wss://signal.example.test/v1/connect'),
+        requestIdFactory: () => 'request-${++requestSequence}',
+        heartbeatInterval: const Duration(milliseconds: 20),
+        transportFactory: (_) async => transport,
+      );
+      final failure = expectLater(
+        link.routedSessions,
+        emitsError(
+          isA<SignalingClientException>().having(
+            (error) => error.code,
+            'code',
+            SignalingClientErrorCode.correlationMismatch,
+          ),
+        ),
+      );
+
+      await link.connect(_controllerId);
+      while (!transport.sent.any((frame) => frame.hasHeartbeat())) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      transport.emit(
+        SignalingServerFrame(
+          protocolVersion: ProtocolVersion(major: 1, minor: 0),
+          requestId: 'stale-heartbeat',
+          heartbeatAcknowledged: HeartbeatAcknowledged(
+            serverTimeUnixMs: Int64(1000),
+            presenceExpiresAtUnixMs: Int64(46000),
+          ),
+        ),
+      );
+      await failure.timeout(const Duration(seconds: 1));
+
+      await link.close();
+    },
+  );
+
+  test('bounds cleanup of a stale transport generation', () async {
+    final transportGate = Completer<SignalingTransport>();
+    final transport = _FakeSignalingTransport()..closeGate = Completer<void>();
+    final link = WebSocketControllerSignalingLink(
+      endpoint: Uri.parse('wss://signal.example.test/v1/connect'),
+      transportShutdownTimeout: const Duration(milliseconds: 10),
+      transportFactory: (_) => transportGate.future,
+    );
+    final connecting = link.connect(_controllerId);
+
+    await link.close();
+    transportGate.complete(transport);
+
+    await expectLater(
+      connecting,
+      throwsA(
+        isA<SignalingClientException>().having(
+          (error) => error.code,
+          'code',
+          SignalingClientErrorCode.closed,
+        ),
+      ),
+    ).timeout(const Duration(seconds: 1));
+    expect(transport.closeCount, 1);
+    transport.closeGate?.complete();
+  });
 }
 
 SignalingServerFrame _registered(String requestId) => SignalingServerFrame(
@@ -176,6 +330,7 @@ final class _FakeSignalingTransport implements SignalingTransport {
   var closeCount = 0;
   var failClose = false;
   var keepPendingReceiveOnClose = false;
+  Completer<void>? closeGate;
 
   void enqueue(SignalingServerFrame frame) {
     _queued.add(Uint8List.fromList(frame.writeToBuffer()));
@@ -216,6 +371,7 @@ final class _FakeSignalingTransport implements SignalingTransport {
         const SignalingClientException(SignalingClientErrorCode.closed),
       );
     }
+    await closeGate?.future;
   }
 
   @override

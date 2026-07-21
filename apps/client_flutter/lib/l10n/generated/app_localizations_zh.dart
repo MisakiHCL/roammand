@@ -743,7 +743,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get desktopAboutSettingsBody =>
-      '设置这台 Mac、获取 iPhone 或 iPad App，并查看用户指南和开源项目。';
+      '设置这台 Mac、构建 iPhone 或 iPad App，并查看用户指南和开源项目。';
 
   @override
   String get aboutPageTitle => '关于 Roammand';
@@ -781,7 +781,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get desktopSetupStepScanApprove =>
-      '用 iPhone 或 iPad 上的 Roammand 扫码，核对全部四个验证词，然后在这台 Mac 上批准该设备。';
+      '用 iPhone 或 iPad 上的 Roammand 扫码，确认设备信息，然后在这台 Mac 上批准该设备。';
 
   @override
   String get aboutMacAppTitle => 'Roammand Mac 版';
@@ -797,14 +797,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutIosAppTitle => 'Roammand iPhone 与 iPad 版';
 
   @override
-  String get aboutIosAppBody => '在你想用作控制端的设备上安装移动 App，然后扫描二维码与这台 Mac 配对。';
+  String get aboutIosAppBody =>
+      '移动控制端目前以源码形式提供。请为要用作控制端的 iPhone 或 iPad 构建 App，再扫描二维码与这台 Mac 配对。';
 
   @override
-  String get aboutIosDownloadAction => '查看 iPhone 与 iPad App';
+  String get aboutIosBuildAction => '查看 iOS 构建指南';
 
   @override
-  String get aboutIosDownloadNote =>
-      'App Store 页面用于即将发布的公开版本；TestFlight 目前仍仅限受邀测试者。';
+  String get aboutIosAvailabilityNote => '当前尚未提供公开的 App Store 下载。';
 
   @override
   String get aboutHelpTitle => '用户指南';

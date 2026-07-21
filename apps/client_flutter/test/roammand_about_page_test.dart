@@ -65,7 +65,7 @@ void main() {
     expect(find.text('无法打开链接，请稍后重试。'), findsOneWidget);
   });
 
-  testWidgets('explains the Mac host role and opens the iOS companion app', (
+  testWidgets('explains the Mac host role and opens the iOS build guide', (
     tester,
   ) async {
     final opened = <Uri>[];
@@ -89,12 +89,12 @@ void main() {
     expect(find.byKey(const Key('mobile-about-header')), findsNothing);
     expect(find.byType(AppBar), findsOneWidget);
 
-    await _tapVisible(tester, const Key('about-download-ios'));
+    await _tapVisible(tester, const Key('about-build-ios'));
     await _tapVisible(tester, const Key('about-open-guide'));
     await _tapVisible(tester, const Key('about-open-github'));
 
     expect(opened, <Uri>[
-      iosAppStorePageUri,
+      roammandBuildingGuideUri(const Locale('en')),
       roammandUserGuideUri(const Locale('en')),
       roammandRepositoryUri,
     ]);

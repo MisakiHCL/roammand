@@ -15,6 +15,7 @@ const (
 	DefaultListenAddress = "127.0.0.1:8080"
 
 	RegistrationTimeout = 5 * time.Second
+	MessageReadTimeout  = 10 * time.Second
 	HeartbeatInterval   = 15 * time.Second
 	PresenceTimeout     = 45 * time.Second
 	RendezvousTTL       = 2 * time.Minute
@@ -26,16 +27,32 @@ const (
 	OutboundQueueCapacity       = 64
 	PairingAttemptsPerIP        = 30
 	PairingAttemptsPerLookupKey = 5
+	RateLimitIPWindowCapacity   = 65_536
+	RateLimitLookupCapacity     = 262_144
 	MaxTrustedProxyCIDRs        = 16
+	InboundRateLimitWindow      = time.Second
+	InboundFramesPerConnection  = 256
+	InboundBytesPerConnection   = 32 * 1024 * 1024
+	InboundFramesPerIP          = 4_096
+	InboundBytesPerIP           = 128 * 1024 * 1024
+	InboundFramesGlobal         = 32_768
+	InboundBytesGlobal          = 512 * 1024 * 1024
+	InboundIPWindowCapacity     = 65_536
 	DefaultMaxConnections       = 1_024
 	MaximumMaxConnections       = 65_536
 	DefaultMaxConnectionsPerIP  = 64
+	DefaultMaxRendezvous        = 4_096
+	MaximumMaxRendezvous        = 65_536
 	DefaultMaxRendezvousPerHost = 4
 	MaximumMaxRendezvousPerHost = 64
 
 	DefaultGlobalOutboundByteBudget  = 64 * 1024 * 1024
 	DefaultPerIPOutboundByteBudget   = 4 * 1024 * 1024
 	OutboundFrameBudgetPerConnection = 2
+
+	DefaultGlobalInFlightReadByteBudget = 64 * 1024 * 1024
+	DefaultPerIPInFlightReadByteBudget  = 8 * 1024 * 1024
+	InboundReadLimitProbeBytes          = 1
 )
 
 type Config struct {
@@ -46,6 +63,7 @@ type Config struct {
 	ShutdownTimeout      time.Duration
 	MaxConnections       int
 	MaxConnectionsPerIP  int
+	MaxRendezvous        int
 	MaxRendezvousPerHost int
 }
 
@@ -57,6 +75,7 @@ func Load(getenv func(string) string) (Config, error) {
 		ShutdownTimeout:      ShutdownTimeout,
 		MaxConnections:       DefaultMaxConnections,
 		MaxConnectionsPerIP:  DefaultMaxConnectionsPerIP,
+		MaxRendezvous:        DefaultMaxRendezvous,
 		MaxRendezvousPerHost: DefaultMaxRendezvousPerHost,
 	}
 	if config.ListenAddress == "" {
@@ -95,6 +114,16 @@ func Load(getenv func(string) string) (Config, error) {
 		return Config{}, err
 	}
 	config.MaxConnectionsPerIP = maxConnectionsPerIP
+	maxRendezvous, err := parseBoundedPositiveInt(
+		getenv("SIGNALING_MAX_RENDEZVOUS"),
+		"SIGNALING_MAX_RENDEZVOUS",
+		DefaultMaxRendezvous,
+		MaximumMaxRendezvous,
+	)
+	if err != nil {
+		return Config{}, err
+	}
+	config.MaxRendezvous = maxRendezvous
 	maxRendezvousPerHost, err := parseBoundedPositiveInt(
 		getenv("SIGNALING_MAX_RENDEZVOUS_PER_HOST"),
 		"SIGNALING_MAX_RENDEZVOUS_PER_HOST",
@@ -148,6 +177,11 @@ func parseTrustedProxyCIDRs(encoded string) ([]netip.Prefix, error) {
 		prefix, err := netip.ParsePrefix(strings.TrimSpace(value))
 		if err != nil {
 			return nil, fmt.Errorf("parse SIGNALING_TRUSTED_PROXY_CIDRS: %w", err)
+		}
+		if prefix.Bits() == 0 {
+			return nil, fmt.Errorf(
+				"SIGNALING_TRUSTED_PROXY_CIDRS must not trust an entire address family",
+			)
 		}
 		prefixes = append(prefixes, prefix.Masked())
 	}

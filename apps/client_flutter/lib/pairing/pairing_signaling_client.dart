@@ -15,8 +15,10 @@ const _webSocketSubprotocol = 'roammand-signaling.v1.protobuf';
 const _legacyWebSocketSubprotocol = 'personal-remote-signaling.v1.protobuf';
 const _requestIdBytes = 64;
 const _rememberedRequestIds = 64;
+const _defaultConnectTimeout = Duration(seconds: 10);
 const _defaultRequestTimeout = Duration(seconds: 5);
 const _defaultHeartbeatInterval = Duration(seconds: 15);
+const _defaultTransportShutdownTimeout = Duration(seconds: 2);
 
 enum PairingSignalingErrorCode {
   invalidState,
@@ -187,22 +189,29 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
   PairingSignalingClient({
     PairingSignalingConnector? connector,
     String Function()? requestIdFactory,
+    this.connectTimeout = _defaultConnectTimeout,
     this.requestTimeout = _defaultRequestTimeout,
     this.heartbeatInterval = _defaultHeartbeatInterval,
+    this.transportShutdownTimeout = _defaultTransportShutdownTimeout,
   }) : _connector = connector ?? WebSocketPairingSignalingTransport.connect,
        // ignore: prefer_initializing_formals, keeps the public argument readable.
        _requestIdFactory = requestIdFactory,
-       assert(heartbeatInterval > Duration.zero);
+       assert(connectTimeout > Duration.zero),
+       assert(requestTimeout > Duration.zero),
+       assert(heartbeatInterval > Duration.zero),
+       assert(transportShutdownTimeout > Duration.zero);
 
   final PairingSignalingConnector _connector;
   final String Function()? _requestIdFactory;
+  final Duration connectTimeout;
   final Duration requestTimeout;
   final Duration heartbeatInterval;
+  final Duration transportShutdownTimeout;
   final StreamController<PairingSignalingEvent> _events =
       StreamController<PairingSignalingEvent>.broadcast(sync: true);
   final Queue<String> _issuedRequestOrder = Queue<String>();
   final Set<String> _issuedRequestIds = <String>{};
-  final Set<String> _heartbeatRequestIds = <String>{};
+  String? _pendingHeartbeatRequestId;
   _ClientState _state = _ClientState.disconnected;
   PairingSignalingTransport? _transport;
   StreamSubscription<Uint8List>? _subscription;
@@ -234,11 +243,9 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
     _state = _ClientState.connecting;
     _controllerDeviceId = Uint8List.fromList(controllerDeviceId);
     try {
-      final transport = await _connector(endpoint);
+      final transport = await _connectTransport(endpoint);
       if (!_connectionIsCurrent(generation)) {
-        try {
-          await transport.close();
-        } catch (_) {}
+        await _closeLateTransport(transport, transportShutdownTimeout);
         throw const PairingSignalingException(PairingSignalingErrorCode.closed);
       }
       _transport = transport;
@@ -285,6 +292,27 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
         PairingSignalingErrorCode.transport,
       );
     }
+  }
+
+  Future<PairingSignalingTransport> _connectTransport(Uri endpoint) async {
+    final pending = _connector(endpoint);
+    return pending.timeout(
+      connectTimeout,
+      onTimeout: () {
+        // Future.timeout cannot cancel the platform WebSocket attempt. Ensure
+        // a transport that appears later cannot outlive this client.
+        unawaited(
+          pending.then<void>(
+            (transport) =>
+                _closeLateTransport(transport, transportShutdownTimeout),
+            onError: (_) {},
+          ),
+        );
+        throw const PairingSignalingException(
+          PairingSignalingErrorCode.timeout,
+        );
+      },
+    );
   }
 
   @override
@@ -480,8 +508,7 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
     final acknowledged = frame.heartbeatAcknowledged;
     if (!_canHeartbeat ||
         frame.requestId.isEmpty ||
-        !_issuedRequestIds.contains(frame.requestId) ||
-        !_heartbeatRequestIds.remove(frame.requestId) ||
+        frame.requestId != _pendingHeartbeatRequestId ||
         acknowledged.serverTimeUnixMs <= 0 ||
         acknowledged.presenceExpiresAtUnixMs <= acknowledged.serverTimeUnixMs) {
       throw const PairingSignalingException(
@@ -626,13 +653,18 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
 
   void _sendHeartbeat() {
     if (!_canHeartbeat) return;
+    if (_pendingHeartbeatRequestId != null) {
+      _fail(const PairingSignalingException(PairingSignalingErrorCode.timeout));
+      return;
+    }
     unawaited(_sendHeartbeatFrame());
   }
 
   Future<void> _sendHeartbeatFrame() async {
-    final requestId = _nextRequestId();
-    _heartbeatRequestIds.add(requestId);
+    String? requestId;
     try {
+      requestId = _nextRequestId();
+      _pendingHeartbeatRequestId = requestId;
       await _send(
         SignalingClientFrame(
           protocolVersion: _version(),
@@ -641,10 +673,14 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
         ),
       );
     } on PairingSignalingException catch (error) {
-      _heartbeatRequestIds.remove(requestId);
+      if (requestId != null && _pendingHeartbeatRequestId == requestId) {
+        _pendingHeartbeatRequestId = null;
+      }
       _fail(error);
     } catch (_) {
-      _heartbeatRequestIds.remove(requestId);
+      if (requestId != null && _pendingHeartbeatRequestId == requestId) {
+        _pendingHeartbeatRequestId = null;
+      }
       _fail(
         const PairingSignalingException(PairingSignalingErrorCode.transport),
       );
@@ -678,15 +714,15 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
     controllerDeviceId?.fillRange(0, controllerDeviceId.length, 0);
     _issuedRequestIds.clear();
     _issuedRequestOrder.clear();
-    _heartbeatRequestIds.clear();
+    _pendingHeartbeatRequestId = null;
     try {
-      await subscription?.cancel();
+      await subscription?.cancel().timeout(transportShutdownTimeout);
     } catch (_) {
       // Closing the remaining resources is more important than surfacing a
       // transport-specific cancellation failure.
     }
     try {
-      await transport?.close();
+      await transport?.close().timeout(transportShutdownTimeout);
     } catch (_) {
       // The client still has to close its public event stream and stay closed.
     }
@@ -721,14 +757,26 @@ final class PairingSignalingClient implements ControllerPairingSignalingLink {
     while (_issuedRequestOrder.length > _rememberedRequestIds) {
       final forgotten = _issuedRequestOrder.removeFirst();
       _issuedRequestIds.remove(forgotten);
-      _heartbeatRequestIds.remove(forgotten);
     }
   }
 
   void _forgetRequestId(String requestId) {
     _issuedRequestIds.remove(requestId);
     _issuedRequestOrder.remove(requestId);
-    _heartbeatRequestIds.remove(requestId);
+    if (_pendingHeartbeatRequestId == requestId) {
+      _pendingHeartbeatRequestId = null;
+    }
+  }
+}
+
+Future<void> _closeLateTransport(
+  PairingSignalingTransport transport,
+  Duration timeout,
+) async {
+  try {
+    await transport.close().timeout(timeout);
+  } catch (_) {
+    // This transport was produced after its owning connection timed out.
   }
 }
 

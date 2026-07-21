@@ -24,8 +24,18 @@ Future<void> main() async {
   if (Platform.isMacOS || Platform.isWindows) {
     await prepareDesktopWindow();
   }
-  final localeController = await AppLocaleController.load();
-  final networkServiceController = await NetworkServiceController.load();
+  // These independent preference reads can run concurrently during startup.
+  // Future.wait observes both failures and disposes a successful peer if the
+  // other load fails, so startup cannot leak a controller or an async error.
+  final controllers = await Future.wait<ChangeNotifier>(
+    <Future<ChangeNotifier>>[
+      AppLocaleController.load(),
+      NetworkServiceController.load(),
+    ],
+    cleanUp: (controller) => controller.dispose(),
+  );
+  final localeController = controllers[0] as AppLocaleController;
+  final networkServiceController = controllers[1] as NetworkServiceController;
   runApp(
     RoammandApp(
       localeController: localeController,

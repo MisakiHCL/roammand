@@ -110,7 +110,7 @@ void main() {
     await tester.tap(find.byKey(const Key('settings-about-roammand')));
     await tester.pumpAndSettle();
     expect(find.text('Make this Mac reachable'), findsOneWidget);
-    expect(find.byKey(const Key('about-download-ios')), findsOneWidget);
+    expect(find.byKey(const Key('about-build-ios')), findsOneWidget);
     expect(find.byType(MobilePageFrame), findsNothing);
     await tester.pageBack();
     await tester.pumpAndSettle();

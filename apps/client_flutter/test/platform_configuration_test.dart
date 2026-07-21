@@ -24,6 +24,15 @@ void main() {
     },
   );
 
+  test('macOS release entitlements exclude development-only capabilities', () {
+    final release = File(
+      'macos/Runner/Release.entitlements',
+    ).readAsStringSync();
+
+    expect(release, isNot(contains('com.apple.security.cs.allow-jit')));
+    expect(release, isNot(contains('com.apple.security.network.server')));
+  });
+
   test('macOS title bar blends native window controls into Flutter', () {
     final window = File(
       'macos/Runner/MainFlutterWindow.swift',
@@ -46,6 +55,46 @@ void main() {
     expect(androidManifest, contains('android.hardware.camera.any'));
     expect(androidManifest, contains('android:required="false"'));
     expect(androidManifest, contains('android:allowBackup="false"'));
+    expect(
+      androidManifest,
+      contains('android:dataExtractionRules="@xml/data_extraction_rules"'),
+    );
+    expect(
+      androidManifest,
+      contains('android:fullBackupContent="@xml/backup_rules"'),
+    );
+    final legacyBackupRules = File(
+      'android/app/src/main/res/xml/backup_rules.xml',
+    ).readAsStringSync();
+    final dataExtractionRules = File(
+      'android/app/src/main/res/xml/data_extraction_rules.xml',
+    ).readAsStringSync();
+    expect(dataExtractionRules, contains('<cloud-backup>'));
+    expect(dataExtractionRules, contains('<device-transfer>'));
+    for (final domain in <String>[
+      'root',
+      'file',
+      'database',
+      'sharedpref',
+      'external',
+      'device_root',
+      'device_file',
+      'device_database',
+      'device_sharedpref',
+    ]) {
+      final exclusion = '<exclude domain="$domain" path="." />';
+      expect(legacyBackupRules, contains(exclusion), reason: domain);
+      expect(
+        exclusion.allMatches(dataExtractionRules),
+        hasLength(2),
+        reason: domain,
+      );
+    }
+    final identityStore = File(
+      'lib/mobile/identity/mobile_identity_store.dart',
+    ).readAsStringSync();
+    expect(identityStore, contains('migrateWithBackup: true'));
+    expect(identityStore, contains('device-to-device transfer exclude'));
 
     final androidBuild = File(
       'android/app/build.gradle.kts',
@@ -67,6 +116,7 @@ void main() {
     );
     expect(iosInfo, isNot(contains('<key>NSAllowsArbitraryLoads</key>')));
     expect(iosInfo, contains('<key>NSLocalNetworkUsageDescription</key>'));
+    expect(iosInfo, isNot(contains('<key>UIBackgroundModes</key>')));
     final iosSceneDelegate = File(
       'ios/Runner/SceneDelegate.swift',
     ).readAsStringSync();
@@ -80,8 +130,14 @@ void main() {
       'ios/Runner/en.lproj/InfoPlist.strings',
       'ios/Runner/zh-Hans.lproj/InfoPlist.strings',
     ]) {
+      final localizedInfo = File(fileName).readAsStringSync();
       expect(
-        File(fileName).readAsStringSync(),
+        localizedInfo,
+        contains('"NSCameraUsageDescription"'),
+        reason: fileName,
+      );
+      expect(
+        localizedInfo,
         contains('"NSLocalNetworkUsageDescription"'),
         reason: fileName,
       );
@@ -109,6 +165,10 @@ void main() {
       ).allMatches(iosProject),
       hasLength(3),
     );
+    expect(iosProject, contains('isa = PBXVariantGroup;'));
+    expect(iosProject, contains('InfoPlist.strings in Resources'));
+    expect(iosProject, contains('path = en.lproj/InfoPlist.strings;'));
+    expect(iosProject, contains('path = "zh-Hans.lproj/InfoPlist.strings";'));
 
     final androidDebugManifest = File(
       'android/app/src/debug/AndroidManifest.xml',

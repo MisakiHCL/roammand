@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -29,6 +30,9 @@ const maxTrustedHostBindings = 256;
 const _envelopeVersion = 1;
 const _checksumBytes = 32;
 const _trustedHostsFileName = 'trusted-hosts-v1.bin';
+const _fileReadChunkBytes = 64 * 1024;
+const _temporaryNameRandomBytes = 16;
+const _maximumTemporaryNameAttempts = 16;
 
 enum TrustedHostStoreError {
   corruptRecord,
@@ -65,29 +69,119 @@ final class IoTrustedHostFileBackend implements TrustedHostFileBackend {
 
   @override
   Future<Uint8List?> read() async {
-    if (!await _file.exists()) {
+    final type = await FileSystemEntity.type(_file.path, followLinks: false);
+    if (type == FileSystemEntityType.notFound) {
       return null;
     }
-    if (await _file.length() > maxTrustedHostFileBytes) {
+    if (type != FileSystemEntityType.file) {
       throw const TrustedHostStoreException(
         TrustedHostStoreError.corruptRecord,
       );
     }
-    return _file.readAsBytes();
+
+    final reader = await _file.open(mode: FileMode.read);
+    final encoded = BytesBuilder(copy: false);
+    try {
+      while (true) {
+        final remaining = maxTrustedHostFileBytes + 1 - encoded.length;
+        if (remaining <= 0) {
+          throw const TrustedHostStoreException(
+            TrustedHostStoreError.corruptRecord,
+          );
+        }
+        final chunk = await reader.read(
+          remaining < _fileReadChunkBytes ? remaining : _fileReadChunkBytes,
+        );
+        if (chunk.isEmpty) {
+          break;
+        }
+        encoded.add(chunk);
+        if (encoded.length > maxTrustedHostFileBytes) {
+          throw const TrustedHostStoreException(
+            TrustedHostStoreError.corruptRecord,
+          );
+        }
+      }
+      return encoded.takeBytes();
+    } finally {
+      await reader.close();
+    }
   }
 
   @override
   Future<void> replace(Uint8List replacement) async {
-    await _file.parent.create(recursive: true);
-    final temporary = File('${_file.path}.$pid.tmp');
+    if (replacement.length > maxTrustedHostFileBytes) {
+      throw const TrustedHostStoreException(
+        TrustedHostStoreError.corruptRecord,
+      );
+    }
+    final existingParentType = await FileSystemEntity.type(
+      _file.parent.path,
+      followLinks: false,
+    );
+    if (existingParentType != FileSystemEntityType.notFound &&
+        existingParentType != FileSystemEntityType.directory) {
+      throw const TrustedHostStoreException(TrustedHostStoreError.unavailable);
+    }
+    if (existingParentType == FileSystemEntityType.notFound) {
+      await _file.parent.create(recursive: true);
+    }
+    if (await FileSystemEntity.type(_file.parent.path, followLinks: false) !=
+        FileSystemEntityType.directory) {
+      throw const TrustedHostStoreException(TrustedHostStoreError.unavailable);
+    }
+    final temporary = await _createExclusiveTemporaryFile(_file);
     try {
       await temporary.writeAsBytes(replacement, flush: true);
+      final targetType = await FileSystemEntity.type(
+        _file.path,
+        followLinks: false,
+      );
+      if (targetType != FileSystemEntityType.notFound &&
+          targetType != FileSystemEntityType.file) {
+        throw const TrustedHostStoreException(
+          TrustedHostStoreError.corruptRecord,
+        );
+      }
       await temporary.rename(_file.path);
     } finally {
-      if (await temporary.exists()) {
-        await temporary.delete();
-      }
+      await _deleteTemporaryFile(temporary);
     }
+  }
+}
+
+Future<File> _createExclusiveTemporaryFile(File target) async {
+  final random = Random.secure();
+  for (var attempt = 0; attempt < _maximumTemporaryNameAttempts; attempt += 1) {
+    final randomBytes = List<int>.generate(
+      _temporaryNameRandomBytes,
+      (_) => random.nextInt(256),
+      growable: false,
+    );
+    final token = base64UrlEncode(randomBytes).replaceAll('=', '');
+    final temporary = File('${target.path}.$token.tmp');
+    try {
+      await temporary.create(exclusive: true);
+      return temporary;
+    } on PathExistsException {
+      // A collision or a pre-positioned entry must never be reused.
+    }
+  }
+  throw const TrustedHostStoreException(TrustedHostStoreError.unavailable);
+}
+
+Future<void> _deleteTemporaryFile(File temporary) async {
+  try {
+    final type = await FileSystemEntity.type(
+      temporary.path,
+      followLinks: false,
+    );
+    if (type == FileSystemEntityType.file ||
+        type == FileSystemEntityType.link) {
+      await temporary.delete();
+    }
+  } catch (_) {
+    // Cleanup is best effort and must not replace the original write error.
   }
 }
 

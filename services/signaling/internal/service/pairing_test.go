@@ -139,6 +139,54 @@ func TestPairingLimitsActiveRendezvousPerHostAndReleasesCapacity(t *testing.T) {
 	}
 }
 
+func TestPairingLimitsGlobalRendezvousAndReleasesCapacity(t *testing.T) {
+	options := DefaultOptions()
+	options.MaxRendezvous = 1
+	testServer := newServiceTestServer(t, options)
+	firstHost := testServer.dial(t)
+	secondHost := testServer.dial(t)
+	registerClient(t, firstHost, testDeviceBytes(32), "register-first-host")
+	registerClient(t, secondHost, testDeviceBytes(33), "register-second-host")
+	firstID := testRendezvousBytes(32)
+	secondID := testRendezvousBytes(33)
+
+	createRendezvous(
+		t,
+		firstHost,
+		firstID,
+		roammandv1.PairingRendezvousKind_PAIRING_RENDEZVOUS_KIND_QR,
+		"",
+	)
+	if created := readServerFrame(t, firstHost).GetRendezvousCreated(); created == nil {
+		t.Fatal("first rendezvous creation response missing")
+	}
+	createRendezvous(
+		t,
+		secondHost,
+		secondID,
+		roammandv1.PairingRendezvousKind_PAIRING_RENDEZVOUS_KIND_QR,
+		"",
+	)
+	if got := readServerFrame(t, secondHost).GetError().GetCode(); got != roammandv1.ErrorCode_ERROR_CODE_SERVER_UNAVAILABLE {
+		t.Fatalf("global capacity error = %v", got)
+	}
+
+	completeRendezvous(t, firstHost, firstID, "complete-first")
+	if closed := readServerFrame(t, firstHost).GetRendezvousClosed(); closed == nil {
+		t.Fatal("first rendezvous completion response missing")
+	}
+	createRendezvous(
+		t,
+		secondHost,
+		secondID,
+		roammandv1.PairingRendezvousKind_PAIRING_RENDEZVOUS_KIND_QR,
+		"",
+	)
+	if created := readServerFrame(t, secondHost).GetRendezvousCreated(); created == nil {
+		t.Fatal("released global rendezvous capacity was not reusable")
+	}
+}
+
 func TestCreateReleasesExpiredCapacityAndNotifiesBothMembers(t *testing.T) {
 	clock := newTestClock(time.Unix(100, 0))
 	options := DefaultOptions()
@@ -196,6 +244,38 @@ func TestPairingRateLimitReturnsRetryAfter(t *testing.T) {
 	}
 }
 
+func TestCreateRendezvousUsesSharedPairingIPLimit(t *testing.T) {
+	options := DefaultOptions()
+	options.PairingAttemptsPerIP = 1
+	options.PairingAttemptsPerLookupKey = 100
+	testServer := newServiceTestServer(t, options)
+	host := testServer.dial(t)
+	registerClient(t, host, testDeviceBytes(34), "register-host")
+
+	createRendezvous(
+		t,
+		host,
+		testRendezvousBytes(34),
+		roammandv1.PairingRendezvousKind_PAIRING_RENDEZVOUS_KIND_QR,
+		"",
+	)
+	if created := readServerFrame(t, host).GetRendezvousCreated(); created == nil {
+		t.Fatal("first create was rejected")
+	}
+	createRendezvous(
+		t,
+		host,
+		testRendezvousBytes(35),
+		roammandv1.PairingRendezvousKind_PAIRING_RENDEZVOUS_KIND_QR,
+		"",
+	)
+	protocolError := readServerFrame(t, host).GetError()
+	if protocolError.GetCode() != roammandv1.ErrorCode_ERROR_CODE_PAIRING_RATE_LIMITED ||
+		protocolError.GetRetryAfter().GetRetryAfterMs() == 0 {
+		t.Fatalf("create rate limit error = %+v", protocolError)
+	}
+}
+
 func TestPairingRejectsSelfJoinSecondControllerAndNonMemberRelay(t *testing.T) {
 	testServer := newServiceTestServer(t, DefaultOptions())
 	host := testServer.dial(t)
@@ -236,6 +316,10 @@ func TestPairingExpiryAndDisconnectNotifyMembers(t *testing.T) {
 		createAndJoinQR(t, host, controller, rendezvousID)
 
 		clock.Advance(2 * time.Minute)
+		relayPairing(t, host, rendezvousID, []byte{1}, "relay-at-expiry")
+		if got := readServerFrame(t, host).GetError().GetCode(); got != roammandv1.ErrorCode_ERROR_CODE_PAIRING_CODE_EXPIRED {
+			t.Fatalf("expired relay code = %v", got)
+		}
 		testServer.service.Sweep(clock.Now())
 		for _, client := range []*websocket.Conn{host, controller} {
 			closed := readServerFrame(t, client).GetRendezvousClosed()

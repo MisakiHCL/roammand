@@ -52,6 +52,10 @@ void main() {
       final mutableCopy = identity.publicIdentity..displayName = 'Changed';
       expect(mutableCopy.displayName, 'Changed');
       expect(identity.publicIdentity.displayName, 'Alice’s iPhone');
+      final deviceIdHex = identity.publicIdentity.deviceId
+          .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+          .join();
+      expect(identity.toString(), isNot(contains(deviceIdHex.substring(0, 8))));
       expect(identity.toString(), isNot(contains(base64UrlEncode(seed))));
       expect(identity.toString(), isNot(contains(base64UrlEncode(signature))));
     },

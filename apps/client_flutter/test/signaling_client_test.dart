@@ -39,6 +39,19 @@ void main() {
     expect(relay.relaySession.recipientDeviceId, _peerId);
     expect(relay.relaySession.opaqueEnvelope, hasLength(128));
     expect(protocol.heartbeat('heartbeat-1').hasHeartbeat(), isTrue);
+    final heartbeatAcknowledged = protocol.handleBinary(
+      _serverFrame(
+        'heartbeat-1',
+        heartbeatAcknowledged: HeartbeatAcknowledged(
+          serverTimeUnixMs: Int64(1000),
+          presenceExpiresAtUnixMs: Int64(46000),
+        ),
+      ).writeToBuffer(),
+    );
+    expect(
+      (heartbeatAcknowledged as SignalingHeartbeatAcknowledged).requestId,
+      'heartbeat-1',
+    );
 
     final routed = _serverFrame(
       '',
@@ -108,6 +121,13 @@ void main() {
         'relay-2',
       ),
       _throws(SignalingClientErrorCode.opaqueEnvelopeTooLarge),
+    );
+
+    expect(
+      () => DesktopSignalingProtocol(
+        _deviceId,
+      ).registration(List<String>.filled(33, 'é').join()),
+      _throws(SignalingClientErrorCode.invalidRequestId),
     );
   });
 
@@ -221,12 +241,14 @@ Matcher _throws(SignalingClientErrorCode code) => throwsA(
 SignalingServerFrame _serverFrame(
   String requestId, {
   RegistrationAccepted? registered,
+  HeartbeatAcknowledged? heartbeatAcknowledged,
   RoutedSessionEnvelope? routedSession,
   UnifiedError? error,
 }) => SignalingServerFrame(
   protocolVersion: ProtocolVersion(major: 1, minor: 0),
   requestId: requestId,
   registered: registered,
+  heartbeatAcknowledged: heartbeatAcknowledged,
   routedSession: routedSession,
   error: error,
 );

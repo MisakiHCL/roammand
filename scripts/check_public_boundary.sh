@@ -7,6 +7,8 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly REQUIRED_PUBLIC_FILES=(
   "README.md"
   "README.zh-CN.md"
+  "CHANGELOG.md"
+  "CHANGELOG.zh-CN.md"
   "CONTRIBUTING.md"
   "SECURITY.md"
   "LICENSES.md"

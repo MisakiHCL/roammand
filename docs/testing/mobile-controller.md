@@ -23,8 +23,10 @@ Mobile verification covers protected identity, camera pairing, authenticated vid
 | Android phone | Pairing · video/input · keyboard/lifecycle | Pairing · video/input · keyboard/lifecycle |
 | Android tablet | Pairing · video/input · keyboard/lifecycle | Pairing · video/input · keyboard/lifecycle |
 
-For each cell, verify portrait and landscape, safe areas, keyboard resize,
-local zoom, background release, explicit reconnect, Host-local Stop, and grant
-revocation. Exercise same-LAN direct ICE and different-network STUN-assisted
-direct ICE separately. Record restrictive-network failure explicitly because
-the release profile has no TURN fallback.
+For Android cells, verify portrait and landscape. For iOS/iPadOS cells, verify
+both landscape directions; the current app intentionally locks the UI to
+landscape. On every device, verify safe areas, keyboard resize, local zoom,
+background release, explicit reconnect, Host-local Stop, and grant revocation.
+Exercise same-LAN direct ICE and different-network STUN-assisted direct ICE
+separately. Record restrictive-network failure explicitly because the release
+profile has no TURN fallback.

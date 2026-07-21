@@ -35,6 +35,15 @@ func (server *Server) handleCreateRendezvous(
 		))
 	}
 	now := server.options.Now()
+	decision := server.limiter.AllowIP(connection.remoteIP, now)
+	if !decision.Allowed {
+		return server.sendPairingError(
+			connection,
+			requestID,
+			roammandv1.ErrorCode_ERROR_CODE_PAIRING_RATE_LIMITED,
+			decision.RetryAfter,
+		)
+	}
 	rendezvous := state.Rendezvous{
 		ID:        rendezvousID,
 		Kind:      kind,
@@ -224,6 +233,8 @@ func (server *Server) sendPairingError(
 		switch {
 		case errors.Is(value, state.ErrRendezvousNotFound):
 			code = roammandv1.ErrorCode_ERROR_CODE_PAIRING_CODE_EXPIRED
+		case errors.Is(value, state.ErrRendezvousCapacity):
+			code = roammandv1.ErrorCode_ERROR_CODE_SERVER_UNAVAILABLE
 		case errors.Is(value, state.ErrRendezvousInvalid),
 			errors.Is(value, state.ErrRendezvousExists),
 			errors.Is(value, state.ErrPairingCodeExists),

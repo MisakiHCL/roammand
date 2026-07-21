@@ -3,13 +3,14 @@
 package transport
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 
 	"github.com/coder/websocket"
 )
 
-func FuzzBoundedBinaryCopy(f *testing.F) {
+func FuzzReadBoundedBinary(f *testing.F) {
 	f.Add(uint8(websocket.MessageBinary), uint16(1024), []byte("valid"))
 	f.Add(uint8(websocket.MessageText), uint16(1024), []byte("text"))
 	f.Add(uint8(websocket.MessageBinary), uint16(1), []byte{1, 2})
@@ -20,7 +21,7 @@ func FuzzBoundedBinaryCopy(f *testing.F) {
 		}
 		limit := int(rawLimit%4096) + 1
 		messageType := websocket.MessageType(rawType)
-		copied, err := boundedBinaryCopy(messageType, encoded, limit)
+		copied, err := readBoundedBinary(messageType, bytes.NewReader(encoded), limit)
 		switch {
 		case messageType != websocket.MessageBinary:
 			if !errors.Is(err, ErrUnsupportedMessageType) || copied != nil {

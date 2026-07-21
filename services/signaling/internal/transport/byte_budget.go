@@ -4,15 +4,14 @@ package transport
 
 import "sync"
 
-// OutboundByteBudget is a concurrency-safe byte reservation shared by one or
-// more connections. Reservations cover both queued messages and the message
-// currently being written.
-type OutboundByteBudget interface {
+// ByteReservationBudget is a concurrency-safe byte reservation shared by one
+// or more connections.
+type ByteReservationBudget interface {
 	TryReserve(bytes int64) bool
 	Release(bytes int64)
 }
 
-// ByteBudget implements a fixed, concurrency-safe outbound byte limit.
+// ByteBudget implements a fixed, concurrency-safe byte limit.
 type ByteBudget struct {
 	mu    sync.Mutex
 	limit int64
@@ -21,7 +20,7 @@ type ByteBudget struct {
 
 func NewByteBudget(limit int64) *ByteBudget {
 	if limit <= 0 {
-		panic("outbound byte budget must be positive")
+		panic("byte budget must be positive")
 	}
 	return &ByteBudget{limit: limit}
 }
@@ -43,7 +42,7 @@ func (budget *ByteBudget) Release(bytes int64) {
 	budget.mu.Lock()
 	defer budget.mu.Unlock()
 	if bytes < 0 || bytes > budget.used {
-		panic("outbound byte budget release exceeds reservation")
+		panic("byte budget release exceeds reservation")
 	}
 	budget.used -= bytes
 }

@@ -25,10 +25,10 @@ if ($Overrides.Count -eq 0) {
     $WebRtcRoot = (& bash "./scripts/fetch_libwebrtc.sh").Trim()
     if ([string]::IsNullOrWhiteSpace($WebRtcRoot)) { throw "Native WebRTC runtime is unavailable" }
     $env:LK_CUSTOM_WEBRTC = $WebRtcRoot
-    cargo build --release -p roammand-host-agent --features native-webrtc
-    cargo build --release -p roammand-privileged-bridge --features native-webrtc
+    cargo build --locked --release -p roammand-host-agent --features native-webrtc
+    cargo build --locked --release -p roammand-privileged-bridge --features native-webrtc
     Push-Location "apps\client_flutter"
-    try { flutter build windows --release } finally { Pop-Location }
+    try { flutter build windows --release --no-pub } finally { Pop-Location }
   } finally {
     Pop-Location
   }

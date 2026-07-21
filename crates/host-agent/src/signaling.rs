@@ -1,40 +1,26 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use std::{collections::VecDeque, env, ffi::OsStr, fmt};
+use std::{collections::VecDeque, fmt};
 
-use futures_util::{SinkExt, StreamExt};
 use prost::Message;
 use roammand_protocol::{
     protocol_limits::{
         DESKTOP_PAIRING_CODE_BYTES, DEVICE_ID_BYTES, MAX_OPAQUE_SIGNALING_ENVELOPE_BYTES,
-        MAX_REQUEST_ID_UTF8_BYTES, MAX_SIGNALING_ENDPOINT_UTF8_BYTES,
-        MAX_SIGNALING_SERVICE_FRAME_BYTES, MINIMUM_PROTOCOL_MINOR_VERSION, PROTOCOL_MAJOR_VERSION,
-        RENDEZVOUS_ID_BYTES,
+        MAX_REQUEST_ID_UTF8_BYTES, MAX_SIGNALING_SERVICE_FRAME_BYTES,
+        MINIMUM_PROTOCOL_MINOR_VERSION, PROTOCOL_MAJOR_VERSION, RENDEZVOUS_ID_BYTES,
     },
     roammand::v1::{
         CompletePairingRendezvous, CreatePairingRendezvous, ErrorCode, Heartbeat,
-        PairingRendezvousCompletion, PairingRendezvousKind, ProtocolVersion, RegisterDevice,
-        RelayPairingEnvelope, RelaySessionEnvelope, SignalingClientFrame, SignalingServerFrame,
-        signaling_client_frame, signaling_server_frame,
+        HeartbeatAcknowledged, PairingRendezvousCompletion, PairingRendezvousKind, ProtocolVersion,
+        RegisterDevice, RelayPairingEnvelope, RelaySessionEnvelope, SignalingClientFrame,
+        SignalingServerFrame, signaling_client_frame, signaling_server_frame,
     },
 };
 use thiserror::Error;
-use tokio::net::TcpStream;
-use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream, connect_async,
-    tungstenite::{
-        Message as WebSocketMessage,
-        client::IntoClientRequest,
-        http::{HeaderValue, header::SEC_WEBSOCKET_PROTOCOL},
-    },
-};
-use url::{Host, Url};
 
-const SIGNALING_WEBSOCKET_SUBPROTOCOL: &str = "roammand-signaling.v1.protobuf";
-const LEGACY_SIGNALING_WEBSOCKET_SUBPROTOCOL: &str = "personal-remote-signaling.v1.protobuf";
-const OFFERED_SIGNALING_WEBSOCKET_SUBPROTOCOLS: &str =
-    "roammand-signaling.v1.protobuf, personal-remote-signaling.v1.protobuf";
-const ALLOW_INSECURE_LAN_SIGNALING_ENV: &str = "ROAMMAND_ALLOW_INSECURE_LAN_SIGNALING";
+mod transport;
+
+pub use transport::{WebSocketSignalingTransport, validate_signaling_endpoint};
 
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 pub enum SignalingClientError {
@@ -183,6 +169,7 @@ pub struct SignalingProtocol {
     device_id: Vec<u8>,
     state: SignalingState,
     pairing: Option<ActivePairing>,
+    pending_heartbeat_request_id: Option<String>,
 }
 
 impl SignalingProtocol {
@@ -199,6 +186,7 @@ impl SignalingProtocol {
             device_id,
             state: SignalingState::Disconnected,
             pairing: None,
+            pending_heartbeat_request_id: None,
         })
     }
 
@@ -378,21 +366,24 @@ impl SignalingProtocol {
     pub fn disconnected(&mut self) {
         self.state = SignalingState::Disconnected;
         self.pairing = None;
+        self.pending_heartbeat_request_id = None;
     }
 
-    /// Builds a heartbeat frame once registration has succeeded.
+    /// Builds a single-flight heartbeat frame once registration has succeeded.
     ///
     /// # Errors
     ///
-    /// Returns an error for invalid state or request identifier.
+    /// Returns an error for invalid state, an outstanding heartbeat, or an
+    /// invalid request identifier.
     pub fn heartbeat(
-        &self,
+        &mut self,
         request_id: &str,
     ) -> Result<SignalingClientFrame, SignalingClientError> {
-        if self.state != SignalingState::Ready {
+        if self.state != SignalingState::Ready || self.pending_heartbeat_request_id.is_some() {
             return Err(SignalingClientError::InvalidState);
         }
         validate_request_id(request_id)?;
+        self.pending_heartbeat_request_id = Some(request_id.to_owned());
         Ok(client_frame(
             request_id,
             signaling_client_frame::Payload::Heartbeat(Heartbeat {}),
@@ -441,14 +432,7 @@ impl SignalingProtocol {
                 })
             }
             signaling_server_frame::Payload::HeartbeatAcknowledged(acknowledged) => {
-                if self.state != SignalingState::Ready {
-                    return Err(SignalingClientError::InvalidState);
-                }
-                validate_request_id(&frame.request_id)?;
-                Ok(SignalingEvent::HeartbeatAcknowledged {
-                    server_time_unix_ms: acknowledged.server_time_unix_ms,
-                    presence_expires_at_unix_ms: acknowledged.presence_expires_at_unix_ms,
-                })
+                self.handle_heartbeat_acknowledged(&frame.request_id, acknowledged)
             }
             signaling_server_frame::Payload::RoutedSession(routed) => {
                 if self.state != SignalingState::Ready {
@@ -508,6 +492,33 @@ impl SignalingProtocol {
                 Err(SignalingClientError::UnexpectedPayload)
             }
         }
+    }
+
+    fn handle_heartbeat_acknowledged(
+        &mut self,
+        request_id: &str,
+        acknowledged: HeartbeatAcknowledged,
+    ) -> Result<SignalingEvent, SignalingClientError> {
+        if self.state != SignalingState::Ready {
+            return Err(SignalingClientError::InvalidState);
+        }
+        let expected_request_id = self
+            .pending_heartbeat_request_id
+            .as_deref()
+            .ok_or(SignalingClientError::InvalidState)?;
+        if request_id != expected_request_id {
+            return Err(SignalingClientError::CorrelationMismatch);
+        }
+        if acknowledged.server_time_unix_ms == 0
+            || acknowledged.presence_expires_at_unix_ms <= acknowledged.server_time_unix_ms
+        {
+            return Err(SignalingClientError::InvalidFrame);
+        }
+        self.pending_heartbeat_request_id = None;
+        Ok(SignalingEvent::HeartbeatAcknowledged {
+            server_time_unix_ms: acknowledged.server_time_unix_ms,
+            presence_expires_at_unix_ms: acknowledged.presence_expires_at_unix_ms,
+        })
     }
 
     fn handle_pairing_created(
@@ -655,105 +666,6 @@ pub struct SignalingOutbox {
     frames: VecDeque<Vec<u8>>,
 }
 
-pub struct WebSocketSignalingTransport {
-    socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
-}
-
-impl WebSocketSignalingTransport {
-    /// Connects with the required binary protobuf subprotocol.
-    ///
-    /// # Errors
-    ///
-    /// Returns a stable error for endpoint policy, handshake, TLS, or
-    /// subprotocol failures. Endpoint credentials are never retained.
-    pub async fn connect(endpoint: &str) -> Result<Self, SignalingClientError> {
-        validate_signaling_endpoint(endpoint)?;
-        let mut request = endpoint
-            .into_client_request()
-            .map_err(|_| SignalingClientError::InvalidEndpoint)?;
-        request.headers_mut().insert(
-            SEC_WEBSOCKET_PROTOCOL,
-            HeaderValue::from_static(OFFERED_SIGNALING_WEBSOCKET_SUBPROTOCOLS),
-        );
-        let (socket, response) = connect_async(request)
-            .await
-            .map_err(|_| SignalingClientError::Transport)?;
-        let selected = response
-            .headers()
-            .get(SEC_WEBSOCKET_PROTOCOL)
-            .and_then(|value| value.to_str().ok());
-        if selected != Some(SIGNALING_WEBSOCKET_SUBPROTOCOL)
-            && selected != Some(LEGACY_SIGNALING_WEBSOCKET_SUBPROTOCOL)
-        {
-            return Err(SignalingClientError::SubprotocolRequired);
-        }
-        Ok(Self { socket })
-    }
-
-    /// Sends one bounded protobuf frame as a binary WebSocket message.
-    ///
-    /// # Errors
-    ///
-    /// Returns a stable error for oversized frames or transport failure.
-    pub async fn send(&mut self, frame: &SignalingClientFrame) -> Result<(), SignalingClientError> {
-        let encoded = frame.encode_to_vec();
-        if encoded.len() > MAX_SIGNALING_SERVICE_FRAME_BYTES {
-            return Err(SignalingClientError::FrameTooLarge);
-        }
-        self.socket
-            .send(WebSocketMessage::Binary(encoded.into()))
-            .await
-            .map_err(|_| SignalingClientError::Transport)
-    }
-
-    /// Receives the next binary WebSocket payload and handles ping/pong.
-    ///
-    /// # Errors
-    ///
-    /// Returns a stable error for closure, non-binary application messages,
-    /// oversized frames, or transport failure.
-    pub async fn receive_binary(&mut self) -> Result<Vec<u8>, SignalingClientError> {
-        loop {
-            let message = self
-                .socket
-                .next()
-                .await
-                .ok_or(SignalingClientError::Closed)?
-                .map_err(|_| SignalingClientError::Transport)?;
-            match message {
-                WebSocketMessage::Binary(encoded) => {
-                    if encoded.len() > MAX_SIGNALING_SERVICE_FRAME_BYTES {
-                        return Err(SignalingClientError::FrameTooLarge);
-                    }
-                    return Ok(encoded.to_vec());
-                }
-                WebSocketMessage::Ping(payload) => self
-                    .socket
-                    .send(WebSocketMessage::Pong(payload))
-                    .await
-                    .map_err(|_| SignalingClientError::Transport)?,
-                WebSocketMessage::Pong(_) => {}
-                WebSocketMessage::Close(_) => return Err(SignalingClientError::Closed),
-                WebSocketMessage::Text(_) | WebSocketMessage::Frame(_) => {
-                    return Err(SignalingClientError::InvalidFrame);
-                }
-            }
-        }
-    }
-
-    /// Closes the WebSocket connection idempotently at the protocol layer.
-    ///
-    /// # Errors
-    ///
-    /// Returns a stable transport error when the close frame cannot be sent.
-    pub async fn close(&mut self) -> Result<(), SignalingClientError> {
-        self.socket
-            .close(None)
-            .await
-            .map_err(|_| SignalingClientError::Transport)
-    }
-}
-
 impl SignalingOutbox {
     /// Creates a bounded signaling frame queue.
     ///
@@ -788,62 +700,6 @@ impl SignalingOutbox {
 
     pub fn pop(&mut self) -> Option<Vec<u8>> {
         self.frames.pop_front()
-    }
-}
-
-/// Enforces TLS except for loopback and explicitly enabled private-network
-/// development endpoints.
-///
-/// # Errors
-///
-/// Returns an error for malformed, credential-bearing, unsupported, or
-/// disallowed plaintext endpoints.
-pub fn validate_signaling_endpoint(endpoint: &str) -> Result<(), SignalingClientError> {
-    let requested = env::var_os(ALLOW_INSECURE_LAN_SIGNALING_ENV);
-    validate_signaling_endpoint_with_policy(
-        endpoint,
-        insecure_lan_signaling_enabled(cfg!(debug_assertions), requested.as_deref()),
-    )
-}
-
-fn insecure_lan_signaling_enabled(debug_build: bool, requested: Option<&OsStr>) -> bool {
-    debug_build && requested == Some(OsStr::new("true"))
-}
-
-fn validate_signaling_endpoint_with_policy(
-    endpoint: &str,
-    allow_insecure_lan: bool,
-) -> Result<(), SignalingClientError> {
-    if endpoint.len() > MAX_SIGNALING_ENDPOINT_UTF8_BYTES {
-        return Err(SignalingClientError::InvalidEndpoint);
-    }
-    let url = Url::parse(endpoint).map_err(|_| SignalingClientError::InvalidEndpoint)?;
-    if !url.username().is_empty() || url.password().is_some() {
-        return Err(SignalingClientError::EndpointCredentials);
-    }
-    match url.scheme() {
-        "wss" => Ok(()),
-        "ws" if is_loopback(&url) => Ok(()),
-        "ws" if allow_insecure_lan && is_private_network_address(&url) => Ok(()),
-        "ws" => Err(SignalingClientError::InsecureEndpoint),
-        _ => Err(SignalingClientError::InvalidEndpoint),
-    }
-}
-
-fn is_private_network_address(url: &Url) -> bool {
-    match url.host() {
-        Some(Host::Ipv4(address)) => address.is_private(),
-        Some(Host::Ipv6(address)) => address.is_unique_local(),
-        Some(Host::Domain(_)) | None => false,
-    }
-}
-
-fn is_loopback(url: &Url) -> bool {
-    match url.host() {
-        Some(Host::Domain(domain)) => domain.eq_ignore_ascii_case("localhost"),
-        Some(Host::Ipv4(address)) => address.is_loopback(),
-        Some(Host::Ipv6(address)) => address.is_loopback(),
-        None => false,
     }
 }
 
@@ -893,63 +749,5 @@ fn validate_pairing_code(
             Err(SignalingClientError::InvalidPairingCode)
         }
         PairingRendezvousKind::Unspecified => Err(SignalingClientError::InvalidPairingKind),
-    }
-}
-
-#[cfg(test)]
-mod endpoint_policy_tests {
-    use std::ffi::OsStr;
-
-    use super::{
-        SignalingClientError, insecure_lan_signaling_enabled,
-        validate_signaling_endpoint_with_policy,
-    };
-
-    #[test]
-    fn enables_insecure_lan_only_for_explicit_debug_configuration() {
-        assert!(insecure_lan_signaling_enabled(
-            true,
-            Some(OsStr::new("true"))
-        ));
-        assert!(!insecure_lan_signaling_enabled(
-            false,
-            Some(OsStr::new("true"))
-        ));
-        assert!(!insecure_lan_signaling_enabled(
-            true,
-            Some(OsStr::new("false"))
-        ));
-        assert!(!insecure_lan_signaling_enabled(true, None));
-    }
-
-    #[test]
-    fn allows_only_private_address_literals_when_development_policy_is_enabled() {
-        for endpoint in [
-            "ws://10.0.0.8:8080/v1/ws",
-            "ws://172.16.4.2:8080/v1/ws",
-            "ws://172.31.255.254:8080/v1/ws",
-            "ws://192.168.3.168:8080/v1/ws",
-            "ws://[fd00::8]:8080/v1/ws",
-        ] {
-            assert_eq!(
-                validate_signaling_endpoint_with_policy(endpoint, true),
-                Ok(()),
-                "{endpoint}"
-            );
-        }
-
-        for endpoint in [
-            "ws://172.15.255.254:8080/v1/ws",
-            "ws://172.32.0.1:8080/v1/ws",
-            "ws://8.8.8.8:8080/v1/ws",
-            "ws://signal.example.test:8080/v1/ws",
-            "ws://[2001:4860:4860::8888]:8080/v1/ws",
-        ] {
-            assert_eq!(
-                validate_signaling_endpoint_with_policy(endpoint, true),
-                Err(SignalingClientError::InsecureEndpoint),
-                "{endpoint}"
-            );
-        }
     }
 }

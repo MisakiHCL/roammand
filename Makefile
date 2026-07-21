@@ -6,6 +6,8 @@ VERBOSE ?= 0
 HOST_AGENT_DEBUG := $(abspath target/debug/roammand-host-agent)
 MACOS_RELEASE_PKG := dist/apple-release/Roammand.pkg
 ROAMMAND_NOTARY_KEYCHAIN_PROFILE ?= roammand-notary
+CARGO_LOCK_FLAG ?= --locked
+GO_MOD_FLAGS ?= -mod=readonly
 
 .PHONY: help bootstrap bootstrap-steps app-check app-check-steps app-prepare-host-macos app-run-macos app-run-ios app-run-ios-release app-build-macos app-build-ios-simulator app-build-android package-macos package-macos-signed release-macos release-macos-steps test-product test-product-steps doctor boundary check-libwebrtc fetch-libwebrtc format format-check generate generate-failure-check generate-check schema-lint schema-build schema-breaking test test-conformance test-dart test-host test-m4 test-m4-config test-m4-lifecycle test-m5 test-m5-config test-m5-lifecycle test-m6 test-m6-config test-m6-lifecycle test-m7 test-m7-config test-m7-fuzz test-m7-privacy test-m7-reconnect test-m8 test-m8-config test-m8-privacy test-native-webrtc test-rust test-go test-schema test-schema-contract test-signaling test-signaling-race
 
@@ -45,10 +47,11 @@ bootstrap:
 	+$(call run-product-workflow,bootstrap-steps,bootstrap)
 
 bootstrap-steps: doctor
-	cd $(FLUTTER_APP_DIR) && flutter pub get
-	cd gen/dart && dart pub get
+	cd $(FLUTTER_APP_DIR) && flutter pub get --enforce-lockfile
+	cd gen/dart && dart pub get --enforce-lockfile
 	cargo fetch --locked
-	cd services/signaling && go mod download
+	cd gen/go && GOFLAGS="$(GO_MOD_FLAGS)" go mod download && go mod verify
+	cd services/signaling && GOFLAGS="$(GO_MOD_FLAGS)" go mod download && go mod verify
 
 app-check:
 	+$(call run-product-workflow,app-check-steps,app-check)
@@ -58,7 +61,7 @@ app-check-steps:
 
 app-prepare-host-macos: check-libwebrtc
 	@LK_CUSTOM_WEBRTC="$$(./scripts/fetch_libwebrtc.sh)"; \
-	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo build \
+	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo build $(CARGO_LOCK_FLAG) \
 		-p roammand-host-agent --features native-webrtc
 	./scripts/sign_macos_development.sh \
 		"$(HOST_AGENT_DEBUG)" dev.roammand.host-agent
@@ -133,10 +136,10 @@ fetch-libwebrtc: check-libwebrtc
 
 test-native-webrtc: check-libwebrtc
 	@LK_CUSTOM_WEBRTC="$$(./scripts/fetch_libwebrtc.sh)"; \
-	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo test -p roammand-host-webrtc --features native-webrtc; \
-	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo clippy -p roammand-host-webrtc --features native-webrtc --all-targets -- -D warnings; \
-	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo test -p roammand-host-agent --features native-webrtc; \
-	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo clippy -p roammand-host-agent --features native-webrtc --all-targets -- -D warnings
+	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo test $(CARGO_LOCK_FLAG) -p roammand-host-webrtc --features native-webrtc; \
+	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo clippy $(CARGO_LOCK_FLAG) -p roammand-host-webrtc --features native-webrtc --all-targets -- -D warnings; \
+	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo test $(CARGO_LOCK_FLAG) -p roammand-host-agent --features native-webrtc; \
+	LK_CUSTOM_WEBRTC="$$LK_CUSTOM_WEBRTC" cargo clippy $(CARGO_LOCK_FLAG) -p roammand-host-agent --features native-webrtc --all-targets -- -D warnings
 
 format:
 	dart format scripts/validate_m4_smoke_config.dart
@@ -174,17 +177,17 @@ schema-breaking:
 
 test-conformance:
 	cd gen/dart && dart analyze && dart test
-	cargo clippy -p roammand-protocol --all-targets -- -D warnings
-	cargo test -p roammand-protocol
-	cd gen/go && go vet ./... && go test ./...
+	cargo clippy $(CARGO_LOCK_FLAG) -p roammand-protocol --all-targets -- -D warnings
+	cargo test $(CARGO_LOCK_FLAG) -p roammand-protocol
+	cd gen/go && go vet $(GO_MOD_FLAGS) ./... && go test $(GO_MOD_FLAGS) ./...
 
 test-dart:
 	cd gen/dart && dart analyze && dart test
-	cd apps/client_flutter && flutter analyze && flutter test
+	cd apps/client_flutter && flutter analyze --no-pub && flutter test --no-pub
 
 test-host:
-	cargo clippy -p roammand-host-platform -p roammand-ipc -p roammand-host-agent --all-targets -- -D warnings
-	cargo test -p roammand-host-platform -p roammand-ipc -p roammand-host-agent
+	cargo clippy $(CARGO_LOCK_FLAG) -p roammand-host-platform -p roammand-ipc -p roammand-host-agent --all-targets -- -D warnings
+	cargo test $(CARGO_LOCK_FLAG) -p roammand-host-platform -p roammand-ipc -p roammand-host-agent
 
 test-m4-config:
 	./scripts/test_m4_smoke_contract.sh
@@ -224,11 +227,11 @@ test-m7-privacy:
 	./scripts/check_m7_privacy.sh
 
 test-m7-fuzz:
-	cd services/signaling && go test ./...
-	cd services/signaling && go test ./internal/service -run='^$$' -fuzz=FuzzDecodeClientFrame -fuzztime=2s
-	cd services/signaling && go test ./internal/transport -run='^$$' -fuzz=FuzzBoundedBinaryCopy -fuzztime=2s
-	cargo test -p roammand-ipc --test framing
-	cargo test -p roammand-host-webrtc --test input deterministic_arbitrary_data_channel_payloads_fail_closed
+	cd services/signaling && go test $(GO_MOD_FLAGS) ./...
+	cd services/signaling && go test $(GO_MOD_FLAGS) ./internal/service -run='^$$' -fuzz=FuzzDecodeClientFrame -fuzztime=2s
+	cd services/signaling && go test $(GO_MOD_FLAGS) ./internal/transport -run='^$$' -fuzz=FuzzReadBoundedBinary -fuzztime=2s
+	cargo test $(CARGO_LOCK_FLAG) -p roammand-ipc --test framing
+	cargo test $(CARGO_LOCK_FLAG) -p roammand-host-webrtc --test input deterministic_arbitrary_data_channel_payloads_fail_closed
 
 test-m7: test-m7-config test-m7-reconnect test-m7-privacy test-m7-fuzz
 	./scripts/run_m7_smoke.sh
@@ -245,17 +248,17 @@ test-m8: test-m8-config test-m8-privacy
 	./scripts/run_m8_smoke.sh
 
 test-rust:
-	cargo clippy --workspace --all-targets -- -D warnings
-	cargo test --workspace
+	cargo clippy $(CARGO_LOCK_FLAG) --workspace --all-targets -- -D warnings
+	cargo test $(CARGO_LOCK_FLAG) --workspace
 
 test-go: test-signaling
-	cd gen/go && go vet ./... && go test ./...
+	cd gen/go && go vet $(GO_MOD_FLAGS) ./... && go test $(GO_MOD_FLAGS) ./...
 
 test-signaling:
-	cd services/signaling && go vet ./... && go test ./...
+	cd services/signaling && go vet $(GO_MOD_FLAGS) ./... && go test $(GO_MOD_FLAGS) ./...
 
 test-signaling-race:
-	cd services/signaling && go test -race ./...
+	cd services/signaling && go test $(GO_MOD_FLAGS) -race ./...
 
 test-schema: test-schema-contract schema-lint schema-build schema-breaking generate-check
 

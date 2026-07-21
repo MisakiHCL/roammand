@@ -176,6 +176,46 @@ void main() {
     expect(client.isReady, isFalse);
   });
 
+  test('times out connector and discards a late connection', () async {
+    final connector = _DelayedConnector();
+    final client = HostAgentClient(
+      connector: connector,
+      randomBytes: (_) => Uint8List.fromList(_clientNonce),
+      handshakeTimeout: const Duration(milliseconds: 10),
+    );
+
+    await expectLater(
+      client.connect(),
+      throwsA(isA<HostAgentTimeoutException>()),
+    );
+
+    final transport = _LateLocalIpcTransport();
+    final token = Uint8List.fromList(_tokenBytes);
+    connector.complete(LocalIpcConnection(transport, token));
+    await pumpEventQueue();
+    expect(transport.closeCount, 1);
+    expect(token, everyElement(0));
+  });
+
+  test('clears the client nonce when proof authentication times out', () async {
+    final transport = FakeLocalIpcTransport();
+    final nonce = Uint8List.fromList(_clientNonce);
+    final client = HostAgentClient(
+      connector: FakeConnector(transport, Uint8List.fromList(_tokenBytes)),
+      randomBytes: (_) => nonce,
+      handshakeTimeout: const Duration(milliseconds: 10),
+    );
+    final connecting = client.connect();
+    await _sendChallenge(transport);
+    final authentication = await transport.takeClientFrame();
+    expect(authentication.authenticate.clientNonce, _clientNonce);
+
+    await expectLater(connecting, throwsA(isA<HostAgentTimeoutException>()));
+
+    expect(nonce, everyElement(0));
+    expect(transport.closeCount, 1);
+  });
+
   test(
     'authenticates, correlates out-of-order responses, and routes events',
     () async {

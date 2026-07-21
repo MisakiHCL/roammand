@@ -33,7 +33,7 @@ final class PersistentNetworkServiceConfigurationStore
       networkServiceConfigurationStorageKey,
     );
     if (encoded == null) return null;
-    if (encoded.length > _maximumStoredConfigurationBytes) {
+    if (utf8.encode(encoded).length > _maximumStoredConfigurationBytes) {
       throw const FormatException('network service configuration is too large');
     }
     final decoded = jsonDecode(encoded);
@@ -47,7 +47,7 @@ final class PersistentNetworkServiceConfigurationStore
   Future<void> save(NetworkServiceConfiguration configuration) async {
     configuration.validate();
     final encoded = jsonEncode(configuration.toJson());
-    if (encoded.length > _maximumStoredConfigurationBytes) {
+    if (utf8.encode(encoded).length > _maximumStoredConfigurationBytes) {
       throw const FormatException('network service configuration is too large');
     }
     await _preferences.setString(
@@ -83,6 +83,7 @@ final class NetworkServiceController extends ChangeNotifier {
   final NetworkServiceConfigurationStore _store;
   NetworkServiceConfiguration _configuration;
   Future<void> _pendingWrite = Future<void>.value();
+  bool _disposed = false;
 
   NetworkServiceConfiguration get configuration => _configuration;
 
@@ -93,6 +94,10 @@ final class NetworkServiceController extends ChangeNotifier {
     var configuration = NetworkServiceConfiguration.official();
     try {
       configuration = await resolvedStore.load() ?? configuration;
+    } on FormatException {
+      await _clearCorruptConfiguration(resolvedStore);
+    } on NetworkServiceConfigurationException {
+      await _clearCorruptConfiguration(resolvedStore);
     } catch (_) {
       // A missing or corrupt optional preference must not prevent app startup.
     }
@@ -111,7 +116,7 @@ final class NetworkServiceController extends ChangeNotifier {
     configuration.validate();
     return _enqueue(() async {
       await _store.save(configuration);
-      if (_configuration != configuration) {
+      if (!_disposed && _configuration != configuration) {
         _configuration = configuration;
         notifyListeners();
       }
@@ -121,7 +126,7 @@ final class NetworkServiceController extends ChangeNotifier {
   Future<void> restoreOfficial() => _enqueue(() async {
     await _store.clear();
     final official = NetworkServiceConfiguration.official();
-    if (_configuration != official) {
+    if (!_disposed && _configuration != official) {
       _configuration = official;
       notifyListeners();
     }
@@ -131,6 +136,22 @@ final class NetworkServiceController extends ChangeNotifier {
     final result = _pendingWrite.then((_) => operation());
     _pendingWrite = result.catchError((_) {});
     return result;
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
+
+Future<void> _clearCorruptConfiguration(
+  NetworkServiceConfigurationStore store,
+) async {
+  try {
+    await store.clear();
+  } catch (_) {
+    // Recovery still uses the official profile if cleanup is unavailable.
   }
 }
 

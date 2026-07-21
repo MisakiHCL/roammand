@@ -21,6 +21,7 @@ const _serverProofDomain = 'PRD-IPC-SERVER-V1';
 const _authenticationRequestId = 'authenticate';
 const _defaultHandshakeTimeout = Duration(seconds: 3);
 const _defaultRequestTimeout = Duration(seconds: 5);
+const _cleanupTimeout = Duration(seconds: 2);
 
 enum _ClientState {
   disconnected,
@@ -39,7 +40,9 @@ final class HostAgentClient implements HostAgentApi {
     this.requestTimeout = _defaultRequestTimeout,
     this.requestIdFactory,
   }) : _connector = connector ?? const DefaultHostAgentConnector(),
-       _randomBytes = randomBytes ?? _secureRandomBytes;
+       _randomBytes = randomBytes ?? _secureRandomBytes,
+       assert(handshakeTimeout > Duration.zero),
+       assert(requestTimeout > Duration.zero);
 
   final HostAgentConnector _connector;
   final Uint8List Function(int length) _randomBytes;
@@ -87,8 +90,20 @@ final class HostAgentClient implements HostAgentApi {
     }
     _state = _ClientState.connecting;
     Uint8List? token;
+    Uint8List? clientNonce;
+    List<int>? clientProof;
+    List<int>? expectedServerProof;
     try {
-      final connection = await _connector.connect();
+      final pendingConnection = _connector.connect();
+      final connection = await pendingConnection.timeout(
+        handshakeTimeout,
+        onTimeout: () {
+          _discardLateConnection(pendingConnection);
+          throw const HostAgentTimeoutException(
+            'Host Agent connection timed out',
+          );
+        },
+      );
       token = connection.token;
       if (_state != _ClientState.connecting) {
         await _bestEffortHostAgentCleanup(connection.transport.close);
@@ -117,14 +132,13 @@ final class HostAgentClient implements HostAgentApi {
         throw const HostAgentDisconnectedException();
       }
       _validateChallenge(challenge, connection.expectedInstanceId);
-      final clientNonce = _randomBytes(_nonceBytes);
+      clientNonce = _randomBytes(_nonceBytes);
       if (clientNonce.length != _nonceBytes) {
-        clientNonce.fillRange(0, clientNonce.length, 0);
         throw const HostAgentProtocolException(
           'Secure nonce length is invalid',
         );
       }
-      final clientProof = _proof(
+      clientProof = _proof(
         token,
         _clientProofDomain,
         challenge.agentInstanceId,
@@ -151,14 +165,13 @@ final class HostAgentClient implements HostAgentApi {
       if (_state != _ClientState.authenticating) {
         throw const HostAgentDisconnectedException();
       }
-      final expectedServerProof = _proof(
+      expectedServerProof = _proof(
         token,
         _serverProofDomain,
         challenge.agentInstanceId,
         challenge.serverNonce,
         clientNonce,
       );
-      clientNonce.fillRange(0, clientNonce.length, 0);
       if (!_constantTimeEquals(
         authenticated.serverProof,
         expectedServerProof,
@@ -173,7 +186,10 @@ final class HostAgentClient implements HostAgentApi {
       await close();
       throw const HostAgentDisconnectedException();
     } finally {
-      token?.fillRange(0, token.length, 0);
+      _clearBytes(expectedServerProof);
+      _clearBytes(clientProof);
+      _clearBytes(clientNonce);
+      _clearBytes(token);
     }
   }
 
@@ -651,10 +667,23 @@ Future<void> _bestEffortHostAgentCleanup(
   Future<void> Function() cleanup,
 ) async {
   try {
-    await cleanup();
+    await cleanup().timeout(_cleanupTimeout);
   } catch (_) {
     // A failed cleanup must not leave other IPC resources reachable.
   }
+}
+
+void _discardLateConnection(Future<LocalIpcConnection> pending) {
+  unawaited(
+    pending.then<void>((connection) async {
+      _clearBytes(connection.token);
+      await _bestEffortHostAgentCleanup(connection.transport.close);
+    }, onError: (_) {}),
+  );
+}
+
+void _clearBytes(List<int>? bytes) {
+  bytes?.fillRange(0, bytes.length, 0);
 }
 
 abstract class _PendingRequest {

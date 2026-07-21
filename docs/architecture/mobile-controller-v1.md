@@ -60,7 +60,16 @@ Remote control is foreground-only:
 - `resumed` never reconnects automatically;
 - page disposal closes the keyboard queue, input sender, peer, signaling streams, renderer, and identity adapter through idempotent ownership boundaries.
 
-Android declares camera and network access, disables backup, uses keyboard resize, and declares no foreground-service permission. Its Debug manifest permits cleartext traffic for the guarded private-LAN development path while Release retains the platform default. iOS declares camera and local-network purposes, permits local resource loading through the narrow ATS local-network setting, supports portrait/landscape orientations, and declares no background mode. Flutter's endpoint policy still rejects private-address plaintext WS outside Debug even though local networking itself remains available to Release sessions.
+Android declares camera and network access, disables application backup, and
+explicitly excludes all storage domains from cloud backup and device transfer.
+It uses keyboard resize, supports platform rotation, and declares no
+foreground-service permission. Its Debug manifest permits cleartext traffic for the guarded
+private-LAN development path while Release retains the platform default. iOS
+declares camera and local-network purposes, permits local resource loading
+through the narrow ATS local-network setting, currently locks the Flutter UI to
+landscape left/right, and declares no background mode. Flutter's endpoint policy
+still rejects private-address plaintext WS outside Debug even though local
+networking itself remains available to Release sessions.
 
 ## ICE, STUN, and optional TURN configuration
 

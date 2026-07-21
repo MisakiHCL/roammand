@@ -61,7 +61,12 @@ Host grants use the existing protected authorization registry and are keyed by a
 
 Controller trusted-Host records use a bounded Protobuf snapshot inside a magic/version/length/SHA-256 envelope. Writes use same-directory temporary replacement, retain the last readable snapshot on failure, reject duplicate or non-desktop identities, and cap the list at 256 entries. Records are never uploaded.
 
-Mobile identity is created once after the user confirms the suggested device name. Its Ed25519 seed is stored with this-device-only, non-synchronizing iOS Keychain policy or Android encrypted storage with backup disabled. Corrupt or substituted records fail explicitly and are not silently replaced.
+Mobile identity is created once after the user confirms the suggested device
+name. Its Ed25519 seed is stored with this-device-only, non-synchronizing iOS
+Keychain policy or Android encrypted storage. Android explicitly excludes all
+application storage domains from cloud backup and device-to-device transfer in
+both supported backup-rule formats. Corrupt or substituted records fail
+explicitly and are not silently replaced.
 
 ## Product boundary
 

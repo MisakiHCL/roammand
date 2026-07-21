@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+
+# The signaling image only needs generated Go bindings and its own source.
+# Keep credentials, repository metadata, and local build products out of the
+# Docker build context, including when a remote builder is configured.
+**
+!gen/
+!gen/go/
+!gen/go/**
+!services/
+!services/signaling/
+!services/signaling/**
+
+# Defense in depth if a sensitive file is ever created in an allowed tree.
+**/.env
+**/.env.*
+**/secrets/
+**/secrets/**
+**/*.pem
+**/*.key
+**/*.p8
+**/*.p12
+**/*.pfx
+**/*.mobileprovision
+**/id_rsa*
+**/id_ed25519*
+**/.git/
+**/.git/**
+**/bin/
+**/bin/**
+**/coverage.out
+**/*.log

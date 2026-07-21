@@ -22,11 +22,13 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if config.MaxConnections != DefaultMaxConnections ||
 		config.MaxConnectionsPerIP != DefaultMaxConnectionsPerIP ||
+		config.MaxRendezvous != DefaultMaxRendezvous ||
 		config.MaxRendezvousPerHost != DefaultMaxRendezvousPerHost {
 		t.Fatalf(
-			"resource limits = (%d, %d, %d)",
+			"resource limits = (%d, %d, %d, %d)",
 			config.MaxConnections,
 			config.MaxConnectionsPerIP,
+			config.MaxRendezvous,
 			config.MaxRendezvousPerHost,
 		)
 	}
@@ -44,6 +46,7 @@ func TestLoadOverrides(t *testing.T) {
 		"SIGNALING_SHUTDOWN_TIMEOUT":        "15s",
 		"SIGNALING_MAX_CONNECTIONS":         "128",
 		"SIGNALING_MAX_CONNECTIONS_PER_IP":  "16",
+		"SIGNALING_MAX_RENDEZVOUS":          "256",
 		"SIGNALING_MAX_RENDEZVOUS_PER_HOST": "3",
 	}
 	config, err := Load(func(key string) string { return values[key] })
@@ -58,6 +61,7 @@ func TestLoadOverrides(t *testing.T) {
 		config.ShutdownTimeout != 15*time.Second ||
 		config.MaxConnections != 128 ||
 		config.MaxConnectionsPerIP != 16 ||
+		config.MaxRendezvous != 256 ||
 		config.MaxRendezvousPerHost != 3 {
 		t.Fatalf("unexpected config: %+v", config)
 	}
@@ -82,6 +86,8 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 		"zero timeout":     {"SIGNALING_SHUTDOWN_TIMEOUT": "0s"},
 		"invalid timeout":  {"SIGNALING_SHUTDOWN_TIMEOUT": "eventually"},
 		"invalid proxy":    {"SIGNALING_TRUSTED_PROXY_CIDRS": "loopback"},
+		"all IPv4 proxies": {"SIGNALING_TRUSTED_PROXY_CIDRS": "0.0.0.0/0"},
+		"all IPv6 proxies": {"SIGNALING_TRUSTED_PROXY_CIDRS": "::/0"},
 		"zero connections": {"SIGNALING_MAX_CONNECTIONS": "0"},
 		"too many connections": {
 			"SIGNALING_MAX_CONNECTIONS": strconv.Itoa(MaximumMaxConnections + 1),
@@ -89,6 +95,10 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 		"zero connections per IP": {"SIGNALING_MAX_CONNECTIONS_PER_IP": "0"},
 		"too many connections per IP": {
 			"SIGNALING_MAX_CONNECTIONS_PER_IP": strconv.Itoa(MaximumMaxConnections + 1),
+		},
+		"zero rendezvous capacity": {"SIGNALING_MAX_RENDEZVOUS": "0"},
+		"too much rendezvous capacity": {
+			"SIGNALING_MAX_RENDEZVOUS": strconv.Itoa(MaximumMaxRendezvous + 1),
 		},
 		"invalid rendezvous limit": {"SIGNALING_MAX_RENDEZVOUS_PER_HOST": "many"},
 		"too many rendezvous": {

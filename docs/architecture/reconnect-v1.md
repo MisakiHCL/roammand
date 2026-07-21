@@ -6,11 +6,28 @@ This document defines how an authenticated Roammand session recovers from a temp
 
 ## State and timing
 
-An active Controller moves from `connected` to `reconnecting` after a recoverable signaling or peer failure. It schedules at most five attempts after 1, 2, 4, 8, and 15 seconds. Those delays total the complete 30-second recovery window; there is no hidden grace period or unbounded retry loop.
+An active Controller moves from `connected` to `reconnecting` after a
+recoverable signaling or peer failure. It schedules at most five serial attempts
+with per-attempt delays of 1, 2, 4, 8, and 8 seconds. The delay ledger therefore
+reaches 1, 3, 7, 15, and 23 seconds. After the fifth unsuccessful attempt
+finishes, a final 7-second policy grace completes the configured 30-second
+schedule; there is no sixth attempt or unbounded retry loop.
 
-Entering `reconnecting` immediately blocks new remote input, releases held buttons and keys on a best-effort basis, and clears pending fast-pointer data. A spontaneous peer recovery cancels every remaining timer. If the fifth attempt fails, the session becomes `failed` and waits for an explicit user retry or close. Manual retry creates a new session resource group instead of reusing closed signaling, peer, identity-adapter, or renderer objects.
+The 30-second value accounts for scheduled delays and the final grace, not time
+spent inside asynchronous signaling, cryptographic, or peer operations. Those
+operations run serially between timers and can add wall-clock time. The policy
+is therefore a bounded retry schedule, not a hard 30-second end-to-end latency
+or wall-clock SLA.
 
-The Host retains the matching active session for at most 30 seconds. It releases remote input while retained, rejects new input envelopes, and continues to return busy for other Controllers. Revoking the grant terminates the retained session immediately.
+Entering `reconnecting` immediately blocks new remote input, releases held buttons and keys on a best-effort basis, and clears pending fast-pointer data. A spontaneous peer recovery cancels every remaining timer. If recovery has not completed when the final grace expires, the session becomes `failed` and waits for an explicit user retry or close. Manual retry creates a new session resource group instead of reusing closed signaling, peer, identity-adapter, or renderer objects.
+
+The Host uses a separate 45-second fail-closed retention deadline from the time
+it enters reconnecting state. That deadline is intentionally longer than the
+Controller's 30-second timer budget so a final authenticated ICE restart has
+time to complete; it does not add Controller attempts. The Host releases remote
+input while retained, rejects new input envelopes, and continues to return busy
+for other Controllers. Revoking the grant terminates the retained session
+immediately.
 
 Mobile application backgrounding is not a reconnect trigger. It releases input, closes the session, and requires the user to choose **Connect** after returning to the foreground.
 

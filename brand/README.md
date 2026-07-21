@@ -8,13 +8,15 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
-**Positioning:** private, account-free mobile control for your own computers.
+**Positioning:** private, account-free control for your own computers.
 
 **Tagline:** Leave the desk. Keep work moving.
 
 **中文：**离开桌面，工作仍在继续。
 
-Roammand extends the personal workspace from desk to mobile. It keeps identity and authority with the owner while making active work reachable from anywhere. Remote control is the foundation for a more continuous, agentic way of working.
+Roammand extends the personal workspace beyond the desk. It keeps identity and
+authority with the owner while making active work reachable from another trusted
+device. Remote control supports a more continuous personal workflow.
 
 ## Name and voice
 

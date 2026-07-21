@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Official signaling and STUN plan
+# Official signaling and STUN profile
 
 **English** · [简体中文](official-infrastructure-plan.zh-CN.md)
 
-The first-release service profile uses account-free signaling plus public STUN:
+The current official service profile uses account-free signaling plus public STUN:
 
 - Signaling: `wss://signal.hcl.life/v1/connect`
 - STUN: `stun:stun.hcl.life:3478`
@@ -23,6 +23,17 @@ contain an infrastructure credential, private key, origin address, SSH alias,
 certificate path, or operator-specific local path. STUN has no password and
 does not relay session traffic.
 
+WSS terminates at signaling, so the operator can access the bounded nested
+envelope bytes being forwarded, including public identity proofs and WebRTC
+negotiation metadata, as well as source addresses, registered routing
+identifiers, timing, and traffic size. The current service does not decode,
+persist, or normally log nested bodies, but that data-minimizing implementation
+is not end-to-end confidentiality from its operator. Access to proxy, runtime,
+and infrastructure telemetry must also be restricted. The repository defines
+no uptime or support SLA for the official profile; deployments that require
+operator-controlled availability should use the self-hosting profile and their
+own monitoring.
+
 The signaling process listens on a private interface behind the reverse proxy.
 The proxy overwrites `X-Real-IP`, and the service trusts that header only when
 the direct peer belongs to `SIGNALING_TRUSTED_PROXY_CIDRS`. Never configure the
@@ -36,15 +47,22 @@ Before presenting the profile as generally reliable:
    buffering, bounded timeouts, and no CDN caching.
 2. Verify UDP 3478 from an independent public network; a local STUN health check
    is insufficient evidence for cloud firewall rules.
-3. Monitor signaling health, process restarts, rejected pairings, certificate
-   expiry, and STUN availability without logging session payloads or network
-   mappings.
+3. Monitor signaling health, process restarts, rejected pairings, bounded client
+   reconnects after missing correlated heartbeat acknowledgements, certificate
+   expiry, and STUN availability without logging identifiers, session payloads,
+   or network mappings.
 4. Automate certificate renewal and deploy only a recorded signaling source
    revision or verified artifact.
 5. Test installed macOS and Windows Hosts with physical iOS and Android
    Controllers across separate public networks.
 6. Present a clear failure when direct ICE cannot connect. Do not imply that
    STUN can traverse every NAT.
+7. Publish an operator-specific privacy notice before using this profile in a
+   general distribution. It must identify the operator and monitored contact,
+   data categories and purposes, infrastructure providers, actual log/backup
+   retention, deletion and user-request paths, and its effective date. The
+   technical security guide is not a substitute, and unknown operational facts
+   must remain release blockers rather than assumptions.
 
 Presence, pairing rendezvous, rate-limit windows, and active routes live in one
 signaling process and are cleared on restart. A single instance is acceptable
@@ -63,10 +81,10 @@ paired Controllers continue to hold the old endpoint until an authenticated
 re-pairing replaces the binding for the same Host identity. STUN settings are
 local ICE inputs and are not embedded in pairing QR codes.
 
-## Future TURN relay
+## TURN relay boundary
 
-TURN is deliberately outside the first-release profile because it relays
+TURN is deliberately outside the current official profile because it relays
 high-bandwidth encrypted traffic and needs abuse controls, allocation limits,
-capacity monitoring, and short-lived credentials. A future deployment should
-use a separate direct DNS name or layer-4 load balancer and must never embed a
-long-lived TURN password in the client.
+capacity monitoring, and short-lived credentials. Any separately operated TURN
+deployment should use a direct DNS name or layer-4 load balancer and must never
+embed a long-lived TURN password in the client.

@@ -801,7 +801,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get desktopAboutSettingsBody =>
-      'Set up this Mac, get the iPhone or iPad app, read the user guide, and view the open-source project.';
+      'Set up this Mac, build the iPhone or iPad app, read the user guide, and view the open-source project.';
 
   @override
   String get aboutPageTitle => 'About Roammand';
@@ -841,7 +841,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get desktopSetupStepScanApprove =>
-      'Scan the code with Roammand on your iPhone or iPad, compare all four verification words, then approve the device on this Mac.';
+      'Scan the code with Roammand on your iPhone or iPad, confirm the device details, then approve it on this Mac.';
 
   @override
   String get aboutMacAppTitle => 'Roammand for Mac';
@@ -859,14 +859,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutIosAppBody =>
-      'Install the mobile app on the device you want to use as the controller, then pair it with this Mac by scanning a QR code.';
+      'The mobile controller is available from source. Build it for the iPhone or iPad you want to use, then pair it with this Mac by scanning a QR code.';
 
   @override
-  String get aboutIosDownloadAction => 'View the iPhone & iPad app';
+  String get aboutIosBuildAction => 'Open the iOS build guide';
 
   @override
-  String get aboutIosDownloadNote =>
-      'The App Store listing is reserved for the upcoming public release. TestFlight remains limited to invited testers.';
+  String get aboutIosAvailabilityNote =>
+      'A public App Store download is not currently available.';
 
   @override
   String get aboutHelpTitle => 'User guide';

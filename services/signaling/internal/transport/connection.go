@@ -5,7 +5,9 @@ package transport
 import (
 	"context"
 	"errors"
+	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -15,27 +17,34 @@ const (
 	WebSocketSubprotocol       = "roammand-signaling.v1.protobuf"
 	LegacyWebSocketSubprotocol = "personal-remote-signaling.v1.protobuf"
 
-	readLimitMargin = 1024
-	writeTimeout    = 5 * time.Second
+	readLimitMargin int64 = 1024
+	readLimitProbe  int64 = 1
+	writeTimeout          = 5 * time.Second
 )
 
 var (
 	ErrUnsupportedMessageType     = errors.New("unsupported websocket message type")
 	ErrMessageTooLarge            = errors.New("websocket message exceeds application limit")
+	ErrMessageReadTimeout         = errors.New("websocket message read timed out")
+	ErrInFlightReadBudgetExceeded = errors.New("in-flight read byte budget exceeded")
 	ErrOutboundByteBudgetExceeded = errors.New("outbound byte budget exceeded")
 )
 
 type Connection struct {
-	socket           *websocket.Conn
-	outbound         chan outboundMessage
-	outboundSlots    chan struct{}
-	outboundBudgets  []OutboundByteBudget
-	connectionBudget *ByteBudget
-	done             chan struct{}
-	closeOnce        sync.Once
-	queueMu          sync.Mutex
-	closed           bool
-	maxFrameBytes    int
+	socket                       *websocket.Conn
+	outbound                     chan outboundMessage
+	outboundSlots                chan struct{}
+	outboundBudgets              []ByteReservationBudget
+	connectionOutboundBudget     *ByteBudget
+	inFlightReadBudgets          []ByteReservationBudget
+	connectionInFlightReadBudget *ByteBudget
+	done                         chan struct{}
+	closeOnce                    sync.Once
+	queueMu                      sync.Mutex
+	closed                       bool
+	maxFrameBytes                int
+	messageReadTimeout           time.Duration
+	inFlightReadReservation      int64
 }
 
 type outboundMessage struct {
@@ -45,10 +54,13 @@ type outboundMessage struct {
 }
 
 type ConnectionConfig struct {
-	OutboundQueueCapacity int
-	MaxFrameBytes         int
-	MaxOutboundBytes      int64
-	SharedOutboundBudgets []OutboundByteBudget
+	OutboundQueueCapacity     int
+	MaxFrameBytes             int
+	MaxOutboundBytes          int64
+	SharedOutboundBudgets     []ByteReservationBudget
+	MessageReadTimeout        time.Duration
+	MaxInFlightReadBytes      int64
+	SharedInFlightReadBudgets []ByteReservationBudget
 }
 
 func NewConnection(socket *websocket.Conn, config ConnectionConfig) *Connection {
@@ -58,48 +70,96 @@ func NewConnection(socket *websocket.Conn, config ConnectionConfig) *Connection 
 	if config.MaxFrameBytes <= 0 {
 		panic("maximum frame size must be positive")
 	}
-	connectionBudget := NewByteBudget(config.MaxOutboundBytes)
-	outboundBudgets := make([]OutboundByteBudget, 1, 1+len(config.SharedOutboundBudgets))
-	outboundBudgets[0] = connectionBudget
+	if config.MessageReadTimeout <= 0 {
+		panic("message read timeout must be positive")
+	}
+	inFlightReadReservation := int64(config.MaxFrameBytes) + readLimitProbe
+	if config.MaxInFlightReadBytes < inFlightReadReservation {
+		panic("in-flight read byte budget must cover one maximum-size message")
+	}
+	connectionOutboundBudget := NewByteBudget(config.MaxOutboundBytes)
+	outboundBudgets := make([]ByteReservationBudget, 1, 1+len(config.SharedOutboundBudgets))
+	outboundBudgets[0] = connectionOutboundBudget
 	outboundBudgets = append(outboundBudgets, config.SharedOutboundBudgets...)
+	connectionInFlightReadBudget := NewByteBudget(config.MaxInFlightReadBytes)
+	inFlightReadBudgets := make(
+		[]ByteReservationBudget,
+		1,
+		1+len(config.SharedInFlightReadBudgets),
+	)
+	inFlightReadBudgets[0] = connectionInFlightReadBudget
+	inFlightReadBudgets = append(inFlightReadBudgets, config.SharedInFlightReadBudgets...)
 	outboundSlots := make(chan struct{}, config.OutboundQueueCapacity)
 	for range config.OutboundQueueCapacity {
 		outboundSlots <- struct{}{}
 	}
-	socket.SetReadLimit(int64(config.MaxFrameBytes + readLimitMargin))
+	socket.SetReadLimit(int64(config.MaxFrameBytes) + readLimitMargin)
 	return &Connection{
-		socket:           socket,
-		outbound:         make(chan outboundMessage, config.OutboundQueueCapacity),
-		outboundSlots:    outboundSlots,
-		outboundBudgets:  outboundBudgets,
-		connectionBudget: connectionBudget,
-		done:             make(chan struct{}),
-		maxFrameBytes:    config.MaxFrameBytes,
+		socket:                       socket,
+		outbound:                     make(chan outboundMessage, config.OutboundQueueCapacity),
+		outboundSlots:                outboundSlots,
+		outboundBudgets:              outboundBudgets,
+		connectionOutboundBudget:     connectionOutboundBudget,
+		inFlightReadBudgets:          inFlightReadBudgets,
+		connectionInFlightReadBudget: connectionInFlightReadBudget,
+		done:                         make(chan struct{}),
+		maxFrameBytes:                config.MaxFrameBytes,
+		messageReadTimeout:           config.MessageReadTimeout,
+		inFlightReadReservation:      inFlightReadReservation,
 	}
 }
 
 func (connection *Connection) Read(ctx context.Context) ([]byte, error) {
-	messageType, encoded, err := connection.socket.Read(ctx)
+	readContext, cancelRead := context.WithCancel(ctx)
+	messageType, reader, err := connection.socket.Reader(readContext)
 	if err != nil {
+		cancelRead()
 		return nil, err
 	}
-	return boundedBinaryCopy(messageType, encoded, connection.maxFrameBytes)
+	if messageType != websocket.MessageBinary {
+		cancelRead()
+		return nil, ErrUnsupportedMessageType
+	}
+	if !reserveBytes(connection.inFlightReadBudgets, connection.inFlightReadReservation) {
+		cancelRead()
+		return nil, ErrInFlightReadBudgetExceeded
+	}
+	defer releaseBytes(connection.inFlightReadBudgets, connection.inFlightReadReservation)
+
+	var timedOut atomic.Bool
+	timer := time.AfterFunc(connection.messageReadTimeout, func() {
+		timedOut.Store(true)
+		cancelRead()
+	})
+	defer timer.Stop()
+	defer cancelRead()
+
+	encoded, err := readBoundedBinary(messageType, reader, connection.maxFrameBytes)
+	if err != nil && timedOut.Load() && ctx.Err() == nil {
+		return nil, ErrMessageReadTimeout
+	}
+	return encoded, err
 }
 
-func boundedBinaryCopy(
+func readBoundedBinary(
 	messageType websocket.MessageType,
-	encoded []byte,
+	reader io.Reader,
 	maxFrameBytes int,
 ) ([]byte, error) {
 	if messageType != websocket.MessageBinary {
 		return nil, ErrUnsupportedMessageType
 	}
+	encoded, err := io.ReadAll(io.LimitReader(reader, int64(maxFrameBytes)+readLimitProbe))
+	if err != nil {
+		if errors.Is(err, websocket.ErrMessageTooBig) {
+			return nil, ErrMessageTooLarge
+		}
+		return nil, err
+	}
 	if len(encoded) > maxFrameBytes {
 		return nil, ErrMessageTooLarge
 	}
-	message := make([]byte, len(encoded))
-	copy(message, encoded)
-	return message, nil
+	return encoded, nil
 }
 
 func (connection *Connection) TrySend(encoded []byte) bool {
@@ -178,7 +238,7 @@ func (connection *Connection) enqueueWithReservedSlot(
 		return context.Canceled
 	}
 	reservation := int64(len(encoded))
-	if !reserveOutboundBytes(connection.outboundBudgets, reservation) {
+	if !reserveBytes(connection.outboundBudgets, reservation) {
 		connection.releaseOutboundSlot()
 		return ErrOutboundByteBudgetExceeded
 	}
@@ -192,7 +252,7 @@ func (connection *Connection) enqueueWithReservedSlot(
 	return nil
 }
 
-func reserveOutboundBytes(budgets []OutboundByteBudget, bytes int64) bool {
+func reserveBytes(budgets []ByteReservationBudget, bytes int64) bool {
 	for index, budget := range budgets {
 		if budget.TryReserve(bytes) {
 			continue
@@ -205,10 +265,14 @@ func reserveOutboundBytes(budgets []OutboundByteBudget, bytes int64) bool {
 	return true
 }
 
-func (connection *Connection) completeOutbound(message outboundMessage, err error) {
-	for index := len(connection.outboundBudgets) - 1; index >= 0; index-- {
-		connection.outboundBudgets[index].Release(message.reservation)
+func releaseBytes(budgets []ByteReservationBudget, bytes int64) {
+	for index := len(budgets) - 1; index >= 0; index-- {
+		budgets[index].Release(bytes)
 	}
+}
+
+func (connection *Connection) completeOutbound(message outboundMessage, err error) {
+	releaseBytes(connection.outboundBudgets, message.reservation)
 	if message.result != nil {
 		message.result <- err
 	}
@@ -254,5 +318,9 @@ func (connection *Connection) Done() <-chan struct{} {
 }
 
 func (connection *Connection) OutboundBytes() int64 {
-	return connection.connectionBudget.UsedBytes()
+	return connection.connectionOutboundBudget.UsedBytes()
+}
+
+func (connection *Connection) InFlightReadBytes() int64 {
+	return connection.connectionInFlightReadBudget.UsedBytes()
 }

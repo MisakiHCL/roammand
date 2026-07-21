@@ -15,25 +15,34 @@ Roammand turns your phone, tablet, or another computer into a trusted control su
 
 Continue desktop work from mobile, supervise long-running tasks, and keep your personal computing environment within reach.
 
-## Download
+## Platform support and downloads
 
-| Platform | Current status |
-| --- | --- |
-| macOS 14.4 or later | [Download the signed and notarized `.pkg` installer from GitHub Releases](https://github.com/MisakiHCL/roammand/releases/latest/download/Roammand.pkg). |
-| iPhone and iPad | **Not yet available.** Version 1.0.0 is awaiting App Store release. [View the upcoming App Store listing](https://apps.apple.com/app/id6792014935). |
+The source tree implements all four platform roles below, but only the macOS
+package is currently published as a general-download binary. Source targets and
+release availability are intentionally shown separately.
 
-The App Store link above identifies the upcoming release; it is not currently a
-public download. TestFlight access remains limited to invited testers. See
-[GitHub Releases](https://github.com/MisakiHCL/roammand/releases) for previous
-macOS versions and checksums.
+| Platform | Role | Availability |
+| --- | --- | --- |
+| macOS 14.4 or later | Host and Controller | [Signed and notarized `.pkg` from GitHub Releases](https://github.com/MisakiHCL/roammand/releases/latest/download/Roammand.pkg) |
+| Windows 10 / 11 | Host and Controller | Source build and packaging scripts; installed-Host acceptance is currently defined for Windows 11; no public binary |
+| iOS / iPadOS 13 or later | Controller | Source build or maintainer-invited testing; no public App Store download |
+| Android 7.0 or later (API 24) | Controller | Source build; no public binary |
+
+See [GitHub Releases](https://github.com/MisakiHCL/roammand/releases) for
+previous macOS packages and asset digests. Source-built and invited mobile
+builds are intended for development and target-device verification until a
+public mobile release is listed here.
 
 ## Quick start
 
-1. Install Roammand on the Mac and open **This computer**.
+1. Install Roammand on the Host Mac and open **This computer**. Use another
+   installed Mac, a source-built Controller, or an invited mobile build on the
+   controlling device.
 2. Complete the Screen Recording and Accessibility setup shown by the app. The
    Host stays unavailable until both permissions are ready.
-3. Create a phone QR invitation, scan it from the iPhone or iPad, compare the
-   four verification words, and approve the named Controller on the Mac.
+3. For a phone or tablet, scan a live QR invitation and approve the named
+   Controller on the Mac. For another computer, enter the one-time desktop code,
+   compare all four English verification words, and then approve it on the Host.
 4. The Mac appears in **My computers**. Choose **Connect** whenever you want to
    continue working remotely.
 
@@ -42,7 +51,8 @@ pairing, connection limits, and uninstalling.
 
 ## What you can do
 
-- Pair a phone by QR code or another computer with a one-time code and four-word verification.
+- Pair a phone from a live QR invitation with Host-local approval, or pair
+  another computer with a one-time code and four-word verification.
 - Save trusted computers and reconnect without pairing again.
 - Control Windows and macOS from iOS, Android, Windows, or macOS.
 - Use touch gestures, text, modifiers, and special keys from mobile.
@@ -50,22 +60,32 @@ pairing, connection limits, and uninstalling.
 - See who is connected, stop control locally, and revoke any Controller from the Host.
 - Export privacy-safe diagnostics and run your own signaling and STUN services.
 
+## Current limits
+
+- A Host accepts one inbound Controller session and shares its main display;
+  multi-display selection is not available.
+- Audio, clipboard synchronization, file transfer, cloud sync, and automatic
+  updates are not included.
+- Mobile control is foreground-only. The current iOS/iPadOS interface is
+  landscape-only, and backgrounding closes the session.
+- The public and included self-hosting profiles have no TURN relay, so direct
+  ICE can fail on restrictive networks.
+- Protected lock/login control requires the installed Host components and the
+  operating system's permissions and policies. Cold access before the owner has
+  logged in, continued control after full logout/Host exit, and FileVault
+  preboot are outside the supported boundary.
+- The repository documents the built-in services' technical metadata boundary,
+  but their operator has not yet published a separate consumer privacy policy.
+  Self-host the services if you need an operator-controlled policy before that
+  disclosure is available.
+
 ## How it works
 
-Pairing creates a Host-local, one-way grant after the Mac user verifies and
+Pairing creates a Host-local, one-way grant after the Host owner verifies and
 approves the named Controller. Later sessions authenticate that saved grant
 before remote control begins; signaling cannot grant access by itself.
 
 Authorization is one-way: a Controller can access only the Host that approved it. Reversing the direction requires a separate pairing and approval.
-
-## Supported roles
-
-| Platform | Host | Controller |
-| --- | --- | --- |
-| macOS | Yes | Yes |
-| Windows | Yes | Yes |
-| iOS / iPadOS | — | Yes |
-| Android | — | Yes |
 
 ## Start from source
 
@@ -99,11 +119,11 @@ flutter run -d YOUR_IOS_DEVICE_ID --no-pub
 `-d` takes the exact device ID listed by `flutter devices`; `ios` and
 `android` are platform names, not reliable physical-device selectors.
 
-Physical-device source testing therefore drops from four terminals—signaling,
-Host Agent, desktop app, and mobile app—to two terminals for the desktop and
-mobile apps. Installed Release builds need no terminal. See [Building Roammand
-from source](docs/BUILDING.md) for self-hosting, guarded plaintext `ws://`
-debugging, platform prerequisites, Release builds, and Host packaging.
+This path needs only the desktop and mobile app processes; the official profile
+does not require a local signaling terminal. Installed Release builds need no
+terminal. See [Building Roammand from source](docs/BUILDING.md) for
+self-hosting, guarded plaintext `ws://` debugging, platform prerequisites,
+Release builds, and Host packaging.
 
 Desktop and mobile apps expose the same Network services settings for signaling
 and STUN. The official profile can always be restored. This release attempts
@@ -115,7 +135,13 @@ may still fail to connect.
 - No cloud account is required.
 - Long-term private keys and device grants remain on the devices.
 - Pairing creates a permanent grant only after Host-local approval.
-- Signaling relays bounded opaque messages and cannot authorize control.
+- Signaling cannot authorize control. The current service forwards bounded
+  nested protocol bytes without decoding or persisting them; this implementation
+  property does not make those bytes confidential from the service operator.
+- WebRTC protects screen and input traffic between the peers. A signaling
+  operator can access forwarded negotiation bytes, public identity material,
+  and routing metadata; STUN exposes the mapping request's source address and
+  timing. Account-free does not mean metadata-free or anonymous.
 - The Host keeps control visible and exposes local Stop and Emergency stop.
 - Input is released and blocked while a session is recovering or changing graphical sessions.
 - Diagnostics exclude device identities, network addresses, SDP/ICE, input, screen data, credentials, and raw payloads.
@@ -126,7 +152,8 @@ Read the [pairing model](docs/architecture/account-free-pairing-v1.md), [privile
 
 Roammand includes a pinned Docker Compose deployment for signaling and
 STUN-only coturn. It runs non-root services with file-backed TLS secrets,
-health checks, a single UDP STUN port, and bounded logs. See
+health checks, a single UDP STUN port, and bounded logs. Signaling state is
+single-instance and in memory, and the included profile has no TURN relay. See
 [Docker Compose self-hosting](docs/self-hosting/docker-compose.md).
 
 ## Project guides
@@ -138,7 +165,11 @@ health checks, a single UDP STUN port, and bounded logs. See
 - [Security](docs/security/README.md)
 - [Operations](docs/operations/README.md)
 - [Verification](docs/testing/README.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
+- [Report a security issue](SECURITY.md)
 
 ## License
 
-Roammand uses path-specific open-source licenses. See [Licensing and third-party notices](LICENSES.md) for the exact terms.
+Roammand uses path-specific open-source licenses. See the [licensing overview and
+third-party notice responsibilities](LICENSES.md) before reuse or distribution.

@@ -35,6 +35,44 @@ func TestHealthz(t *testing.T) {
 	if response.StatusCode != http.StatusOK || string(body) != "ok\n" {
 		t.Fatalf("health response = (%d, %q)", response.StatusCode, body)
 	}
+	if response.Header.Get("Cache-Control") != "no-store" ||
+		response.Header.Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatalf("health security headers = %v", response.Header)
+	}
+}
+
+func TestHealthzRejectsOtherMethodsWithAllowHeader(t *testing.T) {
+	testServer := newServiceTestServer(t, DefaultOptions())
+	request, err := http.NewRequest(http.MethodPost, testServer.http.URL+"/healthz", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := testServer.http.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusMethodNotAllowed ||
+		response.Header.Get("Allow") != http.MethodGet {
+		t.Fatalf("health response = (%d, allow=%q)", response.StatusCode, response.Header.Get("Allow"))
+	}
+}
+
+func TestHealthzIsUnavailableAfterShutdownBegins(t *testing.T) {
+	testServer := newServiceTestServer(t, DefaultOptions())
+	shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := testServer.service.Shutdown(shutdownContext); err != nil {
+		t.Fatal(err)
+	}
+	response, err := testServer.http.Client().Get(testServer.http.URL + "/healthz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("health status after shutdown = %d", response.StatusCode)
+	}
 }
 
 func TestConnectRequiresProtobufSubprotocol(t *testing.T) {
@@ -171,6 +209,19 @@ func TestDefaultOutboundByteBudgetsAreHardBounded(t *testing.T) {
 	if options.MaxOutboundBytesPerIP != config.DefaultPerIPOutboundByteBudget {
 		t.Fatalf("per-IP outbound budget = %d", options.MaxOutboundBytesPerIP)
 	}
+	if options.MaxRendezvous != config.DefaultMaxRendezvous {
+		t.Fatalf("global rendezvous capacity = %d", options.MaxRendezvous)
+	}
+	if options.InboundLimits.Window != config.InboundRateLimitWindow ||
+		options.InboundLimits.FramesPerConnection != config.InboundFramesPerConnection ||
+		options.InboundLimits.BytesPerConnection != config.InboundBytesPerConnection ||
+		options.InboundLimits.FramesPerIP != config.InboundFramesPerIP ||
+		options.InboundLimits.BytesPerIP != config.InboundBytesPerIP ||
+		options.InboundLimits.FramesGlobal != config.InboundFramesGlobal ||
+		options.InboundLimits.BytesGlobal != config.InboundBytesGlobal ||
+		options.InboundLimits.IPWindowCapacity != config.InboundIPWindowCapacity {
+		t.Fatalf("unexpected inbound limits: %+v", options.InboundLimits)
+	}
 	wantPerConnection := int64(validation.MaxSignalingServiceFrameBytes) *
 		config.OutboundFrameBudgetPerConnection
 	if options.MaxOutboundBytesPerConnection != wantPerConnection {
@@ -180,12 +231,21 @@ func TestDefaultOutboundByteBudgetsAreHardBounded(t *testing.T) {
 			wantPerConnection,
 		)
 	}
+	wantInFlightPerConnection := int64(validation.MaxSignalingServiceFrameBytes) +
+		config.InboundReadLimitProbeBytes
+	if options.MessageReadTimeout != config.MessageReadTimeout ||
+		options.MaxInFlightReadBytes != config.DefaultGlobalInFlightReadByteBudget ||
+		options.MaxInFlightReadBytesPerIP != config.DefaultPerIPInFlightReadByteBudget ||
+		options.MaxInFlightReadBytesPerConnection != wantInFlightPerConnection {
+		t.Fatalf("unexpected in-flight read defaults: %+v", options)
+	}
 }
 
-func TestSourceIPOutboundByteBudgetIsSharedAndReleased(t *testing.T) {
+func TestSourceIPByteBudgetsAreSharedAndReleased(t *testing.T) {
 	options := DefaultOptions()
 	options.MaxConnectionsPerIP = 2
 	options.MaxOutboundBytesPerIP = 8
+	options.MaxInFlightReadBytesPerIP = 8
 	testServer := newServiceTestServer(t, options)
 	const remoteIP = "198.51.100.42"
 
@@ -197,11 +257,17 @@ func TestSourceIPOutboundByteBudgetIsSharedAndReleased(t *testing.T) {
 	if !acquired {
 		t.Fatal("second source-IP connection was rejected")
 	}
-	if !first.TryReserve(5) || !second.TryReserve(3) {
+	if !first.outbound.TryReserve(5) || !second.outbound.TryReserve(3) {
 		t.Fatal("valid source-IP byte reservations were rejected")
 	}
-	if second.TryReserve(1) {
+	if second.outbound.TryReserve(1) {
 		t.Fatal("source-IP byte budget allowed an over-limit reservation")
+	}
+	if !first.inFlightRead.TryReserve(5) || !second.inFlightRead.TryReserve(3) {
+		t.Fatal("valid source-IP in-flight read reservations were rejected")
+	}
+	if second.inFlightRead.TryReserve(1) {
+		t.Fatal("source-IP in-flight read budget allowed an over-limit reservation")
 	}
 	if got := testServer.service.outboundBytesForIP(remoteIP); got != 8 {
 		t.Fatalf("source-IP outbound bytes = %d, want 8", got)
@@ -217,11 +283,23 @@ func TestSourceIPOutboundByteBudgetIsSharedAndReleased(t *testing.T) {
 	if got := testServer.service.outboundBytesForIP(remoteIP); got != 8 {
 		t.Fatalf("source-IP outbound bytes after disconnect = %d, want 8", got)
 	}
-	first.Release(5)
-	second.Release(3)
+	if got := testServer.service.inFlightReadBytesForIP(remoteIP); got != 8 {
+		t.Fatalf("source-IP in-flight read bytes after disconnect = %d, want 8", got)
+	}
+	first.outbound.Release(5)
+	second.outbound.Release(3)
 
 	testServer.service.sourceIPMu.Lock()
 	_, retained := testServer.service.sourceIPs[remoteIP]
+	testServer.service.sourceIPMu.Unlock()
+	if !retained {
+		t.Fatal("source-IP entry was deleted with an active in-flight read reservation")
+	}
+	first.inFlightRead.Release(5)
+	second.inFlightRead.Release(3)
+
+	testServer.service.sourceIPMu.Lock()
+	_, retained = testServer.service.sourceIPs[remoteIP]
 	testServer.service.sourceIPMu.Unlock()
 	if retained {
 		t.Fatal("idle source-IP budget entry was retained")
@@ -232,33 +310,70 @@ func TestRemoteIPTrustsOnlyConfiguredDirectProxy(t *testing.T) {
 	trusted := []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}
 	tests := map[string]struct {
 		remote   string
-		header   string
+		headers  []string
 		trusted  []netip.Prefix
 		expected string
 	}{
 		"trusted proxy": {
-			remote: "127.0.0.1:42000", header: "198.51.100.24", trusted: trusted,
+			remote: "127.0.0.1:42000", headers: []string{"198.51.100.24"}, trusted: trusted,
 			expected: "198.51.100.24",
 		},
 		"untrusted sender": {
-			remote: "203.0.113.9:42000", header: "198.51.100.24", trusted: trusted,
+			remote: "203.0.113.9:42000", headers: []string{"198.51.100.24"}, trusted: trusted,
 			expected: "203.0.113.9",
 		},
 		"multiple forwarded values": {
-			remote: "127.0.0.1:42000", header: "198.51.100.24, 203.0.113.4", trusted: trusted,
+			remote: "127.0.0.1:42000", headers: []string{"198.51.100.24, 203.0.113.4"}, trusted: trusted,
+			expected: "127.0.0.1",
+		},
+		"duplicate forwarded headers": {
+			remote: "127.0.0.1:42000", headers: []string{"198.51.100.24", "203.0.113.4"}, trusted: trusted,
 			expected: "127.0.0.1",
 		},
 		"invalid forwarded value": {
-			remote: "127.0.0.1:42000", header: "not-an-ip", trusted: trusted,
+			remote: "127.0.0.1:42000", headers: []string{"not-an-ip"}, trusted: trusted,
 			expected: "127.0.0.1",
 		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if actual := remoteIP(test.remote, test.header, test.trusted); actual != test.expected {
+			if actual := remoteIP(test.remote, test.headers, test.trusted); actual != test.expected {
 				t.Fatalf("remoteIP() = %q, want %q", actual, test.expected)
 			}
 		})
+	}
+}
+
+func TestShutdownRejectsNewConnectionsBeforeWaiting(t *testing.T) {
+	server := New(context.Background(), safelog.Discard(), DefaultOptions())
+	if !server.beginConnect() {
+		t.Fatal("connection was not admitted before shutdown")
+	}
+
+	result := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		result <- server.Shutdown(ctx)
+	}()
+	waitFor(t, time.Second, func() bool {
+		server.lifecycleMu.Lock()
+		defer server.lifecycleMu.Unlock()
+		return server.shuttingDown
+	})
+	if server.beginConnect() {
+		server.wait.Done()
+		t.Fatal("connection was admitted after shutdown began")
+	}
+	server.wait.Done()
+
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("shutdown did not finish after admitted connection completed")
 	}
 }
 
@@ -341,6 +456,50 @@ func TestRegistrationTimeoutClosesConnection(t *testing.T) {
 	_, _, err := client.Read(ctx)
 	if websocket.CloseStatus(err) != websocket.StatusPolicyViolation {
 		t.Fatalf("close error = %v, want policy violation", err)
+	}
+}
+
+func TestInboundFrameLimitClosesConnectionWithRetryStatus(t *testing.T) {
+	options := DefaultOptions()
+	options.InboundLimits.FramesPerConnection = 1
+	testServer := newServiceTestServer(t, options)
+	client := testServer.dial(t)
+	registerClient(t, client, testDeviceBytes(42), "register")
+
+	writeClientFrame(t, client, &roammandv1.SignalingClientFrame{
+		ProtocolVersion: protocolVersion(),
+		RequestId:       "rate-limited-heartbeat",
+		Payload: &roammandv1.SignalingClientFrame_Heartbeat{
+			Heartbeat: &roammandv1.Heartbeat{},
+		},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, _, err := client.Read(ctx)
+	if websocket.CloseStatus(err) != websocket.StatusTryAgainLater {
+		t.Fatalf("close error = %v, want try again later", err)
+	}
+}
+
+func TestInboundLimitAlsoCoversWebSocketControlFrames(t *testing.T) {
+	options := DefaultOptions()
+	options.InboundLimits.FramesPerConnection = 1
+	testServer := newServiceTestServer(t, options)
+	client := testServer.dial(t)
+	registerClient(t, client, testDeviceBytes(43), "register")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	pingResult := make(chan error, 1)
+	go func() { pingResult <- client.Ping(ctx) }()
+	_, _, err := client.Read(ctx)
+	if websocket.CloseStatus(err) != websocket.StatusTryAgainLater {
+		t.Fatalf("control-frame close error = %v, want try again later", err)
+	}
+	select {
+	case <-pingResult:
+	case <-ctx.Done():
+		t.Fatal("ping did not finish after the connection closed")
 	}
 }
 

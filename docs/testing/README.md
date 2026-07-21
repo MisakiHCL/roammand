@@ -7,7 +7,7 @@
 Roammand separates deterministic gates from evidence that requires real devices, networks, permissions, or protected operating-system desktops.
 
 - [Desktop session](desktop-session.md) — authenticated WebRTC, capture, input, ICE/TURN, and lifecycle.
-- [Pairing](pairing.md) — QR and one-time codes, four-word verification, local approval, persistence, and revocation.
+- [Pairing](pairing.md) — live QR with Host approval, one-time desktop codes with four-word verification, persistence, and revocation.
 - [Mobile Controller](mobile-controller.md) — physical iOS and Android coverage across Windows and macOS Hosts.
 - [Reliability and privacy](reliability-and-privacy.md) — reconnect, diagnostics, untrusted input, self-hosting, and resource observation.
 - [Platform acceptance](platform-acceptance.md) — installed Host, protected desktops, packaging, and cross-platform release evidence.

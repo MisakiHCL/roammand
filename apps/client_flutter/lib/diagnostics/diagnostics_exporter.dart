@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 
 import 'diagnostics_model.dart';
 
+const _maximumTargetNameAttempts = 100;
+
 enum DiagnosticsExportErrorCode { directoryUnavailable, tooLarge, writeFailed }
 
 final class DiagnosticsExportException implements Exception {
@@ -111,19 +113,30 @@ final class FileDiagnosticsExporter implements DiagnosticsReportExporter {
     List<int> bytes, {
     required bool usedDocumentsFallback,
   }) async {
-    await directory.create(recursive: true);
-    final target = await _unusedTarget(directory, _nowUtc());
-    final temporary = File('${target.path}.tmp');
-    if (await temporary.exists()) {
-      await temporary.delete();
+    final existingDirectoryType = await FileSystemEntity.type(
+      directory.path,
+      followLinks: false,
+    );
+    if (existingDirectoryType != FileSystemEntityType.notFound &&
+        existingDirectoryType != FileSystemEntityType.directory) {
+      throw const DiagnosticsExportException(
+        DiagnosticsExportErrorCode.writeFailed,
+      );
     }
+    if (existingDirectoryType == FileSystemEntityType.notFound) {
+      await directory.create(recursive: true);
+    }
+    if (await FileSystemEntity.type(directory.path, followLinks: false) !=
+        FileSystemEntityType.directory) {
+      throw const DiagnosticsExportException(
+        DiagnosticsExportErrorCode.writeFailed,
+      );
+    }
+    final target = await _reserveTarget(directory, _nowUtc());
     try {
-      await temporary.writeAsBytes(bytes, flush: true);
-      await temporary.rename(target.path);
+      await target.writeAsBytes(bytes, flush: true);
     } catch (_) {
-      if (await temporary.exists()) {
-        await temporary.delete();
-      }
+      await _deletePartialFile(target);
       rethrow;
     }
     return DiagnosticsExportResult(
@@ -134,20 +147,35 @@ final class FileDiagnosticsExporter implements DiagnosticsReportExporter {
   }
 }
 
-Future<File> _unusedTarget(Directory directory, DateTime timestamp) async {
+Future<File> _reserveTarget(Directory directory, DateTime timestamp) async {
   final base = 'roammand-diagnostics-${_timestamp(timestamp)}';
-  for (var suffix = 0; suffix < 100; suffix += 1) {
+  for (var suffix = 0; suffix < _maximumTargetNameAttempts; suffix += 1) {
     final name = suffix == 0
         ? '$base.json'
         : '$base-${suffix.toString().padLeft(2, '0')}.json';
     final candidate = File(paths.join(directory.path, name));
-    if (!await candidate.exists()) {
+    try {
+      await candidate.create(exclusive: true);
       return candidate;
+    } on PathExistsException {
+      // Concurrent exports and pre-positioned entries must never be reused.
     }
   }
   throw const DiagnosticsExportException(
     DiagnosticsExportErrorCode.writeFailed,
   );
+}
+
+Future<void> _deletePartialFile(File target) async {
+  try {
+    final type = await FileSystemEntity.type(target.path, followLinks: false);
+    if (type == FileSystemEntityType.file ||
+        type == FileSystemEntityType.link) {
+      await target.delete();
+    }
+  } catch (_) {
+    // Cleanup is best effort and must not replace the original write error.
+  }
 }
 
 String _timestamp(DateTime value) {

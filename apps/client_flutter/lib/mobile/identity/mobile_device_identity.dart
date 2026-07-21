@@ -53,13 +53,7 @@ final class MobileDeviceIdentity implements ControllerPairingIdentity {
   }
 
   @override
-  String toString() {
-    final idPrefix = _identity.deviceId
-        .take(4)
-        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
-        .join();
-    return 'MobileDeviceIdentity(deviceId: $idPrefix…)';
-  }
+  String toString() => 'MobileDeviceIdentity([REDACTED])';
 }
 
 String validateConfirmedDeviceName(String value) {

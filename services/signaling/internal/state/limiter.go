@@ -23,6 +23,8 @@ type FixedWindowLimiter struct {
 	window        time.Duration
 	maxPerIP      int
 	maxPerLookup  int
+	maxIPWindows  int
+	maxLookups    int
 	ipWindows     map[string]windowCounter
 	lookupWindows map[[sha256.Size]byte]windowCounter
 }
@@ -31,11 +33,19 @@ func NewFixedWindowLimiter(
 	window time.Duration,
 	maxPerIP int,
 	maxPerLookup int,
+	maxIPWindows int,
+	maxLookups int,
 ) *FixedWindowLimiter {
+	if window <= 0 || maxPerIP <= 0 || maxPerLookup <= 0 ||
+		maxIPWindows <= 0 || maxLookups <= 0 {
+		panic("fixed-window limiter values must be positive")
+	}
 	return &FixedWindowLimiter{
 		window:        window,
 		maxPerIP:      maxPerIP,
 		maxPerLookup:  maxPerLookup,
+		maxIPWindows:  maxIPWindows,
+		maxLookups:    maxLookups,
 		ipWindows:     make(map[string]windowCounter),
 		lookupWindows: make(map[[sha256.Size]byte]windowCounter),
 	}
@@ -49,6 +59,12 @@ func (limiter *FixedWindowLimiter) Allow(
 	limiter.mu.Lock()
 	defer limiter.mu.Unlock()
 
+	_, ipExists := limiter.ipWindows[ip]
+	_, lookupExists := limiter.lookupWindows[lookupKey]
+	if (!ipExists && len(limiter.ipWindows) >= limiter.maxIPWindows) ||
+		(!lookupExists && len(limiter.lookupWindows) >= limiter.maxLookups) {
+		return LimitDecision{RetryAfter: limiter.window}
+	}
 	ipCounter := limiter.currentCounter(limiter.ipWindows[ip], now)
 	lookupCounter := limiter.currentCounter(limiter.lookupWindows[lookupKey], now)
 
@@ -70,6 +86,28 @@ func (limiter *FixedWindowLimiter) Allow(
 	lookupCounter.count++
 	limiter.ipWindows[ip] = ipCounter
 	limiter.lookupWindows[lookupKey] = lookupCounter
+	return LimitDecision{Allowed: true}
+}
+
+// AllowIP applies the shared source-IP pairing budget without allocating a
+// lookup-key window. Create and join attempts therefore cannot bypass one
+// another's per-IP limit.
+func (limiter *FixedWindowLimiter) AllowIP(ip string, now time.Time) LimitDecision {
+	limiter.mu.Lock()
+	defer limiter.mu.Unlock()
+
+	_, exists := limiter.ipWindows[ip]
+	if !exists && len(limiter.ipWindows) >= limiter.maxIPWindows {
+		return LimitDecision{RetryAfter: limiter.window}
+	}
+	counter := limiter.currentCounter(limiter.ipWindows[ip], now)
+	if counter.count >= limiter.maxPerIP {
+		return LimitDecision{
+			RetryAfter: counter.startedAt.Add(limiter.window).Sub(now),
+		}
+	}
+	counter.count++
+	limiter.ipWindows[ip] = counter
 	return LimitDecision{Allowed: true}
 }
 

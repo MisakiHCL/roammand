@@ -5,8 +5,9 @@ package service
 import "github.com/MisakiHCL/roammand/services/signaling/internal/transport"
 
 type sourceIPUsage struct {
-	connections   int
-	outboundBytes int64
+	connections       int
+	outboundBytes     int64
+	inFlightReadBytes int64
 }
 
 type sourceIPOutboundBudget struct {
@@ -14,9 +15,19 @@ type sourceIPOutboundBudget struct {
 	remoteIP string
 }
 
+type sourceIPInFlightReadBudget struct {
+	server   *Server
+	remoteIP string
+}
+
+type sourceIPBudgets struct {
+	outbound     transport.ByteReservationBudget
+	inFlightRead transport.ByteReservationBudget
+}
+
 func (server *Server) acquireIPConnection(
 	remoteIP string,
-) (transport.OutboundByteBudget, bool) {
+) (sourceIPBudgets, bool) {
 	server.sourceIPMu.Lock()
 	defer server.sourceIPMu.Unlock()
 	usage := server.sourceIPs[remoteIP]
@@ -25,10 +36,13 @@ func (server *Server) acquireIPConnection(
 		server.sourceIPs[remoteIP] = usage
 	}
 	if usage.connections >= server.options.MaxConnectionsPerIP {
-		return nil, false
+		return sourceIPBudgets{}, false
 	}
 	usage.connections++
-	return &sourceIPOutboundBudget{server: server, remoteIP: remoteIP}, true
+	return sourceIPBudgets{
+		outbound:     &sourceIPOutboundBudget{server: server, remoteIP: remoteIP},
+		inFlightRead: &sourceIPInFlightReadBudget{server: server, remoteIP: remoteIP},
+	}, true
 }
 
 func (server *Server) releaseIPConnection(remoteIP string) {
@@ -68,8 +82,34 @@ func (budget *sourceIPOutboundBudget) Release(bytes int64) {
 	budget.server.deleteIdleSourceIPLocked(budget.remoteIP, usage)
 }
 
+func (budget *sourceIPInFlightReadBudget) TryReserve(bytes int64) bool {
+	if bytes < 0 {
+		return false
+	}
+	budget.server.sourceIPMu.Lock()
+	defer budget.server.sourceIPMu.Unlock()
+	usage := budget.server.sourceIPs[budget.remoteIP]
+	if usage == nil || usage.connections <= 0 ||
+		bytes > budget.server.options.MaxInFlightReadBytesPerIP-usage.inFlightReadBytes {
+		return false
+	}
+	usage.inFlightReadBytes += bytes
+	return true
+}
+
+func (budget *sourceIPInFlightReadBudget) Release(bytes int64) {
+	budget.server.sourceIPMu.Lock()
+	defer budget.server.sourceIPMu.Unlock()
+	usage := budget.server.sourceIPs[budget.remoteIP]
+	if bytes < 0 || usage == nil || bytes > usage.inFlightReadBytes {
+		panic("source IP in-flight read byte release exceeds reservation")
+	}
+	usage.inFlightReadBytes -= bytes
+	budget.server.deleteIdleSourceIPLocked(budget.remoteIP, usage)
+}
+
 func (server *Server) deleteIdleSourceIPLocked(remoteIP string, usage *sourceIPUsage) {
-	if usage.connections == 0 && usage.outboundBytes == 0 {
+	if usage.connections == 0 && usage.outboundBytes == 0 && usage.inFlightReadBytes == 0 {
 		delete(server.sourceIPs, remoteIP)
 	}
 }
@@ -92,4 +132,14 @@ func (server *Server) outboundBytesForIP(remoteIP string) int64 {
 		return 0
 	}
 	return usage.outboundBytes
+}
+
+func (server *Server) inFlightReadBytesForIP(remoteIP string) int64 {
+	server.sourceIPMu.Lock()
+	defer server.sourceIPMu.Unlock()
+	usage := server.sourceIPs[remoteIP]
+	if usage == nil {
+		return 0
+	}
+	return usage.inFlightReadBytes
 }

@@ -70,9 +70,11 @@ not treat a staged package as proof of protected-desktop runtime behavior.
 11. Connect from the saved Host card. Expected: video appears and pointer,
     click, drag, scroll, keyboard, text, and modifiers work. The Host page and
     tray show the bounded Controller name and an Emergency stop action.
-12. Verify mobile gestures in portrait and landscape, with the keyboard shown
-    and hidden. Expected: targeting remains aligned; backgrounding releases all
-    input and closes rather than silently reconnecting.
+12. On Android, verify mobile gestures in portrait and landscape. On iOS/iPadOS,
+    verify both landscape directions; the current UI is landscape-only. Repeat
+    with the keyboard shown and hidden. Expected: targeting remains aligned;
+    backgrounding releases all input and closes rather than silently
+    reconnecting.
 
 ## Protected desktop transitions
 
@@ -124,14 +126,19 @@ simulation, unit test, cross-compile, or package dry-run is not a substitute.
 
 25. Preview uninstall (`--dry-run` on macOS or `-WhatIf` on Windows). Expected:
     no system state changes.
-26. Use **Settings → Advanced → Uninstall Roammand**, or the terminal fallback,
-    and approve administrator access. Expected: services, Helpers, package data,
-    application files, device identity, grants, saved Hosts, preferences,
-    caches, and Roammand-specific TCC decisions are removed.
+26. On macOS, use **Settings → Advanced → Uninstall Roammand** or the terminal
+    fallback and approve administrator access. Expected: services, Helpers,
+    package data, application files, device identity, grants, saved Hosts,
+    preferences, caches, and Roammand-specific TCC decisions are removed. On
+    Windows, run the uninstall PowerShell script and approve administrator
+    access. Expected: program and service data are removed while each user's
+    identity and Controller grants are currently retained.
 27. Confirm the GUI-owned Host Agent, service/launchd jobs, and tray are gone.
-    In System Settings, confirm neither the Session Agent nor Roammand remains
-    under Screen Recording or Accessibility. Reinstalling must create a new
-    identity and require pairing again.
+    On macOS, confirm in System Settings that neither the Session Agent nor
+    Roammand remains under Screen Recording or Accessibility; reinstalling must
+    create a new identity and require pairing again. On Windows, verify that a
+    reinstall preserves the documented per-user identity/grant state rather
+    than claiming complete local-data removal.
 
 The supported boundary excludes cold-start access before the Host owner has
 ever logged in, continued control after full logout or Host Agent exit,

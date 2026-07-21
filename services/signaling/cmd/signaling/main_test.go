@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"io"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/MisakiHCL/roammand/services/signaling/internal/safelog"
 )
 
 const logSecretSentinel = "PRIVATE_KEY_AND_CONFIG_VALUE_1642"
@@ -67,6 +70,18 @@ func TestRunRejectsIncompleteTLSPairBeforeListening(t *testing.T) {
 	}), io.Discard, io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "SIGNALING_TLS_CERT_FILE and SIGNALING_TLS_KEY_FILE") {
 		t.Fatalf("run error = %v", err)
+	}
+}
+
+func TestHTTPServerEnforcesTLS12AndResourceTimeouts(t *testing.T) {
+	server := newHTTPServer(http.NotFoundHandler(), safelog.Discard())
+	if server.TLSConfig == nil || server.TLSConfig.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("minimum TLS version = %v", server.TLSConfig)
+	}
+	if server.ReadHeaderTimeout != readHeaderTimeout ||
+		server.IdleTimeout != idleTimeout ||
+		server.MaxHeaderBytes != maxHeaderBytes {
+		t.Fatalf("HTTP resource limits = %+v", server)
 	}
 }
 

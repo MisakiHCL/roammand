@@ -139,6 +139,93 @@ void main() {
       expect((await store.load()).single.hostIdentity.displayName, 'Host 1');
     },
   );
+
+  test('rejects a symlink instead of reading its target', () async {
+    if (Platform.isWindows) {
+      return;
+    }
+    final directory = await Directory.systemTemp.createTemp(
+      'roammand-host-store-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final victim = File('${directory.path}/victim.bin');
+    await TrustedHostStore.atPath(
+      victim.path,
+    ).save(<TrustedHostBinding>[_binding(1)]);
+    final originalVictim = await victim.readAsBytes();
+    final link = Link('${directory.path}/trusted-hosts.bin');
+    await link.create(victim.path);
+    final store = TrustedHostStore.atPath(link.path);
+
+    await expectLater(
+      store.load(),
+      throwsA(
+        isA<TrustedHostStoreException>().having(
+          (error) => error.code,
+          'code',
+          TrustedHostStoreError.corruptRecord,
+        ),
+      ),
+    );
+    expect(await victim.readAsBytes(), originalVictim);
+    expect(
+      await FileSystemEntity.type(link.path, followLinks: false),
+      FileSystemEntityType.link,
+    );
+  });
+
+  test('does not reuse the legacy predictable temporary path', () async {
+    if (Platform.isWindows) {
+      return;
+    }
+    final directory = await Directory.systemTemp.createTemp(
+      'roammand-host-store-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/trusted-hosts.bin');
+    final victim = File('${directory.path}/victim.txt')
+      ..writeAsStringSync('must remain unchanged');
+    final legacyTemporary = Link('${file.path}.$pid.tmp');
+    await legacyTemporary.create(victim.path);
+
+    await TrustedHostStore.atPath(
+      file.path,
+    ).save(<TrustedHostBinding>[_binding(1)]);
+
+    expect(victim.readAsStringSync(), 'must remain unchanged');
+    expect(
+      await FileSystemEntity.type(legacyTemporary.path, followLinks: false),
+      FileSystemEntityType.link,
+    );
+    expect((await TrustedHostStore.atPath(file.path).load()), hasLength(1));
+  });
+
+  test('rejects a symlinked parent before creating its target', () async {
+    if (Platform.isWindows) {
+      return;
+    }
+    final root = await Directory.systemTemp.createTemp('roammand-host-store-');
+    addTearDown(() => root.delete(recursive: true));
+    final redirectedParent = Directory('${root.path}/RedirectedStore');
+    final parentLink = Link('${root.path}/Store');
+    await parentLink.create(redirectedParent.path);
+    final store = TrustedHostStore.atPath(
+      '${parentLink.path}/trusted-hosts.bin',
+    );
+
+    await expectLater(
+      store.save(<TrustedHostBinding>[_binding(1)]),
+      throwsA(
+        isA<TrustedHostStoreException>().having(
+          (error) => error.code,
+          'code',
+          TrustedHostStoreError.unavailable,
+        ),
+      ),
+    );
+
+    expect(redirectedParent.existsSync(), isFalse);
+  });
 }
 
 final class MemoryTrustedHostFileBackend implements TrustedHostFileBackend {

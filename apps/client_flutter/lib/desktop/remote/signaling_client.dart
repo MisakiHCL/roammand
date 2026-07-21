@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -35,6 +36,7 @@ enum SignalingClientErrorCode {
   invalidEndpoint,
   insecureEndpoint,
   endpointCredentials,
+  timeout,
   transport,
   subprotocolRequired,
   closed,
@@ -72,10 +74,12 @@ final class SignalingRegistered extends SignalingEvent {
 
 final class SignalingHeartbeatAcknowledged extends SignalingEvent {
   const SignalingHeartbeatAcknowledged({
+    required this.requestId,
     required this.serverTimeUnixMs,
     required this.presenceExpiresAtUnixMs,
   });
 
+  final String requestId;
   final int serverTimeUnixMs;
   final int presenceExpiresAtUnixMs;
 }
@@ -168,7 +172,8 @@ final class DesktopSignalingProtocol {
       _fail(SignalingClientErrorCode.invalidFrame);
     }
     if (!frame.hasProtocolVersion() ||
-        frame.protocolVersion.major != protocolMajorVersion) {
+        frame.protocolVersion.major != protocolMajorVersion ||
+        frame.protocolVersion.minor < minimumProtocolMinorVersion) {
       _fail(SignalingClientErrorCode.protocolUnsupported);
     }
     switch (frame.whichPayload()) {
@@ -191,13 +196,16 @@ final class DesktopSignalingProtocol {
           _fail(SignalingClientErrorCode.invalidState);
         }
         _validateRequestId(frame.requestId);
+        final acknowledged = frame.heartbeatAcknowledged;
+        if (acknowledged.serverTimeUnixMs <= 0 ||
+            acknowledged.presenceExpiresAtUnixMs <=
+                acknowledged.serverTimeUnixMs) {
+          _fail(SignalingClientErrorCode.invalidFrame);
+        }
         return SignalingHeartbeatAcknowledged(
-          serverTimeUnixMs: frame.heartbeatAcknowledged.serverTimeUnixMs
-              .toInt(),
-          presenceExpiresAtUnixMs: frame
-              .heartbeatAcknowledged
-              .presenceExpiresAtUnixMs
-              .toInt(),
+          requestId: frame.requestId,
+          serverTimeUnixMs: acknowledged.serverTimeUnixMs.toInt(),
+          presenceExpiresAtUnixMs: acknowledged.presenceExpiresAtUnixMs.toInt(),
         );
       case SignalingServerFrame_Payload.routedSession:
         if (_state != _ProtocolState.ready) {
@@ -439,7 +447,8 @@ SignalingClientFrame _clientFrame(
 );
 
 void _validateRequestId(String requestId) {
-  if (requestId.isEmpty || requestId.length > _maximumRequestIdBytes) {
+  if (requestId.isEmpty ||
+      utf8.encode(requestId).length > _maximumRequestIdBytes) {
     _fail(SignalingClientErrorCode.invalidRequestId);
   }
 }

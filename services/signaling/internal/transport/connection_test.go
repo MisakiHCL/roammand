@@ -36,6 +36,39 @@ func TestConnectionReadsBinaryMessages(t *testing.T) {
 	}
 }
 
+func TestConnectionReadReleasesAllInFlightBudgetsAfterCompletion(t *testing.T) {
+	clientSocket, serverSocket := socketPair(t)
+	sharedBudget := NewByteBudget(65)
+	connection := NewConnection(serverSocket, ConnectionConfig{
+		OutboundQueueCapacity:     2,
+		MaxFrameBytes:             64,
+		MaxOutboundBytes:          128,
+		MessageReadTimeout:        time.Second,
+		MaxInFlightReadBytes:      65,
+		SharedInFlightReadBudgets: []ByteReservationBudget{sharedBudget},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	want := []byte{1, 2, 3}
+	if err := clientSocket.Write(ctx, websocket.MessageBinary, want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := connection.Read(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("message = %v, want %v", got, want)
+	}
+	if got := connection.InFlightReadBytes(); got != 0 {
+		t.Fatalf("connection in-flight read bytes = %d, want 0", got)
+	}
+	if got := sharedBudget.UsedBytes(); got != 0 {
+		t.Fatalf("shared in-flight read bytes = %d, want 0", got)
+	}
+}
+
 func TestConnectionRejectsTextMessages(t *testing.T) {
 	clientSocket, serverSocket := socketPair(t)
 	connection := newTestConnection(serverSocket, 2, 64)
@@ -90,7 +123,9 @@ func TestConnectionOutboundByteBudgetRejectsConcurrentEnqueueAndReleasesOnClose(
 		OutboundQueueCapacity: 32,
 		MaxFrameBytes:         64,
 		MaxOutboundBytes:      8,
-		SharedOutboundBudgets: []OutboundByteBudget{sharedBudget},
+		SharedOutboundBudgets: []ByteReservationBudget{sharedBudget},
+		MessageReadTimeout:    time.Second,
+		MaxInFlightReadBytes:  65,
 	})
 
 	const attempts = 32
@@ -138,7 +173,9 @@ func TestConnectionSharedBudgetRollsBackRejectedReservation(t *testing.T) {
 			OutboundQueueCapacity: 2,
 			MaxFrameBytes:         64,
 			MaxOutboundBytes:      64,
-			SharedOutboundBudgets: []OutboundByteBudget{globalBudget},
+			SharedOutboundBudgets: []ByteReservationBudget{globalBudget},
+			MessageReadTimeout:    time.Second,
+			MaxInFlightReadBytes:  65,
 		})
 	}
 	first := newConnection(firstSocket)
@@ -174,7 +211,9 @@ func TestConnectionCloseUnblocksPendingSendWithoutBudgetLeak(t *testing.T) {
 		OutboundQueueCapacity: 1,
 		MaxFrameBytes:         64,
 		MaxOutboundBytes:      64,
-		SharedOutboundBudgets: []OutboundByteBudget{sharedBudget},
+		SharedOutboundBudgets: []ByteReservationBudget{sharedBudget},
+		MessageReadTimeout:    time.Second,
+		MaxInFlightReadBytes:  65,
 	})
 	if !connection.TrySend([]byte{1, 2, 3}) {
 		t.Fatal("initial message was rejected")
@@ -240,7 +279,9 @@ func TestConnectionWriterFailureReleasesActiveReservation(t *testing.T) {
 		OutboundQueueCapacity: 1,
 		MaxFrameBytes:         64,
 		MaxOutboundBytes:      64,
-		SharedOutboundBudgets: []OutboundByteBudget{sharedBudget},
+		SharedOutboundBudgets: []ByteReservationBudget{sharedBudget},
+		MessageReadTimeout:    time.Second,
+		MaxInFlightReadBytes:  65,
 	})
 	if !connection.TrySend([]byte{1, 2, 3}) {
 		t.Fatal("message was rejected")
@@ -316,6 +357,8 @@ func newTestConnection(
 		OutboundQueueCapacity: queueCapacity,
 		MaxFrameBytes:         maxFrameBytes,
 		MaxOutboundBytes:      int64(maxFrameBytes * 2),
+		MessageReadTimeout:    time.Second,
+		MaxInFlightReadBytes:  int64(maxFrameBytes) + readLimitProbe,
 	})
 }
 

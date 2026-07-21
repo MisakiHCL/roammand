@@ -143,15 +143,114 @@ void main() {
     expect(fixture.transport.closeCount, 1);
   });
 
+  test('fails closed when a heartbeat acknowledgement never arrives', () async {
+    final fixture = _Fixture(
+      heartbeatInterval: const Duration(milliseconds: 10),
+    );
+    await fixture.connect();
+    await fixture.join();
+    final failure = expectLater(
+      fixture.client.events,
+      emitsError(
+        isA<PairingSignalingException>().having(
+          (error) => error.code,
+          'code',
+          PairingSignalingErrorCode.timeout,
+        ),
+      ),
+    );
+
+    final heartbeat = await fixture.transport.takeFrame();
+    expect(heartbeat.hasHeartbeat(), isTrue);
+    await failure.timeout(const Duration(seconds: 1));
+    await fixture.client.close();
+
+    expect(fixture.transport.closeCount, 1);
+  });
+
+  test('rejects a stale heartbeat acknowledgement request ID', () async {
+    final fixture = _Fixture(
+      heartbeatInterval: const Duration(milliseconds: 20),
+    );
+    await fixture.connect();
+    await fixture.join();
+    final failure = expectLater(
+      fixture.client.events,
+      emitsError(
+        isA<PairingSignalingException>().having(
+          (error) => error.code,
+          'code',
+          PairingSignalingErrorCode.correlationMismatch,
+        ),
+      ),
+    );
+    final heartbeat = await fixture.transport.takeFrame();
+    expect(heartbeat.hasHeartbeat(), isTrue);
+
+    fixture.transport.server(
+      SignalingServerFrame(
+        protocolVersion: _version(),
+        requestId: 'stale-heartbeat',
+        heartbeatAcknowledged: HeartbeatAcknowledged(
+          serverTimeUnixMs: Int64(1000),
+          presenceExpiresAtUnixMs: Int64(46000),
+        ),
+      ),
+    );
+    await failure.timeout(const Duration(seconds: 1));
+    await fixture.client.close();
+
+    expect(fixture.transport.closeCount, 1);
+  });
+
+  test(
+    'accepts a valid heartbeat ack after request history pressure',
+    () async {
+      final fixture = _Fixture(
+        heartbeatInterval: const Duration(milliseconds: 100),
+      );
+      await fixture.connect();
+      await fixture.join();
+      final heartbeat = await fixture.transport.takeFrame();
+      expect(heartbeat.hasHeartbeat(), isTrue);
+
+      final rendezvousId = List<int>.filled(16, 0x51);
+      for (var index = 0; index < 64; index += 1) {
+        await fixture.client.relay(
+          rendezvousId,
+          Uint8List.fromList(<int>[index]),
+        );
+      }
+      fixture.transport.server(
+        SignalingServerFrame(
+          protocolVersion: _version(),
+          requestId: heartbeat.requestId,
+          heartbeatAcknowledged: HeartbeatAcknowledged(
+            serverTimeUnixMs: Int64(1000),
+            presenceExpiresAtUnixMs: Int64(46000),
+          ),
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(fixture.transport.closeCount, 0);
+      await fixture.client.relay(rendezvousId, Uint8List.fromList(<int>[0xff]));
+      await fixture.client.close();
+      expect(fixture.transport.closeCount, 1);
+    },
+  );
+
   test('closes a transport that arrives after the client is closed', () async {
     final connectorStarted = Completer<void>();
     final transportGate = Completer<PairingSignalingTransport>();
-    final transport = _CloseTrackingPairingSignalingTransport();
+    final transport = _CloseTrackingPairingSignalingTransport()
+      ..closeGate = Completer<void>();
     final client = PairingSignalingClient(
       connector: (_) {
         connectorStarted.complete();
         return transportGate.future;
       },
+      transportShutdownTimeout: const Duration(milliseconds: 10),
     );
     final connecting = client.connect(
       Uri.parse('wss://signal.example.test/v1/ws'),
@@ -177,8 +276,37 @@ void main() {
 
     expect(transport.closeCount, 1);
     expect(transport.sent, isEmpty);
+    transport.closeGate?.complete();
     await client.close();
     expect(transport.closeCount, 1);
+  });
+
+  test('times out connector creation and closes a late transport', () async {
+    final transportGate = Completer<PairingSignalingTransport>();
+    final transport = _CloseTrackingPairingSignalingTransport();
+    final client = PairingSignalingClient(
+      connector: (_) => transportGate.future,
+      connectTimeout: const Duration(milliseconds: 10),
+    );
+
+    await expectLater(
+      client.connect(
+        Uri.parse('wss://signal.example.test/v1/ws'),
+        List<int>.filled(32, 0x61),
+      ),
+      throwsA(
+        isA<PairingSignalingException>().having(
+          (error) => error.code,
+          'code',
+          PairingSignalingErrorCode.timeout,
+        ),
+      ),
+    );
+
+    transportGate.complete(transport);
+    await pumpEventQueue();
+    expect(transport.closeCount, 1);
+    expect(transport.sent, isEmpty);
   });
 
   test('close during a pending registration send has no stray error', () async {
@@ -253,6 +381,36 @@ void main() {
       ),
       throwsA(isA<PairingSignalingException>()),
     );
+  });
+
+  test('transport cleanup timeout does not keep client open', () async {
+    final transport = FakePairingSignalingTransport();
+    final client = PairingSignalingClient(
+      connector: (_) async => transport,
+      transportShutdownTimeout: const Duration(milliseconds: 10),
+    );
+    final connecting = client.connect(
+      Uri.parse('wss://signal.example.test/v1/ws'),
+      List<int>.filled(32, 0x61),
+    );
+    final registration = await transport.takeFrame();
+    transport.server(
+      SignalingServerFrame(
+        protocolVersion: _version(),
+        requestId: registration.requestId,
+        registered: RegistrationAccepted(
+          deviceId: List<int>.filled(32, 0x61),
+          presenceExpiresAtUnixMs: Int64(2000),
+        ),
+      ),
+    );
+    await connecting;
+    transport.closeGate = Completer<void>();
+
+    await expectLater(client.close(), completes);
+
+    expect(transport.closeCount, 1);
+    await expectLater(client.events, emitsDone);
   });
 
   test(
@@ -364,6 +522,7 @@ final class FakePairingSignalingTransport implements PairingSignalingTransport {
   final List<Uint8List> sent = <Uint8List>[];
   int closeCount = 0;
   bool failClose = false;
+  Completer<void>? closeGate;
 
   @override
   Stream<Uint8List> get frames => incoming.stream;
@@ -389,6 +548,7 @@ final class FakePairingSignalingTransport implements PairingSignalingTransport {
     closeCount += 1;
     await incoming.close();
     sent.clear();
+    await closeGate?.future;
     if (failClose) {
       throw StateError('transport cleanup failed');
     }
@@ -399,6 +559,7 @@ final class _CloseTrackingPairingSignalingTransport
     implements PairingSignalingTransport {
   final List<Uint8List> sent = <Uint8List>[];
   int closeCount = 0;
+  Completer<void>? closeGate;
 
   @override
   Stream<Uint8List> get frames => const Stream<Uint8List>.empty();
@@ -411,6 +572,7 @@ final class _CloseTrackingPairingSignalingTransport
   @override
   Future<void> close() async {
     closeCount += 1;
+    await closeGate?.future;
   }
 }
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
@@ -81,6 +82,20 @@ void main() {
     fixture.adapter.emit(ControllerPeerEvent.connected);
     await _pumpEvents();
     expect(fixture.controller.state, RemoteDesktopState.connected);
+  });
+
+  test('hashes the exact UTF-8 offer bytes used on the wire', () async {
+    const utf8OfferSdp =
+        'v=0\r\ns=\u8fdc\u7a0b\u684c\u9762\r\na=fingerprint:sha-256 44:44\r\n';
+    final fixture = await _Fixture.create(offerSdp: utf8OfferSdp);
+    addTearDown(fixture.controller.close);
+
+    await fixture.controller.connect(fixture.target);
+
+    expect(
+      fixture.sentOffer().offerSha256,
+      sha256.convert(utf8.encode(utf8OfferSdp)).bytes,
+    );
   });
 
   test(
@@ -655,7 +670,7 @@ final class _Fixture {
   final List<int> hostFingerprint;
   final _ManualReconnectScheduler scheduler;
 
-  static Future<_Fixture> create() async {
+  static Future<_Fixture> create({String offerSdp = _offerSdp}) async {
     final algorithm = Ed25519();
     final hostKeyPair = await algorithm.newKeyPairFromSeed(
       List<int>.filled(32, 0x42),
@@ -681,7 +696,7 @@ final class _Fixture {
     );
     final agent = _FakeHostAgent(controllerIdentity, controllerKeyPair);
     final signaling = _FakeSignalingLink();
-    final adapter = _FakePeerAdapter();
+    final adapter = _FakePeerAdapter(offerSdp: offerSdp);
     final peer = ControllerPeerSession(
       adapter: adapter,
       configuration: const ControllerPeerConfiguration(),
@@ -1016,6 +1031,9 @@ final class _FakeSignalingLink implements ControllerSignalingLink {
 }
 
 final class _FakePeerAdapter implements ControllerPeerAdapter {
+  _FakePeerAdapter({this.offerSdp = _offerSdp});
+
+  final String offerSdp;
   final List<String> operations = <String>[];
   ControllerPeerCallbacks? callbacks;
   int closeCount = 0;
@@ -1040,7 +1058,7 @@ final class _FakePeerAdapter implements ControllerPeerAdapter {
     this.callbacks = callbacks;
     operations.add('initialize');
     return ControllerPeerOffer(
-      sdp: _offerSdp,
+      sdp: offerSdp,
       dtlsFingerprintSha256: Uint8List.fromList(List<int>.filled(32, 0x44)),
     );
   }
@@ -1064,7 +1082,7 @@ final class _FakePeerAdapter implements ControllerPeerAdapter {
     restartCount += 1;
     operations.add('restart-ice:$restartCount');
     return ControllerPeerOffer(
-      sdp: '$_offerSdp\na=x-restart:$restartCount\r\n',
+      sdp: '$offerSdp\na=x-restart:$restartCount\r\n',
       dtlsFingerprintSha256: Uint8List.fromList(
         List<int>.filled(32, 0x44 + restartCount),
       ),

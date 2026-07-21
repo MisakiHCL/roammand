@@ -21,6 +21,7 @@ var (
 	ErrRendezvousNotJoined = errors.New("rendezvous has no controller")
 	ErrRendezvousInvalid   = errors.New("invalid rendezvous")
 	ErrRendezvousLimit     = errors.New("device has too many active rendezvous")
+	ErrRendezvousCapacity  = errors.New("rendezvous store is at capacity")
 )
 
 type PairingKind uint8
@@ -40,19 +41,29 @@ type Rendezvous struct {
 }
 
 type RendezvousStore struct {
-	mu         sync.RWMutex
-	byID       map[RendezvousID]Rendezvous
-	codeIndex  map[[sha256.Size]byte]RendezvousID
-	hostCounts map[DeviceID]int
-	maxPerHost int
+	mu          sync.RWMutex
+	byID        map[RendezvousID]Rendezvous
+	codeIndex   map[[sha256.Size]byte]RendezvousID
+	memberIndex map[DeviceID]map[RendezvousID]struct{}
+	hostCounts  map[DeviceID]int
+	maxPerHost  int
+	maxTotal    int
 }
 
-func NewRendezvousStore(maxPerHost int) *RendezvousStore {
+func NewRendezvousStore(maxPerHost int, maxTotal int) *RendezvousStore {
+	if maxPerHost <= 0 {
+		panic("maximum rendezvous per host must be positive")
+	}
+	if maxTotal <= 0 {
+		panic("maximum rendezvous capacity must be positive")
+	}
 	return &RendezvousStore{
-		byID:       make(map[RendezvousID]Rendezvous),
-		codeIndex:  make(map[[sha256.Size]byte]RendezvousID),
-		hostCounts: make(map[DeviceID]int),
-		maxPerHost: maxPerHost,
+		byID:        make(map[RendezvousID]Rendezvous),
+		codeIndex:   make(map[[sha256.Size]byte]RendezvousID),
+		memberIndex: make(map[DeviceID]map[RendezvousID]struct{}),
+		hostCounts:  make(map[DeviceID]int),
+		maxPerHost:  maxPerHost,
+		maxTotal:    maxTotal,
 	}
 }
 
@@ -89,12 +100,16 @@ func (store *RendezvousStore) Create(
 			return removed, ErrPairingCodeExists
 		}
 	}
+	if len(store.byID) >= store.maxTotal {
+		return removed, ErrRendezvousCapacity
+	}
 	if store.hostCounts[rendezvous.Host] >= store.maxPerHost {
 		return removed, ErrRendezvousLimit
 	}
 
 	stored := cloneRendezvous(rendezvous)
 	store.byID[stored.ID] = stored
+	store.indexMemberLocked(stored.Host, stored.ID)
 	store.hostCounts[stored.Host]++
 	if stored.Kind == PairingKindDesktopCode {
 		store.codeIndex[stored.CodeHash] = stored.ID
@@ -174,10 +189,11 @@ func (store *RendezvousStore) RemoveForDevice(deviceID DeviceID) []Rendezvous {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
-	removed := make([]Rendezvous, 0)
-	for _, rendezvous := range store.byID {
-		if rendezvous.Host != deviceID &&
-			(rendezvous.Controller == nil || *rendezvous.Controller != deviceID) {
+	memberIDs := store.memberIndex[deviceID]
+	removed := make([]Rendezvous, 0, len(memberIDs))
+	for id := range memberIDs {
+		rendezvous, exists := store.byID[id]
+		if !exists {
 			continue
 		}
 		removed = append(removed, cloneRendezvous(rendezvous))
@@ -231,6 +247,7 @@ func (store *RendezvousStore) joinLocked(
 	controllerCopy := controller
 	rendezvous.Controller = &controllerCopy
 	store.byID[id] = cloneRendezvous(rendezvous)
+	store.indexMemberLocked(controller, id)
 	return cloneRendezvous(rendezvous), nil
 }
 
@@ -243,7 +260,6 @@ func (store *RendezvousStore) activeLocked(
 		return Rendezvous{}, ErrRendezvousNotFound
 	}
 	if !rendezvous.ExpiresAt.After(now) {
-		store.deleteLocked(rendezvous)
 		return Rendezvous{}, ErrRendezvousNotFound
 	}
 	return rendezvous, nil
@@ -255,6 +271,10 @@ func (store *RendezvousStore) deleteLocked(rendezvous Rendezvous) {
 		return
 	}
 	delete(store.byID, stored.ID)
+	store.removeMemberIndexLocked(stored.Host, stored.ID)
+	if stored.Controller != nil {
+		store.removeMemberIndexLocked(*stored.Controller, stored.ID)
+	}
 	if stored.Kind == PairingKindDesktopCode {
 		delete(store.codeIndex, stored.CodeHash)
 	}
@@ -263,6 +283,23 @@ func (store *RendezvousStore) deleteLocked(rendezvous Rendezvous) {
 		delete(store.hostCounts, stored.Host)
 	} else {
 		store.hostCounts[stored.Host] = remaining
+	}
+}
+
+func (store *RendezvousStore) indexMemberLocked(deviceID DeviceID, id RendezvousID) {
+	ids := store.memberIndex[deviceID]
+	if ids == nil {
+		ids = make(map[RendezvousID]struct{})
+		store.memberIndex[deviceID] = ids
+	}
+	ids[id] = struct{}{}
+}
+
+func (store *RendezvousStore) removeMemberIndexLocked(deviceID DeviceID, id RendezvousID) {
+	ids := store.memberIndex[deviceID]
+	delete(ids, id)
+	if len(ids) == 0 {
+		delete(store.memberIndex, deviceID)
 	}
 }
 

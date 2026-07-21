@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
+use std::time::Duration;
+
+use futures_util::SinkExt;
 use prost::Message;
 use roammand_host_agent::{
     SignalingClientError, SignalingEvent, SignalingOutbox, SignalingProtocol,
-    validate_signaling_endpoint,
+    WebSocketSignalingTransport, validate_signaling_endpoint,
 };
 use roammand_protocol::{
     protocol_limits::{MAX_OPAQUE_SIGNALING_ENVELOPE_BYTES, MAX_SIGNALING_SERVICE_FRAME_BYTES},
@@ -14,10 +17,27 @@ use roammand_protocol::{
         UnifiedError, signaling_client_frame, signaling_server_frame,
     },
 };
+use tokio::{io::AsyncWriteExt, net::TcpListener, time::timeout};
+use tokio_tungstenite::{
+    accept_hdr_async,
+    tungstenite::{
+        Message as WebSocketMessage,
+        handshake::server::{ErrorResponse, Request, Response},
+        http::{HeaderValue, header::SEC_WEBSOCKET_PROTOCOL},
+        protocol::frame::{
+            Frame,
+            coding::{Data as WebSocketData, OpCode},
+        },
+    },
+};
 
 const DEVICE_ID: [u8; 32] = [0x31; 32];
 const PEER_ID: [u8; 32] = [0x41; 32];
 const RENDEZVOUS_ID: [u8; 16] = [0x51; 16];
+const TRANSPORT_TEST_TIMEOUT: Duration = Duration::from_secs(2);
+const SIGNALING_WEBSOCKET_SUBPROTOCOL: &str = "roammand-signaling.v1.protobuf";
+const WEBSOCKET_FINAL_BINARY_FRAME: u8 = 0x82;
+const WEBSOCKET_64_BIT_PAYLOAD_LENGTH: u8 = 0x7f;
 
 #[test]
 fn registers_relays_heartbeats_and_routes_only_binary_protobuf() {
@@ -55,6 +75,10 @@ fn registers_relays_heartbeats_and_routes_only_binary_protobuf() {
     assert_eq!(relay.recipient_device_id, PEER_ID);
     assert_eq!(relay.opaque_envelope.len(), 128);
     assert!(protocol.heartbeat("heartbeat-1").is_ok());
+    assert_eq!(
+        protocol.heartbeat("heartbeat-while-pending"),
+        Err(SignalingClientError::InvalidState)
+    );
 
     let routed = server_frame(
         "",
@@ -84,6 +108,202 @@ fn registers_relays_heartbeats_and_routes_only_binary_protobuf() {
         protocol.handle_binary(&heartbeat.encode_to_vec()),
         Ok(SignalingEvent::HeartbeatAcknowledged { .. })
     ));
+    assert!(protocol.heartbeat("heartbeat-2").is_ok());
+}
+
+#[test]
+fn heartbeat_acknowledgements_must_correlate_and_are_single_flight() {
+    let mut protocol = ready_protocol();
+    protocol.heartbeat("heartbeat-1").expect("first heartbeat");
+
+    let stale = server_frame(
+        "heartbeat-stale",
+        signaling_server_frame::Payload::HeartbeatAcknowledged(HeartbeatAcknowledged {
+            server_time_unix_ms: 2_100,
+            presence_expires_at_unix_ms: 3_000,
+        }),
+    );
+    assert_eq!(
+        protocol.handle_binary(&stale.encode_to_vec()),
+        Err(SignalingClientError::CorrelationMismatch)
+    );
+    assert_eq!(
+        protocol.heartbeat("heartbeat-2"),
+        Err(SignalingClientError::InvalidState)
+    );
+
+    let correlated = server_frame(
+        "heartbeat-1",
+        signaling_server_frame::Payload::HeartbeatAcknowledged(HeartbeatAcknowledged {
+            server_time_unix_ms: 2_200,
+            presence_expires_at_unix_ms: 3_100,
+        }),
+    );
+    assert!(matches!(
+        protocol.handle_binary(&correlated.encode_to_vec()),
+        Ok(SignalingEvent::HeartbeatAcknowledged { .. })
+    ));
+    assert!(protocol.heartbeat("heartbeat-2").is_ok());
+}
+
+#[test]
+fn heartbeat_acknowledgements_reject_invalid_time_windows_fail_closed() {
+    let mut protocol = ready_protocol();
+    protocol.heartbeat("heartbeat-1").expect("first heartbeat");
+
+    for (server_time_unix_ms, presence_expires_at_unix_ms) in
+        [(0, 3_000), (2_100, 2_100), (2_100, 2_099)]
+    {
+        let invalid = server_frame(
+            "heartbeat-1",
+            signaling_server_frame::Payload::HeartbeatAcknowledged(HeartbeatAcknowledged {
+                server_time_unix_ms,
+                presence_expires_at_unix_ms,
+            }),
+        );
+        assert_eq!(
+            protocol.handle_binary(&invalid.encode_to_vec()),
+            Err(SignalingClientError::InvalidFrame)
+        );
+        assert_eq!(
+            protocol.heartbeat("heartbeat-while-invalid-ack-pending"),
+            Err(SignalingClientError::InvalidState)
+        );
+    }
+
+    let valid = server_frame(
+        "heartbeat-1",
+        signaling_server_frame::Payload::HeartbeatAcknowledged(HeartbeatAcknowledged {
+            server_time_unix_ms: 2_100,
+            presence_expires_at_unix_ms: 3_000,
+        }),
+    );
+    assert!(matches!(
+        protocol.handle_binary(&valid.encode_to_vec()),
+        Ok(SignalingEvent::HeartbeatAcknowledged { .. })
+    ));
+    assert!(protocol.heartbeat("heartbeat-2").is_ok());
+}
+
+#[tokio::test]
+async fn websocket_transport_rejects_oversized_frame_from_header() {
+    let (listener, endpoint) = loopback_signaling_listener().await;
+    let server = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.expect("connection must arrive");
+        let mut socket = accept_hdr_async(stream, select_signaling_subprotocol)
+            .await
+            .expect("WebSocket handshake must complete");
+        let declared_payload_bytes =
+            u64::try_from(MAX_SIGNALING_SERVICE_FRAME_BYTES + 1).expect("protocol cap fits u64");
+        let mut frame_header = [0_u8; 10];
+        frame_header[0] = WEBSOCKET_FINAL_BINARY_FRAME;
+        frame_header[1] = WEBSOCKET_64_BIT_PAYLOAD_LENGTH;
+        frame_header[2..].copy_from_slice(&declared_payload_bytes.to_be_bytes());
+        socket
+            .get_mut()
+            .write_all(&frame_header)
+            .await
+            .expect("oversized frame header must be sent");
+    });
+
+    let mut transport = timeout(
+        TRANSPORT_TEST_TIMEOUT,
+        WebSocketSignalingTransport::connect(&endpoint),
+    )
+    .await
+    .expect("client connection must not time out")
+    .expect("client connection must succeed");
+    assert_eq!(
+        timeout(TRANSPORT_TEST_TIMEOUT, transport.receive_binary())
+            .await
+            .expect("frame rejection must not wait for its payload"),
+        Err(SignalingClientError::FrameTooLarge)
+    );
+    timeout(TRANSPORT_TEST_TIMEOUT, server)
+        .await
+        .expect("server must stop")
+        .expect("server task must succeed");
+}
+
+#[tokio::test]
+async fn websocket_transport_rejects_fragmented_oversized_message_fail_closed() {
+    let (listener, endpoint) = loopback_signaling_listener().await;
+    let first_fragment_bytes = MAX_SIGNALING_SERVICE_FRAME_BYTES / 2;
+    let final_fragment_bytes = MAX_SIGNALING_SERVICE_FRAME_BYTES - first_fragment_bytes + 1;
+    let valid_follow_up = vec![0x51; 16];
+    let server = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.expect("connection must arrive");
+        let mut socket = accept_hdr_async(stream, select_signaling_subprotocol)
+            .await
+            .expect("WebSocket handshake must complete");
+        socket
+            .send(WebSocketMessage::Frame(Frame::message(
+                vec![0_u8; first_fragment_bytes],
+                OpCode::Data(WebSocketData::Binary),
+                false,
+            )))
+            .await
+            .expect("first message fragment must be sent");
+        socket
+            .send(WebSocketMessage::Frame(Frame::message(
+                vec![0_u8; final_fragment_bytes],
+                OpCode::Data(WebSocketData::Continue),
+                true,
+            )))
+            .await
+            .expect("final message fragment must be sent");
+        let _ = socket
+            .send(WebSocketMessage::Binary(valid_follow_up.into()))
+            .await;
+    });
+
+    let mut transport = timeout(
+        TRANSPORT_TEST_TIMEOUT,
+        WebSocketSignalingTransport::connect(&endpoint),
+    )
+    .await
+    .expect("client connection must not time out")
+    .expect("client connection must succeed");
+    assert_eq!(
+        timeout(TRANSPORT_TEST_TIMEOUT, transport.receive_binary())
+            .await
+            .expect("message rejection must not time out"),
+        Err(SignalingClientError::FrameTooLarge)
+    );
+    let follow_up = timeout(TRANSPORT_TEST_TIMEOUT, transport.receive_binary())
+        .await
+        .expect("fail-closed follow-up must not time out");
+    assert!(
+        follow_up.is_err(),
+        "transport accepted a follow-up after rejecting an oversized message"
+    );
+    timeout(TRANSPORT_TEST_TIMEOUT, server)
+        .await
+        .expect("server must stop")
+        .expect("server task must succeed");
+}
+
+async fn loopback_signaling_listener() -> (TcpListener, String) {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("loopback signaling listener must bind");
+    let endpoint = format!(
+        "ws://{}/session",
+        listener.local_addr().expect("listener address must exist")
+    );
+    (listener, endpoint)
+}
+
+#[allow(clippy::result_large_err, clippy::unnecessary_wraps)]
+fn select_signaling_subprotocol(
+    _request: &Request,
+    mut response: Response,
+) -> Result<Response, ErrorResponse> {
+    response.headers_mut().insert(
+        SEC_WEBSOCKET_PROTOCOL,
+        HeaderValue::from_static(SIGNALING_WEBSOCKET_SUBPROTOCOL),
+    );
+    Ok(response)
 }
 
 #[test]

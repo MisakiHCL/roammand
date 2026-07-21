@@ -3,13 +3,16 @@
 package state
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"testing"
 	"time"
 )
 
+const testLimiterEntryCapacity = 128
+
 func TestLimiterRejectsThirtyFirstAttemptFromIP(t *testing.T) {
-	limiter := NewFixedWindowLimiter(time.Minute, 30, 5)
+	limiter := newTestLimiter(time.Minute, 30, 5)
 	now := time.Unix(100, 0)
 
 	for attempt := 0; attempt < 30; attempt++ {
@@ -26,7 +29,7 @@ func TestLimiterRejectsThirtyFirstAttemptFromIP(t *testing.T) {
 }
 
 func TestLimiterRejectsSixthAttemptForLookup(t *testing.T) {
-	limiter := NewFixedWindowLimiter(time.Minute, 30, 5)
+	limiter := newTestLimiter(time.Minute, 30, 5)
 	now := time.Unix(100, 0)
 	key := LookupKeyFromRendezvousID(testRendezvousID(1))
 
@@ -43,7 +46,7 @@ func TestLimiterRejectsSixthAttemptForLookup(t *testing.T) {
 }
 
 func TestLimiterResetsAndSweepsExpiredWindows(t *testing.T) {
-	limiter := NewFixedWindowLimiter(time.Minute, 1, 1)
+	limiter := newTestLimiter(time.Minute, 1, 1)
 	now := time.Unix(100, 0)
 	key := LookupKeyFromPairingCode("ABCDEFGH")
 
@@ -58,4 +61,63 @@ func TestLimiterResetsAndSweepsExpiredWindows(t *testing.T) {
 	if ipWindows != 0 || lookupWindows != 0 {
 		t.Fatalf("window counts = (%d, %d), want zero", ipWindows, lookupWindows)
 	}
+}
+
+func TestLimiterCreateAndJoinShareIPBudget(t *testing.T) {
+	limiter := newTestLimiter(time.Minute, 2, 5)
+	now := time.Unix(100, 0)
+	ip := "192.0.2.1"
+	if !limiter.AllowIP(ip, now).Allowed {
+		t.Fatal("create attempt was rejected")
+	}
+	if !limiter.Allow(ip, LookupKeyFromPairingCode("ABCDEFGH"), now).Allowed {
+		t.Fatal("join attempt was rejected")
+	}
+	decision := limiter.AllowIP(ip, now)
+	if decision.Allowed || decision.RetryAfter != time.Minute {
+		t.Fatalf("shared IP decision = %+v", decision)
+	}
+}
+
+func TestLimiterEntryCapFailsClosedWithoutGrowingMaps(t *testing.T) {
+	limiter := NewFixedWindowLimiter(time.Minute, 30, 5, 1, 1)
+	now := time.Unix(100, 0)
+	firstKey := LookupKeyFromPairingCode("ABCDEFGH")
+	if !limiter.Allow("192.0.2.1", firstKey, now).Allowed {
+		t.Fatal("first attempt was rejected")
+	}
+	for _, attempt := range []struct {
+		ip  string
+		key [sha256.Size]byte
+	}{
+		{ip: "192.0.2.2", key: firstKey},
+		{ip: "192.0.2.1", key: LookupKeyFromPairingCode("BCDEFGHA")},
+	} {
+		decision := limiter.Allow(attempt.ip, attempt.key, now)
+		if decision.Allowed || decision.RetryAfter != time.Minute {
+			t.Fatalf("capacity decision = %+v", decision)
+		}
+	}
+	if ipWindows, lookups := limiter.WindowCounts(); ipWindows != 1 || lookups != 1 {
+		t.Fatalf("window counts = (%d, %d), want (1, 1)", ipWindows, lookups)
+	}
+
+	limiter.Sweep(now.Add(time.Minute))
+	if !limiter.Allow(
+		"192.0.2.2",
+		LookupKeyFromPairingCode("BCDEFGHA"),
+		now.Add(time.Minute),
+	).Allowed {
+		t.Fatal("capacity did not recover after expired windows were swept")
+	}
+}
+
+func newTestLimiter(window time.Duration, maxPerIP int, maxPerLookup int) *FixedWindowLimiter {
+	return NewFixedWindowLimiter(
+		window,
+		maxPerIP,
+		maxPerLookup,
+		testLimiterEntryCapacity,
+		testLimiterEntryCapacity,
+	)
 }

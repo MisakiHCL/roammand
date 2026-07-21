@@ -1,17 +1,31 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
-**/.git
-.git
-**/.dart_tool
-**/build
-**/coverage
-**/target
-**/*.log
+# Docker prefers this file over the repository-root .dockerignore for the
+# signaling Dockerfile. Mirror the same narrow source allowlist here.
+**
+!gen/
+!gen/go/
+!gen/go/**
+!services/
+!services/signaling/
+!services/signaling/**
+
+# Defense in depth if a sensitive file is ever created in an allowed tree.
+**/.env
+**/.env.*
+**/secrets/
+**/secrets/**
 **/*.pem
 **/*.key
-apps
-conformance
-docs
-infra
-licenses
-schema
+**/*.p8
+**/*.p12
+**/*.pfx
+**/*.mobileprovision
+**/id_rsa*
+**/id_ed25519*
+**/.git/
+**/.git/**
+**/bin/
+**/bin/**
+**/coverage.out
+**/*.log

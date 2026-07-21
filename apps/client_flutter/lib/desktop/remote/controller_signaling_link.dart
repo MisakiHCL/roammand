@@ -5,8 +5,10 @@ import 'dart:typed_data';
 
 import 'signaling_client.dart';
 
-const _heartbeatInterval = Duration(seconds: 20);
-const _transportShutdownTimeout = Duration(seconds: 2);
+const _defaultHeartbeatInterval = Duration(seconds: 20);
+const _transportConnectTimeout = Duration(seconds: 10);
+const _registrationTimeout = Duration(seconds: 5);
+const _defaultTransportShutdownTimeout = Duration(seconds: 2);
 
 abstract interface class ControllerSignalingLink {
   Stream<SignalingRoutedSession> get routedSessions;
@@ -26,21 +28,40 @@ final class WebSocketControllerSignalingLink
     required Uri endpoint,
     String Function()? requestIdFactory,
     Future<SignalingTransport> Function(Uri endpoint)? transportFactory,
+    Duration transportConnectTimeout = _transportConnectTimeout,
+    Duration registrationTimeout = _registrationTimeout,
+    Duration heartbeatInterval = _defaultHeartbeatInterval,
+    Duration transportShutdownTimeout = _defaultTransportShutdownTimeout,
   }) => WebSocketControllerSignalingLink._(
     endpoint,
     requestIdFactory,
     transportFactory ?? WebSocketSignalingTransport.connect,
+    transportConnectTimeout,
+    registrationTimeout,
+    heartbeatInterval,
+    transportShutdownTimeout,
   );
 
   WebSocketControllerSignalingLink._(
     this.endpoint,
     this._requestIdFactory,
     this._transportFactory,
-  );
+    this.transportConnectTimeout,
+    this.registrationTimeout,
+    this.heartbeatInterval,
+    this.transportShutdownTimeout,
+  ) : assert(transportConnectTimeout > Duration.zero),
+      assert(registrationTimeout > Duration.zero),
+      assert(heartbeatInterval > Duration.zero),
+      assert(transportShutdownTimeout > Duration.zero);
 
   final Uri endpoint;
   final String Function()? _requestIdFactory;
   final Future<SignalingTransport> Function(Uri endpoint) _transportFactory;
+  final Duration transportConnectTimeout;
+  final Duration registrationTimeout;
+  final Duration heartbeatInterval;
+  final Duration transportShutdownTimeout;
   final StreamController<SignalingRoutedSession> _routed =
       StreamController<SignalingRoutedSession>.broadcast();
   SignalingTransport? _transport;
@@ -49,6 +70,7 @@ final class WebSocketControllerSignalingLink
   Timer? _heartbeatTimer;
   Future<void>? _receiveTask;
   Future<void>? _recoveryFuture;
+  String? _pendingHeartbeatRequestId;
   bool _closed = false;
   int _transportGeneration = 0;
   int _reportedFailureGeneration = 0;
@@ -82,16 +104,21 @@ final class WebSocketControllerSignalingLink
     }
     final generation = ++_transportGeneration;
     final protocol = DesktopSignalingProtocol(_controllerDeviceId!);
-    final transport = await _transportFactory(endpoint);
+    final transport = await _connectTransport();
     if (_closed || generation != _transportGeneration) {
-      await transport.close();
+      await _closeLateTransport(transport, transportShutdownTimeout);
       throw const SignalingClientException(SignalingClientErrorCode.closed);
     }
     _protocol = protocol;
     _transport = transport;
     try {
       transport.send(protocol.registration(_requestId('register')));
-      final registrationFrame = await transport.receiveBinary();
+      final registrationFrame = await transport.receiveBinary().timeout(
+        registrationTimeout,
+        onTimeout: () => throw const SignalingClientException(
+          SignalingClientErrorCode.timeout,
+        ),
+      );
       if (_closed || generation != _transportGeneration) {
         throw const SignalingClientException(SignalingClientErrorCode.closed);
       }
@@ -103,13 +130,32 @@ final class WebSocketControllerSignalingLink
       }
       _receiveTask = _receiveLoop(transport, protocol, generation);
       _heartbeatTimer = Timer.periodic(
-        _heartbeatInterval,
+        heartbeatInterval,
         (_) => _sendHeartbeat(generation),
       );
     } catch (_) {
       await _resetTransport();
       rethrow;
     }
+  }
+
+  Future<SignalingTransport> _connectTransport() async {
+    final pending = _transportFactory(endpoint);
+    return pending.timeout(
+      transportConnectTimeout,
+      onTimeout: () {
+        // Future.timeout cannot cancel the underlying socket attempt. If it
+        // completes later, close that unowned transport immediately.
+        unawaited(
+          pending.then<void>(
+            (transport) =>
+                _closeLateTransport(transport, transportShutdownTimeout),
+            onError: (_) {},
+          ),
+        );
+        throw const SignalingClientException(SignalingClientErrorCode.timeout);
+      },
+    );
   }
 
   @override
@@ -171,14 +217,23 @@ final class WebSocketControllerSignalingLink
                 retryable: event.retryable,
               ),
             );
+          case SignalingHeartbeatAcknowledged(:final requestId):
+            if (requestId != _pendingHeartbeatRequestId) {
+              throw const SignalingClientException(
+                SignalingClientErrorCode.correlationMismatch,
+              );
+            }
+            _pendingHeartbeatRequestId = null;
           case SignalingRegistered():
-          case SignalingHeartbeatAcknowledged():
             break;
         }
       }
-    } catch (_) {
+    } catch (error) {
       if (!_closed && generation == _transportGeneration) {
-        _reportFailure(generation);
+        _reportFailure(
+          generation,
+          error is SignalingClientException ? error : null,
+        );
       }
     }
   }
@@ -192,9 +247,19 @@ final class WebSocketControllerSignalingLink
         protocol == null) {
       return;
     }
+    if (_pendingHeartbeatRequestId != null) {
+      _reportFailure(
+        generation,
+        const SignalingClientException(SignalingClientErrorCode.timeout),
+      );
+      return;
+    }
     try {
-      transport.send(protocol.heartbeat(_requestId('heartbeat')));
+      final requestId = _requestId('heartbeat');
+      _pendingHeartbeatRequestId = requestId;
+      transport.send(protocol.heartbeat(requestId));
     } catch (_) {
+      _pendingHeartbeatRequestId = null;
       if (!_closed && generation == _transportGeneration) {
         _reportFailure(generation);
       }
@@ -206,6 +271,8 @@ final class WebSocketControllerSignalingLink
       return;
     }
     _reportedFailureGeneration = generation;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     _routed.addError(
       cause ??
           const SignalingClientException(SignalingClientErrorCode.transport),
@@ -236,6 +303,7 @@ final class WebSocketControllerSignalingLink
     _transportGeneration += 1;
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
+    _pendingHeartbeatRequestId = null;
     final transport = _transport;
     _transport = null;
     _protocol = null;
@@ -243,7 +311,7 @@ final class WebSocketControllerSignalingLink
     _receiveTask = null;
     var transportClosed = true;
     try {
-      await transport?.close().timeout(_transportShutdownTimeout);
+      await transport?.close().timeout(transportShutdownTimeout);
     } catch (_) {
       // A failed close may leave receiveBinary blocked indefinitely. The
       // generation gate still prevents that stale task from publishing.
@@ -251,8 +319,19 @@ final class WebSocketControllerSignalingLink
     }
     if (receiveTask != null && transportClosed) {
       try {
-        await receiveTask.timeout(_transportShutdownTimeout);
+        await receiveTask.timeout(transportShutdownTimeout);
       } catch (_) {}
     }
+  }
+}
+
+Future<void> _closeLateTransport(
+  SignalingTransport transport,
+  Duration timeout,
+) async {
+  try {
+    await transport.close().timeout(timeout);
+  } catch (_) {
+    // This transport no longer belongs to a live connection generation.
   }
 }

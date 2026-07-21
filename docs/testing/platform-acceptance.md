@@ -15,6 +15,6 @@ Platform acceptance covers installed Host components, protected graphical sessio
 | iOS Controller | Flutter tests and Simulator build | Camera pairing, gestures, keyboard, rotation, background |
 | Android Controller | Flutter tests and Debug build | Camera pairing, gestures, keyboard, rotation, background |
 | Failure safety | Lease, route, process, and input property tests | Broker/Helper termination with immediate input release |
-| Removal | Package contracts | Administrator uninstall with user identity and grants retained |
+| Removal | Package contracts | macOS removes app data and app-specific TCC decisions; Windows removes program/service data but currently retains each user's identity and grants |
 
 Record the operating-system version, device model, package identity, network path, date, and result. Follow the [manual acceptance checklist](../operations/final-product-acceptance.md) for the complete sequence.

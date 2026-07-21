@@ -98,6 +98,13 @@ After `make bootstrap`, the supported Make targets reuse the locked package
 cache without accessing pub.dev. Append `--no-pub` when invoking Flutter
 manually. Use the command for the connected platform. The first launch confirms a best-effort system device name and creates an Ed25519 identity in protected local storage. A desktop Host also uses its system computer name when available. Pairing accepts QR data only from the camera. After Host-local approval, choose **Connect** on the saved Host card to render video and use tap, double-tap, long-press drag, two-finger right-click, scroll, pinch zoom, text, modifiers, and special keys. The edit action on a saved computer sets a Controller-local alias without changing the Host identity or authorization.
 
+Mobile identity keys are device-bound: iOS uses a non-synchronizing,
+this-device-only Keychain accessibility class. Android disables application
+backup and explicitly excludes every application storage domain from both
+cloud backup and device-to-device transfer using the platform's versioned XML
+rules. The secure-storage migration backup remains a same-device rollback
+mechanism for encryption-algorithm upgrades, not an identity recovery channel.
+
 The signaling endpoint is read from the validated per-Host binding. The STUN
 service and the default signaling address for future manual pairing flows are
 edited in **Network services**. Re-pairing an authenticated Host updates its
@@ -108,7 +115,13 @@ Backgrounding releases remote input and closes the session. Resuming never recon
 
 ## Reconnect and Diagnostics
 
-A foreground session that loses signaling or its peer releases and blocks input, then shows reconnect progress over the complete 30-second recovery window. Each attempt uses fresh signed authentication. Automatic recovery stops after the fifth attempt; the failure surface offers an explicit retry that creates fresh session resources.
+A foreground session that loses signaling or its peer releases and blocks
+input, then follows a bounded five-attempt schedule whose timer delays and final
+grace form a 30-second policy window; network and peer operations can add
+wall-clock time. Each attempt uses fresh signed authentication. The Host retains
+the reconnecting session for at most 45 seconds. Automatic recovery stops after
+the fifth attempt and grace; the failure surface offers an explicit retry that
+creates fresh session resources.
 
 Desktop and mobile remote pages expose **Diagnostics**. The dialog lists the allowlisted aggregate session/reconnect/WebRTC data and the identifiers, network details, payloads, input, and screen data that are excluded. Saving is user initiated and local; the app never uploads a report automatically. See [Authenticated reconnect V1](../../docs/architecture/reconnect-v1.md) and [Privacy-safe diagnostics](../../docs/security/privacy-safe-diagnostics.md).
 

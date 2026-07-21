@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart' as hashes;
@@ -22,6 +23,9 @@ import 'signaling_client.dart';
 export 'controller_signaling_link.dart';
 export '../../diagnostics/diagnostics_model.dart' show DiagnosticsReport;
 
+part 'remote_desktop_diagnostics.dart';
+part 'remote_desktop_models.dart';
+
 const _sessionIdBytes = 16;
 const _nonceBytes = 32;
 const _authenticationLifetime = Duration(seconds: 30);
@@ -31,94 +35,6 @@ const _appVersion = String.fromEnvironment(
   'ROAMMAND_APP_VERSION',
   defaultValue: '0.0.1',
 );
-
-enum RemoteDesktopState {
-  idle,
-  connecting,
-  authenticating,
-  negotiating,
-  connected,
-  reconnecting,
-  closing,
-  failed,
-}
-
-enum RemoteDesktopErrorCode {
-  configuration,
-  localIdentity,
-  signaling,
-  authentication,
-  peer,
-  remote,
-}
-
-final class RemoteReconnectProgress {
-  const RemoteReconnectProgress({
-    required this.attempt,
-    required this.maximumAttempts,
-    required this.elapsed,
-    required this.recoveryWindow,
-  });
-
-  final int attempt;
-  final int maximumAttempts;
-  final Duration elapsed;
-  final Duration recoveryWindow;
-
-  Duration get remaining => recoveryWindow - elapsed;
-}
-
-abstract interface class RemoteDesktopViewModel implements Listenable {
-  RemoteDesktopState get state;
-
-  RemoteDesktopErrorCode? get errorCode;
-
-  RemoteReconnectProgress? get reconnectProgress;
-
-  DiagnosticsReport get diagnosticsReport;
-
-  bool get canRetry;
-
-  Object get videoRenderer;
-
-  RemoteInputSender? get inputSender;
-
-  Future<void> connect(RemoteDesktopTarget target);
-
-  Future<void> retry();
-
-  Future<void> close();
-
-  void dispose();
-}
-
-final class RemoteDesktopTarget {
-  RemoteDesktopTarget({
-    required DeviceIdentity hostIdentity,
-    required this.signalingEndpoint,
-  }) : hostIdentity = hostIdentity.deepCopy();
-
-  final DeviceIdentity hostIdentity;
-  final Uri signalingEndpoint;
-
-  void validate() {
-    try {
-      validateDeviceIdentity(hostIdentity);
-      validateSignalingEndpoint(signalingEndpoint);
-    } catch (_) {
-      throw const RemoteDesktopException(RemoteDesktopErrorCode.configuration);
-    }
-  }
-}
-
-final class RemoteDesktopException implements Exception {
-  const RemoteDesktopException(this.code);
-
-  final RemoteDesktopErrorCode code;
-
-  @override
-  String toString() => 'RemoteDesktopException(${code.name})';
-}
 
 final class _RemoteDesktopOperationCancelled implements Exception {
   const _RemoteDesktopOperationCancelled();
@@ -377,7 +293,9 @@ final class RemoteDesktopController extends ChangeNotifier
         SessionPermission.SESSION_PERMISSION_VIEW_SCREEN,
         SessionPermission.SESSION_PERMISSION_CONTROL_INPUT,
       ],
-      offerSha256: hashes.sha256.convert(peerOffer.sdp.codeUnits).bytes,
+      // Rust authenticates the SDP's UTF-8 wire bytes. Using Dart UTF-16 code
+      // units here would make otherwise valid non-ASCII SDP fail binding.
+      offerSha256: hashes.sha256.convert(utf8.encode(peerOffer.sdp)).bytes,
       controllerDtlsFingerprintSha256: peerOffer.dtlsFingerprintSha256,
     );
   }
@@ -1061,138 +979,4 @@ final class RemoteDesktopController extends ChangeNotifier
     unawaited(close());
     super.dispose();
   }
-}
-
-enum _RemoteDebugOperation {
-  openIdentity,
-  connectSignaling,
-  createPeerOffer,
-  sendAuthenticatedOffer,
-  decodeRoutedEnvelope,
-  applyRemoteAnswer,
-  addRemoteCandidate,
-  relayLocalCandidate,
-  relayClosingStatus,
-  signalingStream,
-  peerStream,
-  candidateStream,
-  cancelCandidateStream,
-  cancelPeerStream,
-  cancelSignalingStream,
-  closePeer,
-  closeSignaling,
-  closeIdentity,
-  remoteError,
-  peerEvent,
-  terminalFailure,
-}
-
-Future<void> _bestEffortRemoteCleanup(
-  _RemoteDebugOperation operation,
-  Future<void> Function() cleanup,
-) async {
-  try {
-    await cleanup();
-  } catch (error) {
-    _debugRemoteFailure(operation, error);
-  }
-}
-
-void _debugRemoteFailure(_RemoteDebugOperation operation, Object error) {
-  if (!kDebugMode) return;
-  final cause = switch (error) {
-    RemoteDesktopException(:final code) => code.name,
-    SignalingClientException(:final code) => code.name,
-    SignalingRemoteException(:final code) => code.name,
-    SessionAnswerAuthenticationException(:final code) => code.name,
-    SessionReconnectAuthenticationException(:final code) => code.name,
-    PeerSessionException(:final code) => code.name,
-    ProtocolValidationException(:final code) => code.wireName,
-    ControllerSessionIdentityException() => 'identityUnavailable',
-    _ => error.runtimeType.toString(),
-  };
-  _debugRemoteReason(operation, cause);
-}
-
-void _debugRemoteReason(_RemoteDebugOperation operation, String cause) {
-  if (!kDebugMode) return;
-  debugPrint('[remote] operation=${operation.name} cause=$cause');
-}
-
-Uint8List _secureRandomBytes(int length) {
-  final random = Random.secure();
-  return Uint8List.fromList(
-    List<int>.generate(length, (_) => random.nextInt(256), growable: false),
-  );
-}
-
-int _systemNowUnixMs() => DateTime.now().millisecondsSinceEpoch;
-
-DiagnosticsOsFamily _currentOsFamily() => switch (defaultTargetPlatform) {
-  TargetPlatform.android => DiagnosticsOsFamily.android,
-  TargetPlatform.iOS => DiagnosticsOsFamily.ios,
-  TargetPlatform.linux => DiagnosticsOsFamily.linux,
-  TargetPlatform.macOS => DiagnosticsOsFamily.macos,
-  TargetPlatform.windows => DiagnosticsOsFamily.windows,
-  TargetPlatform.fuchsia => DiagnosticsOsFamily.unknown,
-};
-
-DiagnosticsSessionState _diagnosticSessionState(RemoteDesktopState state) =>
-    switch (state) {
-      RemoteDesktopState.idle => DiagnosticsSessionState.idle,
-      RemoteDesktopState.connecting => DiagnosticsSessionState.connecting,
-      RemoteDesktopState.authenticating =>
-        DiagnosticsSessionState.authenticating,
-      RemoteDesktopState.negotiating => DiagnosticsSessionState.negotiating,
-      RemoteDesktopState.connected => DiagnosticsSessionState.connected,
-      RemoteDesktopState.reconnecting => DiagnosticsSessionState.reconnecting,
-      RemoteDesktopState.closing => DiagnosticsSessionState.closing,
-      RemoteDesktopState.failed => DiagnosticsSessionState.failed,
-    };
-
-DiagnosticsErrorCategory _diagnosticErrorCategory(
-  RemoteDesktopErrorCode code,
-) => switch (code) {
-  RemoteDesktopErrorCode.configuration =>
-    DiagnosticsErrorCategory.configuration,
-  RemoteDesktopErrorCode.localIdentity =>
-    DiagnosticsErrorCategory.localIdentity,
-  RemoteDesktopErrorCode.signaling => DiagnosticsErrorCategory.signaling,
-  RemoteDesktopErrorCode.authentication =>
-    DiagnosticsErrorCategory.authentication,
-  RemoteDesktopErrorCode.peer => DiagnosticsErrorCategory.peer,
-  RemoteDesktopErrorCode.remote => DiagnosticsErrorCategory.remote,
-};
-
-DiagnosticsErrorCode _diagnosticErrorCode(
-  RemoteDesktopErrorCode code,
-) => switch (code) {
-  RemoteDesktopErrorCode.configuration => DiagnosticsErrorCode.configuration,
-  RemoteDesktopErrorCode.localIdentity =>
-    DiagnosticsErrorCode.identityUnavailable,
-  RemoteDesktopErrorCode.signaling => DiagnosticsErrorCode.signalingUnavailable,
-  RemoteDesktopErrorCode.authentication =>
-    DiagnosticsErrorCode.authenticationFailed,
-  RemoteDesktopErrorCode.peer => DiagnosticsErrorCode.iceFailed,
-  RemoteDesktopErrorCode.remote => DiagnosticsErrorCode.remoteFailed,
-};
-
-DiagnosticsErrorCode _diagnosticSignalingRemoteError(ErrorCode code) =>
-    switch (code) {
-      ErrorCode.ERROR_CODE_DEVICE_OFFLINE => DiagnosticsErrorCode.deviceOffline,
-      ErrorCode.ERROR_CODE_DEVICE_BUSY => DiagnosticsErrorCode.deviceBusy,
-      ErrorCode.ERROR_CODE_SERVER_UNAVAILABLE =>
-        DiagnosticsErrorCode.serverUnavailable,
-      _ => DiagnosticsErrorCode.signalingRejected,
-    };
-
-bool _bytesEqual(List<int> left, List<int> right) {
-  if (left.length != right.length) {
-    return false;
-  }
-  var difference = 0;
-  for (var index = 0; index < left.length; index += 1) {
-    difference |= left[index] ^ right[index];
-  }
-  return difference == 0;
 }

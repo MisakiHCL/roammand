@@ -14,7 +14,7 @@ func decodeClientFrame(
 	encoded []byte,
 ) (*roammandv1.SignalingClientFrame, roammandv1.ErrorCode) {
 	frame := &roammandv1.SignalingClientFrame{}
-	if err := proto.Unmarshal(encoded, frame); err != nil {
+	if err := (proto.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(encoded, frame); err != nil {
 		return frame, roammandv1.ErrorCode_ERROR_CODE_INVALID_REQUEST
 	}
 	if frame.ProtocolVersion == nil ||

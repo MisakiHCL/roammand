@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -62,15 +63,10 @@ func run(
 	options.TrustedProxyCIDRs = loaded.TrustedProxyCIDRs
 	options.MaxConnections = loaded.MaxConnections
 	options.MaxConnectionsPerIP = loaded.MaxConnectionsPerIP
+	options.MaxRendezvous = loaded.MaxRendezvous
 	options.MaxRendezvousPerHost = loaded.MaxRendezvousPerHost
 	signalingServer := service.New(ctx, logger, options)
-	httpServer := &http.Server{
-		Handler:           signalingServer.Handler(),
-		ReadHeaderTimeout: readHeaderTimeout,
-		IdleTimeout:       idleTimeout,
-		MaxHeaderBytes:    maxHeaderBytes,
-		ErrorLog:          logger.HTTPErrorLog(),
-	}
+	httpServer := newHTTPServer(signalingServer.Handler(), logger)
 
 	scheme := "ws"
 	if loaded.TLSConfigured() {
@@ -110,6 +106,19 @@ func run(
 			return errors.Join(shutdownErr, fmt.Errorf("serve: %w", serveErr))
 		}
 		return shutdownErr
+	}
+}
+
+func newHTTPServer(handler http.Handler, logger *safelog.Logger) *http.Server {
+	return &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: readHeaderTimeout,
+		IdleTimeout:       idleTimeout,
+		MaxHeaderBytes:    maxHeaderBytes,
+		ErrorLog:          logger.HTTPErrorLog(),
+		TLSConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
 	}
 }
 

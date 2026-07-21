@@ -53,6 +53,10 @@ final class FlutterMobileIdentitySecureStore
             aOptions: AndroidOptions(
               resetOnError: false,
               migrateOnAlgorithmChange: true,
+              // This is a same-device rollback copy used only while the
+              // plugin migrates encryption algorithms. Platform cloud backup
+              // and device-to-device transfer exclude all application data
+              // through the release manifest's versioned XML rules.
               migrateWithBackup: true,
               storageNamespace: _secureStorageNamespace,
             ),
