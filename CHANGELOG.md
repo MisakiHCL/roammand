@@ -10,6 +10,8 @@ and released versions follow semantic versioning.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-07-21
+
 ### Added
 
 - Added weekly dependency update coverage for Rust, Go, Dart/Flutter,
@@ -58,6 +60,9 @@ and released versions follow semantic versioning.
 - Kept valid heartbeat acknowledgements correlated under heavy pairing relay
   traffic instead of evicting the pending request from bounded history.
 
+Version 1.0.2 supersedes 1.0.1. The published macOS artifact is a
+Developer ID-signed, Apple-notarized, stapled package for macOS 14.4 or later.
+
 ## [1.0.1] - 2026-07-19
 
 ### Added
@@ -95,6 +100,7 @@ Apple-notarized, stapled macOS package for macOS 14.4 or later.
 This release contains known issues and is retained only for version history. Do
 not install it; use 1.0.1 or a later release.
 
-[Unreleased]: https://github.com/MisakiHCL/roammand/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/MisakiHCL/roammand/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/MisakiHCL/roammand/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/MisakiHCL/roammand/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/MisakiHCL/roammand/releases/tag/v1.0.0

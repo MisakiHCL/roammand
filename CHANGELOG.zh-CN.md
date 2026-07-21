@@ -10,6 +10,8 @@
 
 ## [未发布]
 
+## [1.0.2] - 2026-07-21
+
 ### 新增
 
 - 为 Rust、Go、Dart/Flutter、容器和 GitHub Actions 增加每周依赖更新，并在
@@ -50,6 +52,9 @@
 - 在高频配对 relay 流量下仍保留合法 heartbeat 确认的严格关联，避免待确认请求被
   有界历史记录淘汰。
 
+1.0.2 已取代 1.0.1。公开 macOS 制品是适用于 macOS 14.4 或更高版本、经过
+Developer ID 签名、Apple 公证并附加公证票据的安装包。
+
 ## [1.0.1] - 2026-07-19
 
 ### 新增
@@ -82,6 +87,7 @@ ID 签名、Apple 公证并附加公证票据的安装包。
 
 该版本包含已知问题，仅保留用于版本历史。请勿安装，应使用 1.0.1 或更高版本。
 
-[未发布]: https://github.com/MisakiHCL/roammand/compare/v1.0.1...HEAD
+[未发布]: https://github.com/MisakiHCL/roammand/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/MisakiHCL/roammand/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/MisakiHCL/roammand/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/MisakiHCL/roammand/releases/tag/v1.0.0
