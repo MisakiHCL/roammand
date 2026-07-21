@@ -28,6 +28,22 @@ readonly STEP_TARGETS=(
 
 cd "$ROOT_DIR"
 
+readonly CI_WORKFLOW="$ROOT_DIR/.github/workflows/ci.yml"
+ios_cocoapods_version="$(awk '$1 == "COCOAPODS:" { print $2 }' \
+  apps/client_flutter/ios/Podfile.lock)"
+macos_cocoapods_version="$(awk '$1 == "COCOAPODS:" { print $2 }' \
+  apps/client_flutter/macos/Podfile.lock)"
+if [[ -z "$ios_cocoapods_version" ||
+      "$ios_cocoapods_version" != "$macos_cocoapods_version" ]]; then
+  printf 'Apple Pod lockfiles must use one explicit CocoaPods version\n' >&2
+  exit 1
+fi
+if ! rg --quiet "^  COCOAPODS_VERSION: ${ios_cocoapods_version}$" "$CI_WORKFLOW" ||
+  [[ "$(rg -c 'name: Install locked CocoaPods' "$CI_WORKFLOW")" -ne 2 ]]; then
+  printf 'Apple CI builds must install the CocoaPods version from the lockfiles\n' >&2
+  exit 1
+fi
+
 for target in "${TARGETS[@]}"; do
   rg --quiet "^${target}:" Makefile || {
     printf 'missing product workflow target: %s\n' "$target" >&2

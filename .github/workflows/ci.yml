@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  COCOAPODS_VERSION: 1.16.2
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -63,6 +66,18 @@ jobs:
           flutter-version: 3.44.0
           channel: stable
           cache: true
+      - name: Install locked CocoaPods
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          gem_root="$RUNNER_TEMP/cocoapods-$COCOAPODS_VERSION"
+          mkdir -p "$gem_root/bin"
+          GEM_HOME="$gem_root" GEM_PATH="$gem_root" gem install cocoapods \
+            --version "$COCOAPODS_VERSION" --install-dir "$gem_root" \
+            --bindir "$gem_root/bin" --no-document
+          "$gem_root/bin/pod" --version
+          printf 'GEM_HOME=%s\nGEM_PATH=%s\n' "$gem_root" "$gem_root" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$gem_root" >> "$GITHUB_PATH"
       - name: Resolve protocol packages
         working-directory: gen/dart
         run: dart pub get --enforce-lockfile
@@ -121,6 +136,18 @@ jobs:
           flutter-version: 3.44.0
           channel: stable
           cache: true
+      - name: Install locked CocoaPods
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          gem_root="$RUNNER_TEMP/cocoapods-$COCOAPODS_VERSION"
+          mkdir -p "$gem_root/bin"
+          GEM_HOME="$gem_root" GEM_PATH="$gem_root" gem install cocoapods \
+            --version "$COCOAPODS_VERSION" --install-dir "$gem_root" \
+            --bindir "$gem_root/bin" --no-document
+          "$gem_root/bin/pod" --version
+          printf 'GEM_HOME=%s\nGEM_PATH=%s\n' "$gem_root" "$gem_root" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$gem_root" >> "$GITHUB_PATH"
       - name: Resolve protocol packages
         working-directory: gen/dart
         run: dart pub get --enforce-lockfile
