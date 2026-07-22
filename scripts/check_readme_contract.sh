@@ -155,6 +155,27 @@ for expected in \
   require_text "$CHINESE_BUILDING_DOC" "$expected"
 done
 
+for expected in \
+  'independent release trains' \
+  'versions and build numbers do not need to match.' \
+  'must not automatically trigger' \
+  '--build-name=IOS_MARKETING_VERSION' \
+  '--build-number=IOS_BUILD_NUMBER'; do
+  require_text "$BUILDING_DOC" "$expected"
+done
+
+for expected in \
+  '两条独立的发布线' \
+  '两端的营销版本号和构建号不要求一致' \
+  '不得自动触发 iOS 发布' \
+  '--build-name=IOS_MARKETING_VERSION' \
+  '--build-number=IOS_BUILD_NUMBER'; do
+  require_text "$CHINESE_BUILDING_DOC" "$expected"
+done
+
+require_text "CONTRIBUTING.md" \
+  'they do not require the iOS TestFlight/App Store marketing version'
+
 require_text "$BRAND_README" 'Night Aurora'
 require_text "$CHINESE_BRAND_README" '夜极光'
 require_text "$BUILDING_DOC" '[简体中文](BUILDING.zh-CN.md)'

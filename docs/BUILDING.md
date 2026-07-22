@@ -299,6 +299,46 @@ flutter build windows --release --no-pub
 
 Build output remains under `apps/client_flutter/build/` and is ignored by Git.
 
+## Release channels and versioning
+
+The macOS package published through GitHub Releases and the iOS app distributed
+through TestFlight/App Store are independent release trains. Their marketing
+versions and build numbers do not need to match. Choose each platform's version
+and release date from the changes it actually ships, its previous release in
+that channel, distribution requirements, and review state.
+
+- Publishing or tagging a macOS GitHub Release must not automatically trigger,
+  bump, rebuild, or upload an iOS release.
+- An iOS submission, review wait, rejection, or resubmission must not delay or
+  renumber a macOS GitHub Release.
+- Matching versions are optional and should be used only when both platforms'
+  release scope and timing genuinely align.
+- Every release record must identify the platform, channel, marketing version,
+  build number, and source commit. A repository tag or macOS GitHub Release does
+  not claim that an iOS build with the same version exists or has shipped.
+
+The version in `apps/client_flutter/pubspec.yaml` is the Flutter project's
+shared build default, not a cross-channel version-locking policy. The current
+macOS packaging workflow consumes that default. Before creating an iOS Archive,
+choose the iOS marketing version and build number independently from the App
+Store Connect history, then pass both values explicitly (replace the uppercase
+placeholders):
+
+```bash
+cd apps/client_flutter
+flutter build ipa --release \
+  --build-name=IOS_MARKETING_VERSION \
+  --build-number=IOS_BUILD_NUMBER \
+  --no-pub
+```
+
+Before upload, verify `CFBundleShortVersionString` and `CFBundleVersion` in the
+Archive. Record releases unambiguously, for example, `macOS GitHub Release
+1.4.0 (build 18)` or `iOS TestFlight 1.2.3 (build 27)`. App Store Connect uses
+the bundle ID and version to associate a build with its version record and the
+build string to identify that build uniquely; see Apple's
+[build upload guidance](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds).
+
 ## Package the installed Host
 
 Package scripts require a clean worktree for their default Release build. They stage only allowlisted apps, agents, bridge/helpers, service definitions, licenses, a protected uninstaller, and a sorted SHA-256 manifest. Device identities, grants, endpoints, credentials, private keys, and local developer paths are excluded.

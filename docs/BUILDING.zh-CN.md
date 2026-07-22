@@ -270,6 +270,41 @@ flutter build windows --release --no-pub
 
 构建产物保存在 `apps/client_flutter/build/`，并由 Git 忽略。
 
+## 发布通道与版本规则
+
+通过 GitHub Releases 发布的 macOS 安装包与通过 TestFlight/App Store 分发的
+iOS App 是两条独立的发布线。两端的营销版本号和构建号不要求一致。每个平台应根据
+实际包含的改动、该通道上一次已发布版本、分发要求和审核状态，独立决定版本号与
+发布时间。
+
+- 发布或标记 macOS GitHub Release，不得自动触发 iOS 发布，也不得仅为对齐版本号
+  而升级、重新构建或上传 iOS App。
+- iOS 提交、等待审核、被拒或重新提交，不得阻塞 macOS GitHub Release，也不得据此
+  重编号 macOS 版本。
+- 只有两端的发布范围和时间确实一致时，才可以主动采用相同版本号；版本一致不是
+  发布要求。
+- 每条发布记录都必须明确平台、通道、营销版本号、构建号和源码提交。仓库 tag 或
+  macOS GitHub Release 不代表同版本 iOS 构建已经存在或已经发布。
+
+`apps/client_flutter/pubspec.yaml` 中的版本只是 Flutter 工程的共享构建默认值，
+不是跨发布通道锁定版本的规则。当前 macOS 打包流程会读取该默认值。创建 iOS
+Archive 前，必须根据 App Store Connect 历史独立确定 iOS 营销版本号和构建号，
+并显式传入两个值（执行前替换下列大写占位符）：
+
+```bash
+cd apps/client_flutter
+flutter build ipa --release \
+  --build-name=IOS_MARKETING_VERSION \
+  --build-number=IOS_BUILD_NUMBER \
+  --no-pub
+```
+
+上传前必须核对 Archive 中的 `CFBundleShortVersionString` 与 `CFBundleVersion`。
+发布记录应写成 `macOS GitHub Release 1.4.0 (build 18)` 或 `iOS TestFlight
+1.2.3 (build 27)` 等无歧义形式。App Store Connect 使用 Bundle ID 与版本号把构建
+关联到版本记录，并使用构建字符串唯一识别该构建；参见 Apple 的
+[构建上传说明](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds)。
+
 ## 打包可安装的 Host
 
 默认 Release 构建要求工作树干净。打包脚本只会暂存允许的 App、Agent、Bridge/Helper、服务定义、许可证、受保护卸载器和排序后的 SHA-256 清单。设备身份、授权、连接地址、凭据、私钥和本地开发者路径不会进入安装包。

@@ -30,6 +30,11 @@ for the component you plan to change. User-visible release notes belong in the
 [changelog](CHANGELOG.md) under **Unreleased** and move to a dated version only
 when that version is tagged.
 
+Repository tags and dated changelog headings identify the source/GitHub release
+line; they do not require the iOS TestFlight/App Store marketing version or
+build number to match the macOS GitHub Release. Follow the independent release
+channel policy in [Building Roammand from source](docs/BUILDING.md#release-channels-and-versioning).
+
 ## Set up the workspace
 
 The repository pins Flutter, Go, Rust, and Buf versions. From the repository
