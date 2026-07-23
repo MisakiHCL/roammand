@@ -234,6 +234,18 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: ./scripts/test_m8_macos_package.sh
+      - name: Check macOS release compliance generation
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          validator_venv="$RUNNER_TEMP/roammand-spdx-tools"
+          python3 -m venv "$validator_venv"
+          "$validator_venv/bin/python" -m pip install \
+            --disable-pip-version-check \
+            --no-input \
+            spdx-tools==0.8.5
+          ROAMMAND_SPDX_TOOLS_PYTHON="$validator_venv/bin/python" \
+            ./scripts/test_macos_release_compliance.sh
       - name: Check Windows package and WhatIf
         if: runner.os == 'Windows'
         shell: bash

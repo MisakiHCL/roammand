@@ -18,6 +18,20 @@ Roammand extends the personal workspace beyond the desk. It keeps identity and
 authority with the owner while making active work reachable from another trusted
 device. Remote control supports a more continuous personal workflow.
 
+## Ownership and permitted use
+
+The Roammand visual brand assets were created by ChengLong Hu, who holds their
+copyright. They are authorized for use in the official Roammand source and
+binary distributions. Their inclusion in this repository or an official
+Roammand binary does not grant a standalone trademark right or permission to
+use the Roammand name, logo, or other marks to identify, endorse, or promote
+another product.
+
+This guide does not place the visual artwork under an additional open-source
+asset license. The Apache-2.0 identifier at the top of this file applies to the
+guide text; code, documentation, third-party material, and other repository
+paths remain governed by [the licensing overview](../LICENSES.md).
+
 ## Name and voice
 
 “Roammand” combines *roam* and *command*. Keep the spelling and capitalization exactly `Roammand`; do not split or translate the product name.

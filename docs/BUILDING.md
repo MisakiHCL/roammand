@@ -343,19 +343,24 @@ build string to identify that build uniquely; see Apple's
 
 Package scripts require a clean worktree for their default Release build. They stage only allowlisted apps, agents, bridge/helpers, service definitions, licenses, a protected uninstaller, and a sorted SHA-256 manifest. Device identities, grants, endpoints, credentials, private keys, and local developer paths are excluded.
 
-The package allowlist and manifest are technical integrity checks; they do not
-generate an exhaustive third-party notice set or software bill of materials.
-Before any public binary or container distribution, derive both from the exact
-Rust, Flutter/Dart, CocoaPods, Go, native WebRTC, and container dependency graph,
-review every applicable term, and add the required license/notice files to the
-shipped artifact or accompanying source location. An incomplete inventory is a
-release blocker. See [Licensing](../LICENSES.md) for the current scope and known
-notice boundary.
+The package allowlist and install manifest are technical integrity checks; they
+are not substitutes for release compliance records. The macOS workflow
+separately generates `SBOM.spdx.json`, `THIRD_PARTY_NOTICES.md`, and
+`SOURCE_CODE.md` from the exact staged payload and the locked Cargo, Dart/pub,
+CocoaPods, Flutter, and native WebRTC inputs. An unknown license, missing
+notice, invalid provenance record, or incomplete required input stops
+generation before the release files are replaced and blocks the release.
+The package gate validates the complete three-file set, while CI also checks
+the generated SPDX document with pinned `spdx-tools` 0.8.5. Other independently
+distributed binaries, containers, iOS builds, and hosted services require
+their own artifact-specific inventory and review. See
+[Licensing](../LICENSES.md) for the scope.
 
 ### macOS
 
 `make package-macos` builds Universal `arm64 + x86_64` app and background
-components, then stages the directory used for development acceptance:
+components, generates the macOS compliance records, and stages the directory
+used for development acceptance:
 
 ```bash
 make package-macos
@@ -375,9 +380,12 @@ make package-macos-signed
 ```
 
 The workflow signs Frameworks, standalone Agents, the nested Session Agent,
-and the app in inside-out order using Developer ID Application and Hardened Runtime, regenerates the
-manifest after signing, and creates `dist/apple-release/Roammand.pkg` with
-Developer ID Installer.
+and the app in inside-out order using Developer ID Application and Hardened
+Runtime. It then regenerates the compliance records and install manifest so
+their hashes describe the signed payload, and creates
+`dist/apple-release/Roammand.pkg` with Developer ID Installer.
+Compliance records use their actual UTC generation time unless a controlled
+reproducible build explicitly sets `SOURCE_DATE_EPOCH`.
 
 Store notarization credentials interactively in Keychain so the Apple ID,
 Team ID, and password never appear in command arguments:

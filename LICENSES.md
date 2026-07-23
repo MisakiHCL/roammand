@@ -19,10 +19,20 @@ terms for project-authored material.
 
 Full license texts are stored in `licenses/`. Project-authored source files carry the matching SPDX identifier; generated scaffolding inherits the license of its component path.
 
+Unless a file or contribution states otherwise, ChengLong Hu holds the
+copyright in Roammand project-authored material and licenses that material
+under the path-specific terms above. Third-party and other contributor rights
+remain with their respective holders.
+
 A third-party file, generated artifact, or embedded notice keeps its own terms
-even when located under one of these paths. The repository does not currently
-state a standalone copyright/trademark policy for the visual brand assets; ask
-the maintainer before redistributing those assets independently.
+even when located under one of these paths. The Roammand visual brand artwork
+under `brand/`—excluding the Apache-2.0 guide text—and its generated visual
+derivatives are original works created by and copyrighted by ChengLong Hu.
+Their use in official Roammand source and binary distributions is authorized,
+but that inclusion does not grant a standalone trademark right or a separate
+open-source license for the artwork. Ask the rights holder before independently
+redistributing the artwork or using the Roammand name or marks to identify,
+endorse, or promote another product.
 
 Dependencies and bundled third-party assets retain their own licenses. A component license does not replace third-party notices.
 
@@ -54,17 +64,47 @@ container, or hosted modified signaling service:
 4. Treat an unknown or incompatible license and a missing required notice as a
    release blocker.
 
-The current package scripts stage the project license texts and the fetched
-native WebRTC archive notices. That technical allowlist must not be interpreted
-as proof that the complete transitive third-party notice set or SBOM has been
-generated and reviewed.
+The baseline package allowlist stages project license texts and the fetched
+native WebRTC archive notices. The macOS release workflow then derives the
+artifact-specific records described below; the baseline allowlist alone must
+not be interpreted as a complete transitive notice set or SBOM.
+
+## Artifact-specific release compliance
+
+Every published macOS version must provide release-specific compliance
+materials derived from the exact final package:
+
+- `SBOM.spdx.json`, an SPDX 2.3 software bill of materials with a SHA-256
+  inventory of the staged payload;
+- `THIRD_PARTY_NOTICES.md`, containing the collected notices, attributions, and
+  license texts required for that package; and
+- `SOURCE_CODE.md`, recording a public source URL pinned to the exact release
+  tag and immutable commit.
+
+These materials must accompany the macOS release assets or be linked from the
+release to a stable public location. A package manifest, an SBOM from another
+platform, or this overview is not a substitute. Missing or invalid material
+blocks publication of that macOS version.
+
+The macOS staging and signing workflows generate these three files from the
+locked Cargo, Dart/pub, CocoaPods, Flutter, and native WebRTC inputs. Signing
+regenerates them before the final install manifest so their payload hashes
+describe the signed files. Generation stages the complete output set before
+replacement, and the packaging gate rejects an incomplete or inconsistent set.
+CI additionally validates the SPDX document with pinned `spdx-tools` 0.8.5.
+
+iOS and signaling/server releases have separate dependency graphs, artifacts,
+distribution channels, and compliance records. Generate and review their SBOM,
+third-party notices, source link, and any applicable source-offer or
+modification notices independently; neither release line inherits compliance
+approval from macOS or from the other release line.
 
 ## Highlighted WebRTC dependencies
 
 | Dependency or asset | Upstream license/notice location | Distribution note |
 | --- | --- | --- |
 | `flutter_webrtc` 1.5.2 | `LICENSE` and `NOTICE` in the resolved pub package | MIT, with additional upstream notices that must accompany redistributed binaries as applicable |
-| `libwebrtc` 0.3.27 Rust wrapper | License metadata in the resolved Cargo package | Retain the Cargo package's upstream license terms |
+| `libwebrtc` 0.3.27 Rust wrapper | Fixed-revision LiveKit `LICENSE`, `NOTICE`, and `webrtc-sys/NOTICE.md` retained by the macOS compliance generator | Apache-2.0; preserve the LiveKit, WebRTC patch, arcas-io, Sora, and Unity notices selected for the locked crate revision |
 | Pinned native WebRTC archives | `LICENSE.md` inside each archive fetched by `scripts/fetch_libwebrtc.sh` | WebRTC BSD-style terms plus included third-party terms; reproduce applicable notices with binary distributions |
 
 The native WebRTC archives are downloaded from the pinned upstream release and are not committed to this repository. Their release tag and SHA-256 values are recorded in `scripts/libwebrtc-assets.sha256`. Packagers are responsible for preserving the complete upstream `LICENSE.md` from the exact archive they redistribute.

@@ -10,5 +10,5 @@ PRODUCT_NAME = roammand
 // Shared public defaults plus an optional ignored developer identity.
 #include "../../../apple/Signing.xcconfig"
 
-// The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 dev.roammand. All rights reserved.
+// The copyright displayed in application information.
+PRODUCT_COPYRIGHT = Copyright © 2026 ChengLong Hu. All rights reserved.

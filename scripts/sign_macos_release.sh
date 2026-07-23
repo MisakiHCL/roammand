@@ -110,7 +110,10 @@ verify_release_signatures || {
   printf 'macOS release signature verification failed\n' >&2
   exit 1
 }
+"$ROOT_DIR/scripts/stage_macos_release_compliance.sh" \
+  --package-dir "$PACKAGE_DIR" >/dev/null
 "$ROOT_DIR/scripts/write_macos_package_manifest.sh" "$PACKAGE_DIR" >/dev/null
-"$ROOT_DIR/scripts/check_m8_macos_package.sh" "$PACKAGE_DIR" >/dev/null
+"$ROOT_DIR/scripts/check_m8_macos_package.sh" \
+  --require-compliance "$PACKAGE_DIR" >/dev/null
 
 printf 'macOS staged code signed with Developer ID Application\n'

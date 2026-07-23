@@ -309,15 +309,19 @@ flutter build ipa --release \
 
 默认 Release 构建要求工作树干净。打包脚本只会暂存允许的 App、Agent、Bridge/Helper、服务定义、许可证、受保护卸载器和排序后的 SHA-256 清单。设备身份、授权、连接地址、凭据、私钥和本地开发者路径不会进入安装包。
 
-打包允许列表和清单属于技术完整性检查，不会生成完整的第三方声明集合或软件物料
-清单（SBOM）。发布任何二进制或容器之前，必须根据实际锁定的 Rust、Flutter/Dart、
-CocoaPods、Go、原生 WebRTC 与容器依赖图生成两者，审阅全部适用条款，并把必需的
-许可证/声明随制品或配套源码提供。依赖清单不完整时必须阻止发行。当前范围与已知
-声明边界见[许可证说明](../LICENSES.md)。
+打包允许列表和安装清单属于技术完整性检查，不能代替发布合规记录。macOS 流程会
+根据实际暂存的 payload 以及锁定的 Cargo、Dart/pub、CocoaPods、Flutter 和原生
+WebRTC 输入，另行生成 `SBOM.spdx.json`、`THIRD_PARTY_NOTICES.md` 与
+`SOURCE_CODE.md`。遇到未知许可证、缺失声明、无效来源记录或缺少必需输入时，生成
+过程会在替换发布文件前停止并阻止发布。打包门禁会校验完整的三文件集合，CI 还会
+使用固定版本的 `spdx-tools` 0.8.5 校验生成的 SPDX 文档。其他独立分发的二进制、
+容器、iOS 构建和托管服务仍须分别生成并审阅自己的制品级材料。范围见
+[许可证说明](../LICENSES.md)。
 
 ### macOS
 
-`make package-macos` 会构建 `arm64 + x86_64` Universal App 与后台组件，并暂存供开发验收的目录：
+`make package-macos` 会构建 `arm64 + x86_64` Universal App 与后台组件，生成
+macOS 合规记录，并暂存供开发验收的目录：
 
 ```bash
 make package-macos
@@ -333,7 +337,11 @@ rustup target add aarch64-apple-darwin x86_64-apple-darwin
 make package-macos-signed
 ```
 
-该流程按 Frameworks、独立 Agent、嵌套 Session Agent、主 App 的顺序使用 Developer ID Application 与 Hardened Runtime 签名，在签名后重新生成清单，再使用 Developer ID Installer 创建 `dist/apple-release/Roammand.pkg`。它不会提交公证。
+该流程按 Frameworks、独立 Agent、嵌套 Session Agent、主 App 的顺序使用
+Developer ID Application 与 Hardened Runtime 签名；随后重新生成合规记录与安装
+清单，确保其中的哈希描述签名后的 payload，再使用 Developer ID Installer 创建
+`dist/apple-release/Roammand.pkg`。合规记录默认使用实际 UTC 生成时间；只有受控
+的可复现构建才应显式设置 `SOURCE_DATE_EPOCH`。该目标不会提交公证。
 
 将公证凭据交互式保存到 Keychain，避免把 Apple ID、Team ID 或密码写进命令参数：
 

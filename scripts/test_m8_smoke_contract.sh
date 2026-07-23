@@ -11,6 +11,7 @@ readonly REQUIRED_SCRIPTS=(
   scripts/check_m8_bridge_contract.sh
   scripts/check_m8_privacy.sh
   scripts/run_m8_smoke.sh
+  scripts/stage_macos_release_compliance.sh
   scripts/test_m8_macos_package.sh
   scripts/test_m8_windows_package.sh
 )

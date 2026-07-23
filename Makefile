@@ -96,7 +96,9 @@ app-build-android:
 
 package-macos:
 	./scripts/package_m8_macos.sh
-	./scripts/check_m8_macos_package.sh dist/m8-macos
+	./scripts/stage_macos_release_compliance.sh --package-dir dist/m8-macos
+	./scripts/write_macos_package_manifest.sh dist/m8-macos >/dev/null
+	./scripts/check_m8_macos_package.sh --require-compliance dist/m8-macos
 
 package-macos-signed: package-macos
 	./scripts/check_apple_release_preflight.sh
@@ -240,6 +242,7 @@ test-m7: test-m7-config test-m7-reconnect test-m7-privacy test-m7-fuzz
 test-m8-config:
 	./scripts/test_m8_smoke_contract.sh
 	./scripts/check_m8_bridge_contract.sh
+	./scripts/test_macos_release_compliance.sh
 
 test-m8-privacy:
 	./scripts/check_m8_privacy.sh

@@ -20,6 +20,8 @@ done
 
 apple_require_macos
 apple_load_signing_config
+"$ROOT_DIR/scripts/check_m8_macos_package.sh" \
+  --require-compliance "$PACKAGE_DIR" >/dev/null
 "$ROOT_DIR/scripts/sign_macos_release.sh" \
   --verify-only --package-dir "$PACKAGE_DIR" >/dev/null
 
