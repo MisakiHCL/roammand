@@ -19,7 +19,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mobileHomeSubtitle =>
-      'Use this phone to securely control your own Mac.';
+      'Use this device to securely control your own Mac.';
 
   @override
   String get desktopHomeSubtitle =>
@@ -27,7 +27,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mobileIdentitySecurityNote =>
-      'No account required. Pairing information stays on this phone.';
+      'No account required. Pairing information stays on this device.';
 
   @override
   String get computerReadyLabel => 'Ready to connect';
@@ -569,14 +569,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'The computer could not be deleted from this device.';
 
   @override
-  String get mobileDeviceFallbackName => 'My phone';
+  String get mobileDeviceFallbackName => 'My device';
 
   @override
-  String get mobileOnboardingTitle => 'Control your Mac from this phone';
+  String get mobileOnboardingTitle => 'Control your Mac from this device';
 
   @override
   String get mobileOnboardingBody =>
-      'Roammand works on both devices. Install it on the Mac you want to control, then name this phone so you can recognize it when approving pairing.';
+      'Roammand works on both devices. Install it on the Mac you want to control, then name this device so you can recognize it when approving pairing.';
 
   @override
   String get mobileDeviceNameLabel => 'Device name';
@@ -599,7 +599,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mobileHomeEmptyBody =>
-      'This phone is the controller. Set up Roammand on the Mac you want to control, then create a pairing QR code there.';
+      'This device is the controller. Set up Roammand on the Mac you want to control, then create a pairing QR code there.';
 
   @override
   String get mobileSetupStepInstall =>
@@ -611,7 +611,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mobileSetupStepScanApprove =>
-      'Scan the code here, compare the verification words, and approve this phone on the Mac.';
+      'Scan the code here, compare the verification words, and approve this device on the Mac.';
 
   @override
   String get mobileMacDownloadAction => 'Get Roammand for Mac';
@@ -811,7 +811,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutHeroBody =>
-      'Roammand turns this phone into a trusted controller for your own Mac. The mobile app works together with Roammand installed on the Mac.';
+      'Roammand turns this device into a trusted controller for your own Mac. The mobile app works together with Roammand installed on the Mac.';
 
   @override
   String get desktopAboutHeroTitle => 'Make this Mac reachable';
@@ -852,7 +852,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutMacDownloadNote =>
-      'Open the download page on your Mac, or share the link from this phone.';
+      'Open the download page on your Mac, or share the link from this device.';
 
   @override
   String get aboutIosAppTitle => 'Roammand for iPhone and iPad';
@@ -893,7 +893,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutPrivacyBody =>
-      'No account is required. Device identity and pairing permissions are stored locally, and the Mac must approve this phone before it can connect.';
+      'No account is required. Device identity and pairing permissions are stored locally, and the Mac must approve this device before it can connect.';
 
   @override
   String get aboutOpenPrivacyPolicyAction => 'Read the privacy policy';
@@ -1183,7 +1183,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkMobileHostBindingNotice =>
-      'A phone keeps using the service address from its pairing QR code. These settings apply to computer-to-computer connections and become the default for future pairing.';
+      'This device continues using the service address from its pairing QR code. These settings apply to computer-to-computer connections and become the default for future pairing.';
 
   @override
   String get networkSaveAction => 'Save settings';
@@ -1225,7 +1225,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkHostMigrationSaved =>
-      'Server changed. Show a new QR code to previously paired phones.';
+      'Server changed. Show a new QR code to previously paired devices.';
 
   @override
   String get networkExternalHostRestartRequired =>

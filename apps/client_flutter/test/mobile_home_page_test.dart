@@ -80,7 +80,7 @@ void main() {
     expect(find.text('我的电脑'), findsOneWidget);
     expect(find.text('扫描电脑二维码'), findsOneWidget);
     expect(find.text('请先在 Mac 上开始'), findsOneWidget);
-    expect(find.textContaining('这台手机是控制端'), findsOneWidget);
+    expect(find.textContaining('这台设备是控制端'), findsOneWidget);
     expect(find.text('在要控制的 Mac 上安装并打开 Roammand。'), findsOneWidget);
     expect(find.text('获取 Roammand Mac 版'), findsOneWidget);
     expect(find.text('了解 Roammand 如何工作'), findsOneWidget);

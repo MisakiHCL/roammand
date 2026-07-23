@@ -131,6 +131,7 @@ void main() {
       find.byKey(const Key('mobile-network-settings-back')),
       findsOneWidget,
     );
+    expect(find.textContaining('这台设备会继续使用配对二维码'), findsOneWidget);
     await tester.tap(find.byKey(const Key('network-profile-custom')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('network-save')));

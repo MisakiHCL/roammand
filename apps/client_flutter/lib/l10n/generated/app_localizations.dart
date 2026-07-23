@@ -119,7 +119,7 @@ abstract class AppLocalizations {
   /// No description provided for @mobileHomeSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Use this phone to securely control your own Mac.'**
+  /// **'Use this device to securely control your own Mac.'**
   String get mobileHomeSubtitle;
 
   /// No description provided for @desktopHomeSubtitle.
@@ -131,7 +131,7 @@ abstract class AppLocalizations {
   /// No description provided for @mobileIdentitySecurityNote.
   ///
   /// In en, this message translates to:
-  /// **'No account required. Pairing information stays on this phone.'**
+  /// **'No account required. Pairing information stays on this device.'**
   String get mobileIdentitySecurityNote;
 
   /// No description provided for @computerReadyLabel.
@@ -1049,19 +1049,19 @@ abstract class AppLocalizations {
   /// No description provided for @mobileDeviceFallbackName.
   ///
   /// In en, this message translates to:
-  /// **'My phone'**
+  /// **'My device'**
   String get mobileDeviceFallbackName;
 
   /// No description provided for @mobileOnboardingTitle.
   ///
   /// In en, this message translates to:
-  /// **'Control your Mac from this phone'**
+  /// **'Control your Mac from this device'**
   String get mobileOnboardingTitle;
 
   /// No description provided for @mobileOnboardingBody.
   ///
   /// In en, this message translates to:
-  /// **'Roammand works on both devices. Install it on the Mac you want to control, then name this phone so you can recognize it when approving pairing.'**
+  /// **'Roammand works on both devices. Install it on the Mac you want to control, then name this device so you can recognize it when approving pairing.'**
   String get mobileOnboardingBody;
 
   /// No description provided for @mobileDeviceNameLabel.
@@ -1103,7 +1103,7 @@ abstract class AppLocalizations {
   /// No description provided for @mobileHomeEmptyBody.
   ///
   /// In en, this message translates to:
-  /// **'This phone is the controller. Set up Roammand on the Mac you want to control, then create a pairing QR code there.'**
+  /// **'This device is the controller. Set up Roammand on the Mac you want to control, then create a pairing QR code there.'**
   String get mobileHomeEmptyBody;
 
   /// No description provided for @mobileSetupStepInstall.
@@ -1121,7 +1121,7 @@ abstract class AppLocalizations {
   /// No description provided for @mobileSetupStepScanApprove.
   ///
   /// In en, this message translates to:
-  /// **'Scan the code here, compare the verification words, and approve this phone on the Mac.'**
+  /// **'Scan the code here, compare the verification words, and approve this device on the Mac.'**
   String get mobileSetupStepScanApprove;
 
   /// No description provided for @mobileMacDownloadAction.
@@ -1487,7 +1487,7 @@ abstract class AppLocalizations {
   /// No description provided for @aboutHeroBody.
   ///
   /// In en, this message translates to:
-  /// **'Roammand turns this phone into a trusted controller for your own Mac. The mobile app works together with Roammand installed on the Mac.'**
+  /// **'Roammand turns this device into a trusted controller for your own Mac. The mobile app works together with Roammand installed on the Mac.'**
   String get aboutHeroBody;
 
   /// No description provided for @desktopAboutHeroTitle.
@@ -1553,7 +1553,7 @@ abstract class AppLocalizations {
   /// No description provided for @aboutMacDownloadNote.
   ///
   /// In en, this message translates to:
-  /// **'Open the download page on your Mac, or share the link from this phone.'**
+  /// **'Open the download page on your Mac, or share the link from this device.'**
   String get aboutMacDownloadNote;
 
   /// No description provided for @aboutIosAppTitle.
@@ -1625,7 +1625,7 @@ abstract class AppLocalizations {
   /// No description provided for @aboutPrivacyBody.
   ///
   /// In en, this message translates to:
-  /// **'No account is required. Device identity and pairing permissions are stored locally, and the Mac must approve this phone before it can connect.'**
+  /// **'No account is required. Device identity and pairing permissions are stored locally, and the Mac must approve this device before it can connect.'**
   String get aboutPrivacyBody;
 
   /// No description provided for @aboutOpenPrivacyPolicyAction.
@@ -2123,7 +2123,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkMobileHostBindingNotice.
   ///
   /// In en, this message translates to:
-  /// **'A phone keeps using the service address from its pairing QR code. These settings apply to computer-to-computer connections and become the default for future pairing.'**
+  /// **'This device continues using the service address from its pairing QR code. These settings apply to computer-to-computer connections and become the default for future pairing.'**
   String get networkMobileHostBindingNotice;
 
   /// No description provided for @networkSaveAction.
@@ -2195,7 +2195,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkHostMigrationSaved.
   ///
   /// In en, this message translates to:
-  /// **'Server changed. Show a new QR code to previously paired phones.'**
+  /// **'Server changed. Show a new QR code to previously paired devices.'**
   String get networkHostMigrationSaved;
 
   /// No description provided for @networkExternalHostRestartRequired.

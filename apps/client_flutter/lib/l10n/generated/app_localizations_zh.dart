@@ -18,13 +18,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get brandPrivacyLabel => '隐私优先 · 无需账号';
 
   @override
-  String get mobileHomeSubtitle => '使用这台手机，安全控制你自己的 Mac。';
+  String get mobileHomeSubtitle => '使用这台设备，安全控制你自己的 Mac。';
 
   @override
   String get desktopHomeSubtitle => '选择一台已配对的电脑，安全地开始连接。';
 
   @override
-  String get mobileIdentitySecurityNote => '无需注册账号；配对信息只保存在这台手机上。';
+  String get mobileIdentitySecurityNote => '无需注册账号；配对信息只保存在这台设备上。';
 
   @override
   String get computerReadyLabel => '可以连接';
@@ -528,14 +528,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deleteTrustedHostFailed => '无法从当前设备删除这台电脑。';
 
   @override
-  String get mobileDeviceFallbackName => '我的手机';
+  String get mobileDeviceFallbackName => '我的设备';
 
   @override
-  String get mobileOnboardingTitle => '用这台手机控制你的 Mac';
+  String get mobileOnboardingTitle => '用这台设备控制你的 Mac';
 
   @override
   String get mobileOnboardingBody =>
-      'Roammand 需要同时安装在两台设备上。请先在要控制的 Mac 上安装，然后为这台手机设置名称，以便批准配对时认出它。';
+      'Roammand 需要同时安装在两台设备上。请先在要控制的 Mac 上安装，然后为这台设备设置名称，以便批准配对时认出它。';
 
   @override
   String get mobileDeviceNameLabel => '设备名称';
@@ -557,16 +557,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mobileHomeEmptyBody =>
-      '这台手机是控制端。请先在要控制的 Mac 上设置 Roammand，并从 Mac 端生成配对二维码。';
+      '这台设备是控制端。请先在要控制的 Mac 上设置 Roammand，并从 Mac 端生成配对二维码。';
 
   @override
   String get mobileSetupStepInstall => '在要控制的 Mac 上安装并打开 Roammand。';
 
   @override
-  String get mobileSetupStepCreateQr => '在 Mac 上打开“此电脑”，创建手机配对二维码。';
+  String get mobileSetupStepCreateQr => '在 Mac 上打开“此电脑”，创建移动设备配对二维码。';
 
   @override
-  String get mobileSetupStepScanApprove => '在这里扫码、核对验证词，然后在 Mac 上批准这台手机。';
+  String get mobileSetupStepScanApprove => '在这里扫码、核对验证词，然后在 Mac 上批准这台设备。';
 
   @override
   String get mobileMacDownloadAction => '获取 Roammand Mac 版';
@@ -753,7 +753,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aboutHeroBody =>
-      'Roammand 将这台手机变成控制你自己 Mac 的可信控制端。手机 App 需要与安装在 Mac 上的 Roammand 配合使用。';
+      'Roammand 将这台设备变成控制你自己 Mac 的可信控制端。移动端 App 需要与安装在 Mac 上的 Roammand 配合使用。';
 
   @override
   String get desktopAboutHeroTitle => '让这台 Mac 随时可达';
@@ -791,7 +791,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '请在 macOS 14.4 或更高版本上安装经过签名和公证的 Mac App。Mac 端负责提供画面，并且只接受你批准过的设备进行远程控制。';
 
   @override
-  String get aboutMacDownloadNote => '请在 Mac 上打开下载页面，或从这台手机将链接分享给 Mac。';
+  String get aboutMacDownloadNote => '请在 Mac 上打开下载页面，或从这台设备将链接分享给 Mac。';
 
   @override
   String get aboutIosAppTitle => 'Roammand iPhone 与 iPad 版';
@@ -829,7 +829,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aboutPrivacyBody =>
-      '无需注册账号。设备身份和配对权限保存在本机，并且必须先在 Mac 上批准这台手机，才能建立连接。';
+      '无需注册账号。设备身份和配对权限保存在本机，并且必须先在 Mac 上批准这台设备，才能建立连接。';
 
   @override
   String get aboutOpenPrivacyPolicyAction => '阅读隐私政策';
@@ -1095,7 +1095,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get networkMobileHostBindingNotice =>
-      '手机会继续使用配对二维码中的服务地址。这里的设置用于电脑之间的连接，也会作为以后新配对的默认值。';
+      '这台设备会继续使用配对二维码中的服务地址。这里的设置用于电脑之间的连接，也会作为以后新配对的默认值。';
 
   @override
   String get networkSaveAction => '保存设置';
@@ -1133,7 +1133,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkConfigurationSaved => '连接设置已保存。';
 
   @override
-  String get networkHostMigrationSaved => '服务器已更换，请向之前配对的手机显示新的二维码。';
+  String get networkHostMigrationSaved => '服务器已更换，请向之前配对的设备显示新的二维码。';
 
   @override
   String get networkExternalHostRestartRequired =>

@@ -29,6 +29,15 @@ void main() {
     expect(find.text('Roammand for Mac'), findsOneWidget);
     expect(find.text('Open source on GitHub'), findsOneWidget);
     expect(find.text('Private by design'), findsOneWidget);
+    expect(find.textContaining('turns this device into'), findsOneWidget);
+    expect(
+      find.text(
+        'No account is required. Device identity and pairing permissions are '
+        'stored locally, and the Mac must approve this device before it can '
+        'connect.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Version 1.0.0 (3)'), findsOneWidget);
 
     await _tapVisible(tester, const Key('about-download-macos'));
