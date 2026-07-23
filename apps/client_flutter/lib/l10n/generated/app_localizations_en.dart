@@ -896,6 +896,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'No account is required. Device identity and pairing permissions are stored locally, and the Mac must approve this phone before it can connect.';
 
   @override
+  String get aboutOpenPrivacyPolicyAction => 'Read the privacy policy';
+
+  @override
   String get desktopAboutPrivacyBody =>
       'No account is required. Device identity and pairing permissions stay on this Mac. Only devices you approve can connect, and you can revoke access or stop an active session at any time.';
 

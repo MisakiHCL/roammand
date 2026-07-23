@@ -1628,6 +1628,12 @@ abstract class AppLocalizations {
   /// **'No account is required. Device identity and pairing permissions are stored locally, and the Mac must approve this phone before it can connect.'**
   String get aboutPrivacyBody;
 
+  /// No description provided for @aboutOpenPrivacyPolicyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the privacy policy'**
+  String get aboutOpenPrivacyPolicyAction;
+
   /// No description provided for @desktopAboutPrivacyBody.
   ///
   /// In en, this message translates to:

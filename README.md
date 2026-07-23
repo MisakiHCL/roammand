@@ -74,10 +74,9 @@ pairing, connection limits, and uninstalling.
   operating system's permissions and policies. Cold access before the owner has
   logged in, continued control after full logout/Host exit, and FileVault
   preboot are outside the supported boundary.
-- The repository documents the built-in services' technical metadata boundary,
-  but their operator has not yet published a separate consumer privacy policy.
-  Self-host the services if you need an operator-controlled policy before that
-  disclosure is available.
+- The official signaling/STUN operator publishes a
+  [consumer privacy policy](https://hclgame.com/roammand/privacy). Self-host the
+  services when you need to control the infrastructure, retention, or policy.
 
 ## How it works
 

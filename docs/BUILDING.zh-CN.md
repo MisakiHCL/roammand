@@ -415,9 +415,11 @@ iOS 使用 App Store/TestFlight Archive 发行。完整 macOS Host 使用 Develo
 找到的位置提供入口，以满足 [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
 的要求。政策与 App Store 隐私申报必须同真实 App、官方 signaling/STUN 运营、
 基础设施供应商和集成的第三方代码一致，包括数据用途、保留/删除与持续可用的
-隐私联系渠道。仓库的安全元数据说明是技术边界，不能代替运营方隐私声明。这些运营信息
-当前尚未提交到仓库，因此公开 iOS 发行必须把隐私政策和经核实的 App Store 申报视为
-发布前置，不得仅根据源码行为推断。
+隐私联系渠道。官方服务运营方将政策发布在
+<https://hclgame.com/roammand/privacy>，经核实的运营边界记录在
+[官方基础设施配置](operations/official-infrastructure-plan.zh-CN.md)中。隐私政策和
+App Store 申报都是发布前置；只要 App、服务部署、供应商或保留配置发生变化，就必须
+重新核对。
 
 ## 验证改动
 

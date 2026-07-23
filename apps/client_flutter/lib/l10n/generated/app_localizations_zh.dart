@@ -832,6 +832,9 @@ class AppLocalizationsZh extends AppLocalizations {
       '无需注册账号。设备身份和配对权限保存在本机，并且必须先在 Mac 上批准这台手机，才能建立连接。';
 
   @override
+  String get aboutOpenPrivacyPolicyAction => '阅读隐私政策';
+
+  @override
   String get desktopAboutPrivacyBody =>
       '无需注册账号。设备身份和配对权限保存在这台 Mac 上；只有你批准的设备才能连接，并且你可以随时撤销权限或停止当前连接。';
 

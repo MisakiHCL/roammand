@@ -155,7 +155,14 @@ void main() {
     final iosEntitlements = File(
       'ios/Runner/Runner.entitlements',
     ).readAsStringSync();
-    expect(iosEntitlements, contains('<key>keychain-access-groups</key>'));
+    expect(
+      RegExp(
+        r'<key>keychain-access-groups</key>\s*<array>\s*'
+        r'<string>\$\(AppIdentifierPrefix\)\$\(PRODUCT_BUNDLE_IDENTIFIER\)'
+        r'</string>\s*</array>',
+      ).hasMatch(iosEntitlements),
+      isTrue,
+    );
     final iosProject = File(
       'ios/Runner.xcodeproj/project.pbxproj',
     ).readAsStringSync();

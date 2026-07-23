@@ -203,6 +203,12 @@ final class _RoammandAboutPageState extends State<RoammandAboutPage> {
                   body: desktopHost
                       ? strings.desktopAboutPrivacyBody
                       : strings.aboutPrivacyBody,
+                  child: OutlinedButton.icon(
+                    key: const Key('about-open-privacy-policy'),
+                    onPressed: () => _open(roammandPrivacyPolicyUri),
+                    icon: const Icon(Icons.policy_outlined, size: 20),
+                    label: Text(strings.aboutOpenPrivacyPolicyAction),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 FutureBuilder<String>(

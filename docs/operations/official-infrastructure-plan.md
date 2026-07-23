@@ -10,6 +10,10 @@ The current official service profile uses account-free signaling plus public STU
 - STUN: `stun:stun.hcl.life:3478`
 - ICE policy: `all`
 - TURN relay: not provided
+- Operator: ChengLong Hu
+- Privacy contact: `misakihcl@gmail.com`
+- Privacy policy: <https://hclgame.com/roammand/privacy>
+- Infrastructure: Tencent Cloud, Singapore region
 
 Signaling is WebSocket traffic and may be routed through an HTTP reverse proxy.
 STUN is UDP traffic and must be exposed through direct DNS or a compatible
@@ -34,6 +38,19 @@ no uptime or support SLA for the official profile; deployments that require
 operator-controlled availability should use the self-hosting profile and their
 own monitoring.
 
+The official deployment has no Roammand business database. Presence, pairing
+rendezvous, rate-limit windows, and active routes remain in process memory and
+are cleared on restart; signaling messages are not intentionally persisted.
+The WebSocket endpoint disables routine Nginx access logging. Infrastructure
+error and service logs may still contain network addresses and timing needed
+for security, abuse prevention, and availability. Nginx logs are checked daily
+and keep at most 14 rotated archives when non-empty; system and coturn syslog
+files are checked weekly and keep at most four rotated archives when non-empty.
+The system journal is capacity-managed and has no fixed time-based maximum.
+These are rotation limits, not guarantees that every record remains for a
+specific number of days. The deployment scripts do not create backups of
+Roammand signaling state or logs.
+
 The signaling process listens on a private interface behind the reverse proxy.
 The proxy overwrites `X-Real-IP`, and the service trusts that header only when
 the direct peer belongs to `SIGNALING_TRUSTED_PROXY_CIDRS`. Never configure the
@@ -57,12 +74,11 @@ Before presenting the profile as generally reliable:
    Controllers across separate public networks.
 6. Present a clear failure when direct ICE cannot connect. Do not imply that
    STUN can traverse every NAT.
-7. Publish an operator-specific privacy notice before using this profile in a
-   general distribution. It must identify the operator and monitored contact,
+7. Re-verify the published operator privacy notice before every general
+   distribution. It must continue to match the operator and monitored contact,
    data categories and purposes, infrastructure providers, actual log/backup
-   retention, deletion and user-request paths, and its effective date. The
-   technical security guide is not a substitute, and unknown operational facts
-   must remain release blockers rather than assumptions.
+   retention, deletion and user-request paths, and its effective date. Unknown
+   operational facts remain release blockers rather than assumptions.
 
 Presence, pairing rendezvous, rate-limit windows, and active routes live in one
 signaling process and are cleared on restart. A single instance is acceptable

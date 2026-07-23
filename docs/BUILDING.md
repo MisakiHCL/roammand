@@ -482,11 +482,13 @@ required by the [App Review Guidelines](https://developer.apple.com/app-store/re
 The policy and App Store privacy answers must match the actual app, official
 signaling/STUN operation, infrastructure providers, and integrated third-party
 code, including data purposes, retention/deletion, and a monitored privacy
-contact. The repository's security metadata guide is a technical boundary, not
-an operator-specific privacy notice. Those operator facts are not currently
-committed here, so a public iOS release must treat the policy and its verified
-App Store declarations as release prerequisites rather than infer them from
-source behavior.
+contact. The official service operator publishes the policy at
+<https://hclgame.com/roammand/privacy>; the verified operational boundary is
+recorded in the
+[official infrastructure profile](operations/official-infrastructure-plan.md).
+Treat both the policy and the App Store declarations as release prerequisites,
+and re-verify them whenever the app, service deployment, provider, or retention
+configuration changes.
 
 ## Verify changes
 

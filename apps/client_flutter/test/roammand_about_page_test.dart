@@ -34,11 +34,13 @@ void main() {
     await _tapVisible(tester, const Key('about-download-macos'));
     await _tapVisible(tester, const Key('about-open-guide'));
     await _tapVisible(tester, const Key('about-open-github'));
+    await _tapVisible(tester, const Key('about-open-privacy-policy'));
 
     expect(opened, <Uri>[
       macOsDownloadPageUri,
       roammandUserGuideUri(const Locale('en')),
       roammandRepositoryUri,
+      roammandPrivacyPolicyUri,
     ]);
   });
 
@@ -92,11 +94,13 @@ void main() {
     await _tapVisible(tester, const Key('about-build-ios'));
     await _tapVisible(tester, const Key('about-open-guide'));
     await _tapVisible(tester, const Key('about-open-github'));
+    await _tapVisible(tester, const Key('about-open-privacy-policy'));
 
     expect(opened, <Uri>[
       roammandBuildingGuideUri(const Locale('en')),
       roammandUserGuideUri(const Locale('en')),
       roammandRepositoryUri,
+      roammandPrivacyPolicyUri,
     ]);
   });
 
