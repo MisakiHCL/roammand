@@ -156,13 +156,9 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
     final inputTrayHeight = (mediaQuery.size.height * _inputTrayScreenFraction)
         .clamp(_minimumInputTrayHeight, _maximumInputTrayHeight);
     final softwareKeyboardVisible = mediaQuery.viewInsets.bottom > 0;
-    final idleInputTrayHeight = inputTrayHeight + mediaQuery.padding.bottom;
     final visibleInputTrayHeight = softwareKeyboardVisible
         ? _focusedInputTrayHeight
-        : idleInputTrayHeight;
-    final controlBarSafeBottom = _keyboardVisible
-        ? 0.0
-        : mediaQuery.padding.bottom;
+        : inputTrayHeight;
     return Theme(
       data: _compactRemoteTheme(Theme.of(context)),
       child: PopScope<void>(
@@ -198,13 +194,9 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
                   key: const Key('mobile-remote-control-bar-position'),
                   left: 0,
                   right: 0,
-                  bottom: _keyboardVisible ? idleInputTrayHeight : 0,
-                  height: _controlBarHeight + controlBarSafeBottom,
-                  child: _buildControlBar(
-                    strings,
-                    mediaQuery.padding,
-                    bottomSafePadding: controlBarSafeBottom,
-                  ),
+                  bottom: _keyboardVisible ? inputTrayHeight : 0,
+                  height: _controlBarHeight,
+                  child: _buildControlBar(strings, mediaQuery.padding),
                 ),
               if (!_controlsLocked && _keyboardVisible)
                 Positioned(
@@ -327,31 +319,25 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
       return ListenableBuilder(
         listenable: renderer,
         builder: (context, _) => _remoteSurface(
-          context,
           _rendererAspectRatio(renderer),
           _buildVideo(context, renderer),
         ),
       );
     }
     return _remoteSurface(
-      context,
       _configuredAspectRatio,
       _buildVideo(context, renderer),
     );
   }
 
-  Widget _remoteSurface(
-    BuildContext context,
-    double aspectRatio,
-    Widget video,
-  ) => MobileGestureSurface(
-    video: video,
-    videoAspectRatio: aspectRatio,
-    initialObscuredInsets: _remoteOverlayInsets(context),
-    sender: _connectedSender,
-    controller: _gestureController,
-    onInputFailure: _handleInputFailure,
-  );
+  Widget _remoteSurface(double aspectRatio, Widget video) =>
+      MobileGestureSurface(
+        video: video,
+        videoAspectRatio: aspectRatio,
+        sender: _connectedSender,
+        controller: _gestureController,
+        onInputFailure: _handleInputFailure,
+      );
 
   Widget _buildVideo(BuildContext context, Object renderer) {
     final builder = widget.videoBuilder;
@@ -432,60 +418,57 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
     );
   }
 
-  Widget _buildControlBar(
-    AppLocalizations strings,
-    EdgeInsets safePadding, {
-    required double bottomSafePadding,
-  }) => DecoratedBox(
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.bottomCenter,
-        end: Alignment.topCenter,
-        colors: <Color>[_overlayScrim, _overlayClear],
-      ),
-    ),
-    child: Material(
-      key: const Key('mobile-remote-control-bar'),
-      color: Colors.transparent,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          safePadding.left + _controlBarPadding,
-          0,
-          safePadding.right + _controlBarPadding,
-          bottomSafePadding,
-        ),
-        child: SizedBox(
-          height: _controlBarHeight,
-          child: Row(
-            children: <Widget>[
-              const Icon(Icons.touch_app_outlined, size: 16),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  strings.mobileGestureHint,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              IconButton(
-                key: const Key('mobile-keyboard-toggle'),
-                onPressed: _toggleKeyboardTray,
-                tooltip: _keyboardVisible
-                    ? strings.mobileHideKeyboardAction
-                    : strings.mobileKeyboardAction,
-                icon: Icon(
-                  _keyboardVisible
-                      ? Icons.keyboard_hide_outlined
-                      : Icons.keyboard_outlined,
-                  size: 20,
-                ),
-              ),
-            ],
+  Widget _buildControlBar(AppLocalizations strings, EdgeInsets safePadding) =>
+      DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: <Color>[_overlayScrim, _overlayClear],
           ),
         ),
-      ),
-    ),
-  );
+        child: Material(
+          key: const Key('mobile-remote-control-bar'),
+          color: Colors.transparent,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              safePadding.left + _controlBarPadding,
+              0,
+              safePadding.right + _controlBarPadding,
+              0,
+            ),
+            child: SizedBox(
+              height: _controlBarHeight,
+              child: Row(
+                children: <Widget>[
+                  const Icon(Icons.touch_app_outlined, size: 16),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      strings.mobileGestureHint,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('mobile-keyboard-toggle'),
+                    onPressed: _toggleKeyboardTray,
+                    tooltip: _keyboardVisible
+                        ? strings.mobileHideKeyboardAction
+                        : strings.mobileKeyboardAction,
+                    icon: Icon(
+                      _keyboardVisible
+                          ? Icons.keyboard_hide_outlined
+                          : Icons.keyboard_outlined,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
 
   Widget _buildUnlockButton(AppLocalizations strings, EdgeInsets safePadding) =>
       Positioned(
@@ -521,19 +504,9 @@ final class _MobileRemoteDesktopPageState extends State<MobileRemoteDesktopPage>
           safePadding.left + 8,
           compact ? 4 : 8,
           safePadding.right + 8,
-          compact ? 4 : safePadding.bottom + 8,
+          compact ? 4 : 8,
         ),
       );
-
-  EdgeInsets _remoteOverlayInsets(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    return EdgeInsets.fromLTRB(
-      mediaQuery.padding.left,
-      mobilePageHeaderHeight + mediaQuery.padding.top,
-      mediaQuery.padding.right,
-      _controlBarHeight + mediaQuery.padding.bottom,
-    );
-  }
 
   void _dismissSoftwareKeyboard() {
     _textInputFocusNode.unfocus();

@@ -11,7 +11,7 @@ import 'package:roammand/diagnostics/diagnostics_model.dart';
 import 'package:roammand/desktop/remote/input_sender.dart';
 import 'package:roammand/desktop/remote/remote_desktop_controller.dart';
 import 'package:roammand/l10n/generated/app_localizations.dart';
-import 'package:roammand/mobile/remote/mobile_gesture_surface.dart';
+import 'package:roammand/mobile/remote/mobile_input_tray.dart';
 import 'package:roammand/mobile/remote/mobile_remote_desktop_page.dart';
 import 'package:roammand/mobile/widgets/mobile_page_header.dart';
 import 'package:roammand_protocol/roammand_protocol.dart';
@@ -131,60 +131,77 @@ void main() {
     expect(find.byIcon(Icons.close), findsNothing);
   });
 
-  testWidgets('fills horizontal safe areas with one continuous page surface', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(844, 390));
-    tester.view.padding = const FakeViewPadding(
-      left: 132,
-      right: 72,
-      bottom: 60,
-    );
-    addTearDown(() {
-      tester.view.padding = FakeViewPadding.zero;
-      return tester.binding.setSurfaceSize(null);
-    });
-    final fixture = _PageFixture(
-      state: RemoteDesktopState.failed,
-      errorCode: RemoteDesktopErrorCode.signaling,
-    );
-    fixture.controller.retryAvailable = true;
-    await tester.pumpWidget(_app(fixture.page(), locale: const Locale('zh')));
-    await tester.pump();
+  testWidgets(
+    'ignores the bottom safe area while respecting horizontal safe areas',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(844, 390));
+      tester.view.padding = const FakeViewPadding(
+        left: 132,
+        right: 72,
+        bottom: 60,
+      );
+      addTearDown(() {
+        tester.view.padding = FakeViewPadding.zero;
+        return tester.binding.setSurfaceSize(null);
+      });
+      final fixture = _PageFixture(
+        state: RemoteDesktopState.failed,
+        errorCode: RemoteDesktopErrorCode.signaling,
+      );
+      fixture.controller.retryAvailable = true;
+      await tester.pumpWidget(_app(fixture.page(), locale: const Locale('zh')));
+      await tester.pump();
 
-    final header = find.byKey(const Key('mobile-remote-header'));
-    final surface = find.byKey(const Key('mobile-remote-gesture-surface'));
-    final controlBar = find.byKey(const Key('mobile-remote-control-bar'));
-    expect(tester.getRect(header).left, 0);
-    expect(tester.getRect(header).right, 844);
-    expect(tester.getRect(surface).left, 0);
-    expect(tester.getRect(surface).right, 844);
-    expect(tester.getRect(surface).top, 0);
-    expect(tester.getRect(surface).bottom, 390);
-    expect(tester.getRect(controlBar).left, 0);
-    expect(tester.getRect(controlBar).right, 844);
-    expect(tester.getRect(controlBar).bottom, 390);
-    expect(tester.getSize(controlBar).height, 60);
-    expect(
-      tester.getRect(find.byKey(const Key('mobile-remote-back-action'))).left,
-      greaterThanOrEqualTo(44),
-    );
-    expect(
-      tester
-          .getRect(find.byKey(const Key('mobile-remote-diagnostics-action')))
-          .right,
-      tester.getRect(find.byKey(const Key('mobile-keyboard-toggle'))).right,
-    );
-    expect(
-      tester.getSize(find.byKey(const Key('mobile-remote-status'))).height,
-      32,
-    );
-    expect(tester.widget<Material>(header).color, Colors.transparent);
-    expect(tester.widget<Material>(controlBar).color, Colors.transparent);
-    expect(tester.takeException(), isNull);
-  });
+      final header = find.byKey(const Key('mobile-remote-header'));
+      final surface = find.byKey(const Key('mobile-remote-gesture-surface'));
+      final video = find.byKey(const Key('mobile-test-video'));
+      final controlBar = find.byKey(const Key('mobile-remote-control-bar'));
+      expect(tester.getRect(header).left, 0);
+      expect(tester.getRect(header).right, 844);
+      expect(tester.getRect(surface).left, 0);
+      expect(tester.getRect(surface).right, 844);
+      expect(tester.getRect(surface).top, 0);
+      expect(tester.getRect(surface).bottom, 390);
+      expect(tester.getRect(video).top, 0);
+      expect(tester.getRect(video).bottom, 390);
+      expect(tester.getRect(controlBar).left, 0);
+      expect(tester.getRect(controlBar).right, 844);
+      expect(tester.getRect(controlBar).bottom, 390);
+      expect(tester.getSize(controlBar).height, 40);
+      expect(
+        tester.getRect(find.byKey(const Key('mobile-keyboard-toggle'))).bottom,
+        390,
+      );
+      expect(
+        tester.getRect(find.byKey(const Key('mobile-remote-back-action'))).left,
+        greaterThanOrEqualTo(44),
+      );
+      expect(
+        tester
+            .getRect(find.byKey(const Key('mobile-remote-diagnostics-action')))
+            .right,
+        tester.getRect(find.byKey(const Key('mobile-keyboard-toggle'))).right,
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('mobile-remote-status'))).height,
+        32,
+      );
+      expect(tester.widget<Material>(header).color, Colors.transparent);
+      expect(tester.widget<Material>(controlBar).color, Colors.transparent);
 
-  testWidgets('starts with an edge-to-edge 80 percent overview', (
+      await tester.tap(find.byKey(const Key('mobile-keyboard-toggle')));
+      await tester.pump();
+      final inputTray = find.byKey(const Key('mobile-input-tray'));
+      expect(tester.getRect(inputTray).bottom, 390);
+      expect(
+        tester.widget<MobileInputTray>(inputTray).padding,
+        const EdgeInsets.fromLTRB(52, 8, 32, 8),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('starts with edge-to-edge video behind the control overlays', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(844, 390));
@@ -195,14 +212,8 @@ void main() {
     final surface = find.byKey(const Key('mobile-remote-gesture-surface'));
     final video = find.byKey(const Key('mobile-test-video'));
     expect(tester.getRect(surface), const Rect.fromLTWH(0, 0, 844, 390));
-    expect(
-      tester
-          .widget<MobileGestureSurface>(find.byType(MobileGestureSurface))
-          .initialObscuredInsets,
-      const EdgeInsets.fromLTRB(0, 48, 0, 40),
-    );
-    expect(tester.getRect(video).top, closeTo(39, 0.001));
-    expect(tester.getRect(video).bottom, closeTo(351, 0.001));
+    expect(tester.getRect(video).top, 0);
+    expect(tester.getRect(video).bottom, 390);
     expect(tester.takeException(), isNull);
   });
 
